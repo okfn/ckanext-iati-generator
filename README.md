@@ -1,3 +1,3 @@
 # ckanext-iati-generator
 
-Extensión CKAN para generar datos en formato IATI.
+CKAN extension for generating data in IATI format.

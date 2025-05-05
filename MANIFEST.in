@@ -1,4 +1,7 @@
 include README.md
+include LICENSE
 include requirements.txt
 
 recursive-include ckanext/iati_generator *.html *.json *.js *.less *.css *.mo *.yml
+recursive-include ckanext/iati_generator/migration *.ini *.py *.mako
+recursive-include ckanext/iati_generator/public *.*
