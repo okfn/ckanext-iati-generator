@@ -1,0 +1,4 @@
+include README.md
+include requirements.txt
+
+recursive-include ckanext/iati_generator *.html *.json *.js *.less *.css *.mo *.yml
