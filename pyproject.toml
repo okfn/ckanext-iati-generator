@@ -66,7 +66,7 @@ version = {attr = "ckanext.iati_generator.__VERSION__"}
 # your_command = "your_module:main"
 
 [project.entry-points."ckan.plugins"]
-iati_generator = "ckanext.iati_generator.plugin:IatiGeneratorPlugin
+iati_generator = "ckanext.iati_generator.plugin:IatiGeneratorPlugin"
 
 [project.entry-points."babel.extractors"]
 ckan = "ckan.lib.extract:extract_ckan"
