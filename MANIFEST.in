@@ -7,4 +7,3 @@ recursive-include ckanext/iati_generator/migration *.ini *.py *.mako
 recursive-include ckanext/iati_generator/public *.*
 recursive-include ckanext/iati_generator/templates *.*
 recursive-include ckanext/iati_generator/assets *.*
-recursive-include ckanext/iati_generator/tests *.*
