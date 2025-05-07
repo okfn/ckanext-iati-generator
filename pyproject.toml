@@ -34,7 +34,8 @@ classifiers = [
 "Homepage" = "https://github.com/okfn/ckanext-iati-generator"
 "Issues" = "https://github.com/okfn/ckanext-iati-generator/issues"
 
-# [project.dependencies]
+[project.dependencies]
+okfn_iati = { git = "https://github.com/okfn/okfn_iati.git", rev = "main" }
 # Dependencies should be listed in requirements.txt as per CKAN extension best practices
 # Example:
 # requests = "*"
