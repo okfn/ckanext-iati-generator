@@ -1,7 +1,5 @@
 name: CKAN 2.10 Tests
-on:
-  - push
-
+on: [push]
 jobs:
   build:
     runs-on: ubuntu-latest

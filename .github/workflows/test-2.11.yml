@@ -1,10 +1,5 @@
 name: CKAN 2.11 Tests
-
-on:
-  push:
-    branches: [ main ]
-  workflow_dispatch:
-
+on: [push]
 jobs:
   build:
     runs-on: ubuntu-latest
