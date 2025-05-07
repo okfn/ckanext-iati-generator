@@ -3,8 +3,6 @@ name: CKAN 2.11 Tests
 on:
   push:
     branches: [ main ]
-  pull_request:
-    branches: [ main ]
   workflow_dispatch:
 
 jobs:

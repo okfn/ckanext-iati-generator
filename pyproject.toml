@@ -6,15 +6,17 @@ build-backend = "setuptools.build_meta"
 name = "ckanext-iati-generator"
 # see tool.setuptools.dynamic in this file
 dynamic = ["version"]
-description = "Extensión CKAN para generar datos en formato IATI"
+description = "CKAN extension to generate data in IATI format"
 readme = "README.md"
 requires-python = ">=3.10"
 
 authors = [
+    { name = "OKFN", email = "info@okfn.org" },
     { name = "German Favaro", email = "germankay@gmail.com" }
 ]
 maintainers = [
-  { name = "German Favaro", email = "germankay@gmail.com" },
+    { name = "OKFN", email = "info@okfn.org" },
+    { name = "German Favaro", email = "germankay@gmail.com" }
 ]
 
 keywords = ["CKAN", "iati-generator"]
@@ -25,6 +27,7 @@ classifiers = [
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
 ]
 
 [project.urls]
