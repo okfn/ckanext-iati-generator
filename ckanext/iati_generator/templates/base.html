@@ -1,0 +1,11 @@
+{% ckan_extends %}
+
+{% block styles %}
+    {{ super() }}
+    {% asset 'ckanext-iati-generator-css' %}
+{% endblock %}
+
+{% block body_extras %}
+    {{ super() }}
+    {% asset 'ckanext-iati-generator-js' %}
+{% endblock %}
