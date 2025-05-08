@@ -30,15 +30,13 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
 ]
 
+dependencies = [
+    "okfn-iati @ git+https://github.com/okfn/okfn_iati.git@main"
+]
+
 [project.urls]
 "Homepage" = "https://github.com/okfn/ckanext-iati-generator"
 "Issues" = "https://github.com/okfn/ckanext-iati-generator/issues"
-
-# [project.dependencies]
-# Dependencies should be listed in requirements.txt as per CKAN extension best practices
-# Example:
-# requests = "*"
-# flask = "*"
 
 [project.optional-dependencies]
 # Optional dependencies can be listed here
