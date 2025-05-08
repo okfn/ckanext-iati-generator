@@ -1,0 +1,8 @@
+
+{% if h.check_access('sysadmin') %}
+  <li class="nav-item" role="presentation">
+    <a class="nav-link" id="iati-tab" href="{{ h.url_for('iati_generator.iati_page', id=c.pkg_dict['id']) }}">
+      IATI
+    </a>
+  </li>
+{% endif %}
