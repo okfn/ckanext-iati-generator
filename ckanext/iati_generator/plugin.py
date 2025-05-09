@@ -17,4 +17,6 @@ class IatiGeneratorPlugin(p.SingletonPlugin):
         toolkit.add_resource("assets", "ckanext-iati-generator")
 
     def get_blueprint(self):
-        return iati_blueprint
+        return [
+            iati_blueprint
+        ]
