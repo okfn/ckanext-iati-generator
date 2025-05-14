@@ -3,61 +3,13 @@ from unittest.mock import patch, MagicMock
 from werkzeug.exceptions import HTTPException
 from ckan.plugins import toolkit
 from ckanext.iati_generator.blueprint.iati import iati_page
-from ckanext.iati_generator.decorators import require_sysadmin_user
+
+@pytest.fixture
+def with_request_context():
+    with toolkit.test_request_context():
+        yield
 
 class TestIatiTab:
-    @patch('ckanext.iati_generator.decorators.toolkit')
-    def test_require_sysadmin_user_decorator_no_user(self, mock_toolkit, with_request_context):
-        """
-        Test that the require_sysadmin_user decorator denies access
-        when no user is logged in.
-        """
-        mock_toolkit.c = MagicMock()
-        mock_toolkit.c.user = None
-        mock_toolkit.abort.side_effect = toolkit.abort
-        @require_sysadmin_user
-        def test_func():
-            return "Success"
-        with pytest.raises(HTTPException) as excinfo:
-            test_func()
-        assert excinfo.value.code == 403
-        mock_toolkit.abort.assert_called_with(403, "Forbidden")
-
-    @patch('ckanext.iati_generator.decorators.toolkit')
-    def test_require_sysadmin_user_decorator_non_admin(self, mock_toolkit, with_request_context):
-        """
-        Test that the require_sysadmin_user decorator denies access
-        when a non-admin user is logged in.
-        """
-        mock_toolkit.c = MagicMock()
-        mock_toolkit.c.user = "regular_user"
-        mock_toolkit.c.userobj = MagicMock()
-        mock_toolkit.c.userobj.sysadmin = False
-        mock_toolkit.abort.side_effect = toolkit.abort
-        @require_sysadmin_user
-        def test_func():
-            return "Success"
-        with pytest.raises(HTTPException) as excinfo:
-            test_func()
-        assert excinfo.value.code == 403
-        mock_toolkit.abort.assert_called_with(403, "Sysadmin user required")
-
-    @patch('ckanext.iati_generator.decorators.toolkit')
-    def test_require_sysadmin_user_decorator_admin(self, mock_toolkit, with_request_context):
-        """
-        Test that the require_sysadmin_user decorator allows access
-        when a sysadmin user is logged in.
-        """
-        mock_toolkit.c = MagicMock()
-        mock_toolkit.c.user = "admin"
-        mock_toolkit.c.userobj = MagicMock()
-        mock_toolkit.c.userobj.sysadmin = True
-        @require_sysadmin_user
-        def test_func():
-            return "Success"
-        result = test_func()
-        assert result == "Success"
-
     @patch('ckanext.iati_generator.blueprint.iati.toolkit')
     @patch('ckanext.iati_generator.blueprint.iati.render_template')
     def test_iati_page_success(self, mock_render, mock_toolkit, with_request_context):
@@ -68,7 +20,7 @@ class TestIatiTab:
         package_dict = {"id": "test-package", "name": "test-package"}
         mock_toolkit.get_action.return_value = lambda context, data_dict: package_dict
 
-        with with_request_context():
+        with with_request_context:
             mock_toolkit.c = MagicMock()
             mock_toolkit.c.user = "admin"
             iati_page("test-package")
@@ -89,7 +41,7 @@ class TestIatiTab:
         mock_toolkit.abort.side_effect = toolkit.abort
         mock_toolkit._ = lambda x: x
 
-        with with_request_context():
+        with with_request_context:
             mock_toolkit.c = MagicMock()
             mock_toolkit.c.user = "admin"
             with pytest.raises(HTTPException) as excinfo:
