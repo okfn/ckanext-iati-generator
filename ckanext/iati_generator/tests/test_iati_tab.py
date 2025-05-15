@@ -4,10 +4,12 @@ from werkzeug.exceptions import HTTPException
 from ckan.plugins import toolkit
 from ckanext.iati_generator.blueprint.iati import iati_page
 
+
 @pytest.fixture
 def with_request_context():
     with toolkit.test_request_context():
         yield
+
 
 class TestIatiTab:
     @patch('ckanext.iati_generator.blueprint.iati.toolkit')
