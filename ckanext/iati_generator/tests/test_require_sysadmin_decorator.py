@@ -1,8 +1,17 @@
 import pytest
+from flask import Flask
 from unittest.mock import patch, MagicMock
 from werkzeug.exceptions import HTTPException
 from ckan.plugins import toolkit
 from ckanext.iati_generator.decorators import require_sysadmin_user
+
+
+@pytest.fixture
+def with_request_context():
+    app = Flask(__name__)
+    app.secret_key = "test-secret-key"
+    with app.test_request_context():
+        yield
 
 
 class TestIatiTab:
