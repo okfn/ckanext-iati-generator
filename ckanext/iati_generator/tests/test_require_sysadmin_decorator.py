@@ -1,62 +1,40 @@
-import pytest
-from unittest.mock import patch, MagicMock
-from werkzeug.exceptions import HTTPException
-from ckan.plugins import toolkit
-from ckanext.iati_generator.decorators import require_sysadmin_user
-
+from ckan.lib.helpers import url_for
+from ckan.tests import factories
 
 class TestIatiTab:
-    @patch('ckanext.iati_generator.decorators.toolkit')
-    def test_require_sysadmin_user_decorator_no_user(self, mock_toolkit, with_request_context):
+
+    def test_require_sysadmin_user_decorator_no_user(self, app):
         """
         Test that the require_sysadmin_user decorator denies access
         when no user is logged in.
         """
-        mock_toolkit.c = MagicMock()
-        mock_toolkit.c.user = None
-        mock_toolkit.abort.side_effect = toolkit.abort
+        org = factories.Organization()
+        dataset = factories.Dataset(private=True, owner_org=org["id"])
+        url = url_for('iati_generator.iati_page', package_id=dataset['id'])
+        response = app.get(url, expect_errors=True)
+        assert response.status_code == 403
 
-        @require_sysadmin_user
-        def test_func():
-            return "Success"
-        with pytest.raises(HTTPException) as excinfo:
-            test_func()
-        assert excinfo.value.code == 403
-        mock_toolkit.abort.assert_called_with(403, "Forbidden")
 
-    @patch('ckanext.iati_generator.decorators.toolkit')
-    def test_require_sysadmin_user_decorator_non_admin(self, mock_toolkit, with_request_context):
+    def test_require_sysadmin_user_decorator_non_admin(self, app):
         """
         Test that the require_sysadmin_user decorator denies access
         when a non-admin user is logged in.
         """
-        mock_toolkit.c = MagicMock()
-        mock_toolkit.c.user = "regular_user"
-        mock_toolkit.c.userobj = MagicMock()
-        mock_toolkit.c.userobj.sysadmin = False
-        mock_toolkit.abort.side_effect = toolkit.abort
+        user = factories.UserWithToken()
+        dataset = factories.Dataset(private=True)
+        url = url_for('iati_generator.iati_page', package_id=dataset['id'])
+        auth = {"Authorization": user['token']}
+        response = app.get(url, headers=auth, expect_errors=True)
+        assert response.status_code == 403
 
-        @require_sysadmin_user
-        def test_func():
-            return "Success"
-        with pytest.raises(HTTPException) as excinfo:
-            test_func()
-        assert excinfo.value.code == 403
-        mock_toolkit.abort.assert_called_with(403, "Sysadmin user required")
-
-    @patch('ckanext.iati_generator.decorators.toolkit')
-    def test_require_sysadmin_user_decorator_admin(self, mock_toolkit, with_request_context):
+    def test_require_sysadmin_user_decorator_admin(self, app):
         """
         Test that the require_sysadmin_user decorator allows access
         when a sysadmin user is logged in.
         """
-        mock_toolkit.c = MagicMock()
-        mock_toolkit.c.user = "admin"
-        mock_toolkit.c.userobj = MagicMock()
-        mock_toolkit.c.userobj.sysadmin = True
-
-        @require_sysadmin_user
-        def test_func():
-            return "Success"
-        result = test_func()
-        assert result == "Success"
+        user_sysadmin = factories.SysadminWithToken()
+        dataset = factories.Dataset(private=True)
+        url = url_for('iati_generator.iati_page', package_id=dataset['id'])
+        auth = {"Authorization": user_sysadmin['token']}
+        response = app.get(url, headers=auth)
+        assert response.status_code == 200
