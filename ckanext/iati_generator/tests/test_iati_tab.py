@@ -27,7 +27,6 @@ class TestIatiTab:
 
         url = url_for("iati_generator.iati_page", package_id=dataset["id"])
 
-        app.set_environ_base(REMOTE_USER=user["name"])
         auth = {"Authorization": user["token"]}
         response = app.get(url, headers=auth, expect_errors=True)
 
@@ -43,8 +42,6 @@ class TestIatiTab:
         dataset = factories.Dataset(owner_org=org["id"])
 
         url = url_for("iati_generator.iati_page", package_id=dataset["id"])
-
-        app.set_environ_base(REMOTE_USER=user["name"])
         auth = {"Authorization": user["token"]}
         response = app.get(url, headers=auth)
 
