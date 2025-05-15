@@ -1,53 +1,52 @@
-import pytest
-from unittest.mock import patch, MagicMock
-from werkzeug.exceptions import HTTPException
-from ckan.plugins import toolkit
-from ckanext.iati_generator.blueprint.iati import iati_page
+from ckan.lib.helpers import url_for
+from ckan.tests import factories
 
 
 class TestIatiTab:
 
-    @patch('ckanext.iati_generator.blueprint.iati.toolkit.check_access')
-    @patch('ckanext.iati_generator.blueprint.iati.render_template')
-    def test_iati_page_success(self, mock_render, mock_check_access, with_request_context):
+    def test_iati_page_requires_sysadmin_no_user(self, app):
         """
-        Test that the iati_page function renders the correct template
-        when the package exists and the user is logged in.
+        No REMOTE_USER set → debe devolver 403
         """
-        package_dict = {"id": "test-package", "name": "test-package"}
-        mock_check_access.return_value = None
+        org = factories.Organization()
+        dataset = factories.Dataset(owner_org=org["id"])
 
-        # Simular contexto del usuario admin
-        toolkit.c = MagicMock()
-        toolkit.c.user = "admin"
+        url = url_for("iati_generator.iati_page", package_id=dataset["id"])
+        response = app.get(url, expect_errors=True)
 
-        # Simular get_action
-        with patch('ckanext.iati_generator.blueprint.iati.toolkit.get_action') as mock_get_action:
-            mock_get_action.return_value = lambda context, data_dict: package_dict
-            iati_page("test-package")
+        assert response.status_code == 403
+        assert b"Forbidden" in response.body
 
-        mock_render.assert_called_with(
-            "package/iati_page.html",
-            pkg=package_dict,
-            pkg_dict=package_dict
-        )
-
-    @patch('ckanext.iati_generator.blueprint.iati.toolkit.check_access')
-    def test_iati_page_package_not_found(self, mock_check_access, with_request_context):
+    def test_iati_page_requires_sysadmin_non_admin(self, app):
         """
-        Test that the iati_page function raises a 404 error
-        when the package does not exist.
+        Usuario logueado que NO es sysadmin → debe devolver 403
         """
-        mock_check_access.return_value = None
-        toolkit.c = MagicMock()
-        toolkit.c.user = "admin"
+        user = factories.UserWithToken()
+        org = factories.Organization()
+        dataset = factories.Dataset(owner_org=org["id"])
 
-        with patch('ckanext.iati_generator.blueprint.iati.toolkit.get_action') as mock_get_action, \
-            patch('ckanext.iati_generator.blueprint.iati.toolkit.abort', side_effect=toolkit.abort), \
-                patch('ckanext.iati_generator.blueprint.iati.toolkit._', lambda x: x):
+        url = url_for("iati_generator.iati_page", package_id=dataset["id"])
 
-            mock_get_action.side_effect = toolkit.ObjectNotFound
+        app.set_environ_base(REMOTE_USER=user["name"])
+        auth = {"Authorization": user["token"]}
+        response = app.get(url, headers=auth, expect_errors=True)
 
-            with pytest.raises(HTTPException) as excinfo:
-                iati_page("nonexistent-package")
-            assert excinfo.value.code == 404
+        assert response.status_code == 403
+        assert b"Sysadmin user required" in response.body
+
+    def test_iati_page_allows_sysadmin(self, app):
+        """
+        Usuario sysadmin → puede acceder
+        """
+        user = factories.SysadminWithToken()
+        org = factories.Organization()
+        dataset = factories.Dataset(owner_org=org["id"])
+
+        url = url_for("iati_generator.iati_page", package_id=dataset["id"])
+
+        app.set_environ_base(REMOTE_USER=user["name"])
+        auth = {"Authorization": user["token"]}
+        response = app.get(url, headers=auth)
+
+        assert response.status_code == 200
+        assert b"pkg_dict" not in response.body
