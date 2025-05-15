@@ -11,7 +11,7 @@ def require_sysadmin_user(func):
     def view_wrapper(*args, **kwargs):
         if not hasattr(toolkit.c, "user") or not toolkit.c.user:
             return toolkit.abort(403, "Forbidden")
-        if not toolkit.c.userobj.sysadmin:
+        if not hasattr(toolkit.c, "userobj") or not toolkit.c.userobj.sysadmin:
             return toolkit.abort(403, "Sysadmin user required")
         return func(*args, **kwargs)
 
