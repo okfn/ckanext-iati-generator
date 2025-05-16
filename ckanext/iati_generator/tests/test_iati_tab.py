@@ -6,18 +6,18 @@ class TestIatiTab:
 
     def test_iati_page_requires_sysadmin_no_user(self, app):
         """
-        No REMOTE_USER set → debe devolver 403
+        No user set it should return 403
         """
         org = factories.Organization()
         dataset = factories.Dataset(owner_org=org["id"])
 
         url = url_for("iati_generator.iati_page", package_id=dataset["id"])
         response = app.get(url, estatus=403)
-        assert b"Forbidden" in response.body
+        assert "Forbidden" in response.body
 
     def test_iati_page_requires_sysadmin_non_admin(self, app):
         """
-        Usuario logueado que NO es sysadmin → debe devolver 403
+        Non sysadmin user should return 403
         """
         user = factories.UserWithToken()
         org = factories.Organization()
@@ -27,11 +27,11 @@ class TestIatiTab:
 
         auth = {"Authorization": user["token"]}
         response = app.get(url, headers=auth, status=403)
-        assert b"Sysadmin user required" in response.body
+        assert "Sysadmin user required" in response.body
 
     def test_iati_page_allows_sysadmin(self, app):
         """
-        Usuario sysadmin → puede acceder
+        sysadmin can access the page
         """
         user = factories.SysadminWithToken()
         org = factories.Organization()
@@ -42,4 +42,4 @@ class TestIatiTab:
         response = app.get(url, headers=auth)
 
         assert response.status_code == 200
-        assert b"pkg_dict" not in response.body
+        assert "This dataset is not published as IATI" in response.body
