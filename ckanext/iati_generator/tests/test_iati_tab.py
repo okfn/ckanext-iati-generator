@@ -12,7 +12,7 @@ class TestIatiTab:
         dataset = factories.Dataset(owner_org=org["id"])
 
         url = url_for("iati_generator.iati_page", package_id=dataset["id"])
-        response = app.get(url, estatus=403)
+        response = app.get(url, status=403)
         assert "Forbidden" in response.body
 
     def test_iati_page_requires_sysadmin_non_admin(self, app):
