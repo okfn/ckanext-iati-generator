@@ -2,7 +2,7 @@ from ckan.lib.helpers import url_for
 from ckan.tests import factories
 
 
-class TestIatiTab:
+class TestSysadminDecorator:
 
     def test_require_sysadmin_user_decorator_no_user(self, app):
         """
