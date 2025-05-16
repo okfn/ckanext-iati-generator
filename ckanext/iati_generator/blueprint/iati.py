@@ -35,27 +35,21 @@ def generate_test_iati(package_id):
         flash("Resource ID is required", "error")
         return redirect(url_for("iati_generator.iati_page", package_id=package_id))
 
-    try:
-        result = toolkit.get_action("iati_generate_test_xml")(context, {"resource_id": resource_id})
+    result = toolkit.get_action("iati_generate_test_xml")(context, {"resource_id": resource_id})
+    logs = result.get("logs", "")
 
-        xml_path = result["file_path"]
-        logs = result["logs"]
+    # Verificamos si se generó correctamente el archivo
+    xml_path = result.get("file_path")
+    if not xml_path:
+        flash("No se pudo generar el archivo XML. Revisá los logs abajo.", "error")
 
-        return render_template(
-            "package/iati_page.html",
-            pkg=toolkit.get_action("package_show")(context, {"id": package_id}),
-            pkg_dict=toolkit.get_action("package_show")(context, {"id": package_id}),
-            logs=logs,
-            xml_download_url=url_for("iati_generator.download_temp_xml", file=os.path.basename(xml_path))
-        )
-
-    except toolkit.ValidationError as e:
-        return render_template(
-            "package/iati_page.html",
-            pkg=toolkit.get_action("package_show")(context, {"id": package_id}),
-            pkg_dict=toolkit.get_action("package_show")(context, {"id": package_id}),
-            logs=str(e.error_dict)
-        )
+    return render_template(
+        "package/iati_page.html",
+        pkg=toolkit.get_action("package_show")(context, {"id": package_id}),
+        pkg_dict=toolkit.get_action("package_show")(context, {"id": package_id}),
+        logs=logs,
+        xml_download_url=url_for("iati_generator.download_temp_xml", file=os.path.basename(xml_path)) if xml_path else None
+    )
 
 
 @iati_blueprint.route("/download/<file>", methods=["GET"])
