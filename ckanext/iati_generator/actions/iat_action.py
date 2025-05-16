@@ -24,6 +24,15 @@ def iati_generate_test_xml(context, data_dict):
         # Obtener el recurso
         resource = toolkit.get_action("resource_show")(context, {"id": resource_id})
         logs.append(f"resource keys: {list(resource.keys())}")
+        # Validar tipo y formato
+        format_valid = resource.get("format", "").lower() in ["csv", "xml"]
+        is_uploaded = resource.get("url_type") == "upload"
+
+        if not format_valid:
+            raise Exception(f"Formato no soportado: '{resource.get('format')}'. Solo se aceptan CSV o XML.")
+
+        if not is_uploaded:
+            raise Exception("El archivo no es un recurso subido localmente (url_type != 'upload').")
 
         # Validar que sea un dict
         if not isinstance(resource, dict):
