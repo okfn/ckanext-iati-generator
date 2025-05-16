@@ -5,8 +5,8 @@ from ckanext.iati_generator.decorators import require_sysadmin_user
 iati_blueprint = Blueprint("iati_generator", __name__, url_prefix="/iati-dataset")
 
 
-@require_sysadmin_user
 @iati_blueprint.route("/<package_id>", methods=["GET"])
+@require_sysadmin_user
 def iati_page(package_id):
     context = {"user": toolkit.c.user}
     # Fetch the package using package_show

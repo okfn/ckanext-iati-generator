@@ -12,9 +12,7 @@ class TestIatiTab:
         dataset = factories.Dataset(owner_org=org["id"])
 
         url = url_for("iati_generator.iati_page", package_id=dataset["id"])
-        response = app.get(url, expect_errors=True)
-
-        assert response.status_code == 403
+        response = app.get(url, estatus=403)
         assert b"Forbidden" in response.body
 
     def test_iati_page_requires_sysadmin_non_admin(self, app):
@@ -28,9 +26,7 @@ class TestIatiTab:
         url = url_for("iati_generator.iati_page", package_id=dataset["id"])
 
         auth = {"Authorization": user["token"]}
-        response = app.get(url, headers=auth, expect_errors=True)
-
-        assert response.status_code == 403
+        response = app.get(url, headers=auth, status=403)
         assert b"Sysadmin user required" in response.body
 
     def test_iati_page_allows_sysadmin(self, app):

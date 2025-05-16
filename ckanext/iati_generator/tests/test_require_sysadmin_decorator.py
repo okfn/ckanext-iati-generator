@@ -12,8 +12,7 @@ class TestSysadminDecorator:
         org = factories.Organization()
         dataset = factories.Dataset(owner_org=org["id"])
         url = url_for('iati_generator.iati_page', package_id=dataset['id'])
-        response = app.get(url, expect_errors=True)
-        assert response.status_code == 403
+        app.get(url, status=403)
 
     def test_require_sysadmin_user_decorator_non_admin(self, app):
         """
@@ -25,8 +24,7 @@ class TestSysadminDecorator:
         dataset = factories.Dataset(owner_org=org["id"])
         url = url_for('iati_generator.iati_page', package_id=dataset['id'])
         auth = {"Authorization": user['token']}
-        response = app.get(url, headers=auth, expect_errors=True)
-        assert response.status_code == 403
+        app.get(url, headers=auth, status=403)
 
     def test_require_sysadmin_user_decorator_admin(self, app):
         """
