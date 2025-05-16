@@ -9,6 +9,7 @@ from xml.etree.ElementTree import Element, SubElement, ElementTree
 
 log = logging.getLogger(__name__)
 
+
 def iati_generate_test_xml(context, data_dict):
     logs = []
 
@@ -76,7 +77,7 @@ def iati_generate_test_xml(context, data_dict):
             "logs": "\n".join(logs)
         }
 
-    except Exception as e:
+    except Exception:
         # Captura completa del error con traceback
         error_trace = traceback.format_exc()
         logs.append("Exception occurred:")
