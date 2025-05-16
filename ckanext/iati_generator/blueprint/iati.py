@@ -1,4 +1,6 @@
-from flask import Blueprint, render_template
+import tempfile
+import os
+from flask import Blueprint, render_template, request, redirect, url_for, flash, send_file
 from ckan.plugins import toolkit
 from ckanext.iati_generator.decorators import require_sysadmin_user
 
@@ -21,3 +23,43 @@ def iati_page(package_id):
         pkg=pkg_dict,
         pkg_dict=pkg_dict
     )
+
+
+@iati_blueprint.route("/<package_id>/generate", methods=["POST"])
+@require_sysadmin_user
+def generate_test_iati(package_id):
+    context = {"user": toolkit.c.user}
+    resource_id = request.form.get("resource_id")
+
+    if not resource_id:
+        flash("Resource ID is required", "error")
+        return redirect(url_for("iati_generator.iati_page", package_id=package_id))
+
+    try:
+        result = toolkit.get_action("iati_generate_test_xml")(context, {"resource_id": resource_id})
+
+        xml_path = result["file_path"]
+        logs = result["logs"]
+
+        return render_template(
+            "package/iati_page.html",
+            pkg=toolkit.get_action("package_show")(context, {"id": package_id}),
+            pkg_dict=toolkit.get_action("package_show")(context, {"id": package_id}),
+            logs=logs,
+            xml_download_url=url_for("iati_generator.download_temp_xml", file=os.path.basename(xml_path))
+        )
+
+    except toolkit.ValidationError as e:
+        return render_template(
+            "package/iati_page.html",
+            pkg=toolkit.get_action("package_show")(context, {"id": package_id}),
+            pkg_dict=toolkit.get_action("package_show")(context, {"id": package_id}),
+            logs=str(e.error_dict)
+        )
+
+
+@iati_blueprint.route("/download/<file>", methods=["GET"])
+@require_sysadmin_user
+def download_temp_xml(file):
+    path = os.path.join(tempfile.gettempdir(), file)
+    return send_file(path, as_attachment=True, mimetype="application/xml")
