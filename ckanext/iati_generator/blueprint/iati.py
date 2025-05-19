@@ -31,7 +31,7 @@ def generate_test_iati(package_id):
     resource_id = request.form.get("resource_id")
 
     if not resource_id:
-        flash("Resource ID is required", "error")
+        flash(toolkit._("Resource ID is required"), "error")
         return redirect(url_for("iati_generator.iati_page", package_id=package_id))
 
     # Call the action that generates the XML and returns xml_string + logs
