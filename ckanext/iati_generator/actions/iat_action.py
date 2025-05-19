@@ -9,6 +9,9 @@ from xml.etree.ElementTree import Element, SubElement, ElementTree
 
 log = logging.getLogger(__name__)
 
+# Limit the number of rows to process to avoid large XML files
+ROWS_LIMIT = int(toolkit.config.get("iati_generator.rows_limit", 50000))
+
 
 def iati_generate_test_xml(context, data_dict):
     logs = []
@@ -72,8 +75,8 @@ def iati_generate_test_xml(context, data_dict):
                 el = SubElement(activity, key)
                 el.text = str(value) if value is not None else ""
 
-            if i >= 100:
-                logs.append("Truncated at 100 rows to avoid large XML files")
+            if i >= ROWS_LIMIT:
+                logs.append(f"Truncated at {ROWS_LIMIT} rows to avoid large XML files")
                 break
 
         # Guardar XML en archivo temporal
