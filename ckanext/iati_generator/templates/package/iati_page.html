@@ -16,10 +16,12 @@
       <button type="submit">{{ _("Generate test IATI") }}</button>
     </form>
 
-    {% if logs %}
-      <h3>Logs</h3>
-      <pre>{{ logs }}</pre>
-    {% endif %}
+    <h3>Logs</h3>
+    <ul>
+    {% for log in result.logs %}
+      <li>{{ log }}</li>
+      </ul>
+    {% endfor %}
 
     {% if xml_download_url %}
       <a href="{{ xml_download_url }}" download>{{ _("Download XML File") }}</a>
