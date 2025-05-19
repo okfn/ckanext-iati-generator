@@ -17,10 +17,6 @@ def iati_generate_test_xml(context, data_dict):
     logs = []
 
     try:
-        logs.append(f"DATA_DICT TYPE: {type(data_dict)}")
-        logs.append(f"DATA_DICT KEYS: {list(data_dict.keys())}")
-        logs.append(f"DATA_DICT FULL: {data_dict}")
-
         resource_id = data_dict["resource_id"]
         logs.append(f"resource_id: {resource_id} ({type(resource_id)})")
 
