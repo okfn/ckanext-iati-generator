@@ -5,7 +5,10 @@ import csv
 import traceback
 import ckan.lib.uploader as uploader
 from ckan.plugins import toolkit
-from xml.etree.ElementTree import Element, SubElement, ElementTree
+from okfn_iati import (
+    Activity, Narrative, OrganizationRef,
+    IatiActivities, IatiXmlGenerator
+)
 
 log = logging.getLogger(__name__)
 
@@ -18,79 +21,74 @@ def iati_generate_test_xml(context, data_dict):
 
     try:
         resource_id = data_dict["resource_id"]
-        logs.append(f"resource_id: {resource_id} ({type(resource_id)})")
+        logs.append(f"resource_id: {resource_id}")
 
-        # Obtener el recurso
+        # 1) Get resource metadata
         resource = toolkit.get_action("resource_show")(context, {"id": resource_id})
-        logs.append(f"resource keys: {list(resource.keys())}")
-        # Validar tipo y formato
-        format_valid = resource.get("format", "").lower() in ["csv", "xml"]
-        is_uploaded = resource.get("url_type") == "upload"
+        fmt = resource.get("format", "").lower()
+        if fmt not in ("csv", "xml"):
+            return {"logs": f"Unsupported format '{fmt}'. Only CSV or XML allowed."}
+        if resource.get("url_type") != "upload":
+            return {"logs": "Resource must be a local upload (url_type='upload')."}
 
-        if not format_valid:
-            raise Exception(f"Formato no soportado: '{resource.get('format')}'. Solo se aceptan CSV o XML.")
+        # 2) Locate the file
+        up = uploader.get_resource_uploader(resource)
+        path = up.get_path(resource_id)
+        logs.append(f"Reading CSV at: {path}")
 
-        if not is_uploaded:
-            raise Exception("El archivo no es un recurso subido localmente (url_type != 'upload').")
-
-        # Validar que sea un dict
-        if not isinstance(resource, dict):
-            raise Exception("resource is not a dict")
-
-        # Obtener ruta local del archivo
-        upload = uploader.get_resource_uploader(resource)
-        resource_id = resource.get("id")
-        logs.append(f"resource['id']: {resource_id} ({type(resource_id)})")
-
-        if not isinstance(resource_id, str):
-            raise Exception(f"resource['id'] is not a string: {resource_id} ({type(resource_id)})")
-
-        local_path = upload.get_path(resource)
-        logs.append(f"Reading CSV from local path: {local_path}")
-
-        # Leer CSV
-        with open(local_path, "r", encoding="utf-8") as f:
+        # 3) Read rows from the CSV
+        with open(path, newline="", encoding="utf-8") as f:
             reader = csv.DictReader(f)
             rows = list(reader)
-            logs.append(f"CSV contains {len(rows)} rows")
+        logs.append(f"Loaded {len(rows)} rows (will truncate at {ROWS_LIMIT})")
 
-        # Verificar estructura de las filas
-        if not all(isinstance(row, dict) for row in rows):
-            raise Exception("One or more rows are not dictionaries")
-
-        # Crear XML
-        root = Element("iati-data")
+        # 4) Map to Activity objects
+        activities = []
         for i, row in enumerate(rows):
-            activity = SubElement(root, "activity")
-
-            for key, value in row.items():
-                if not isinstance(key, str):
-                    logs.append(f"Warning: skipping key of type {type(key)}")
-                    continue
-
-                el = SubElement(activity, key)
-                el.text = str(value) if value is not None else ""
-
             if i >= ROWS_LIMIT:
-                logs.append(f"Truncated at {ROWS_LIMIT} rows to avoid large XML files")
+                logs.append(f"Row limit reached ({ROWS_LIMIT}); stopping")
                 break
 
-        # Guardar XML en archivo temporal
-        tmp_path = os.path.join(tempfile.gettempdir(), f"iati_test_{resource_id}.xml")
-        ElementTree(root).write(tmp_path, encoding="utf-8", xml_declaration=True)
-        logs.append(f"XML saved at {tmp_path}")
+            try:
+                act = Activity(
+                    iati_identifier=row["iati_identifier"],
+                    reporting_org=OrganizationRef(
+                        ref=row["reporting_org_ref"],
+                        type=row["reporting_org_type"],
+                        narratives=[Narrative(text=row["reporting_org_name"])]
+                    ),
+                    title=[Narrative(text=row["title"])],
+                    # TODO: add more IATI fields here as needed,
+                    # e.g. description=[Narrative(text=row["description"])], etc.
+                )
+                activities.append(act)
+            except KeyError as e:
+                log.error(f"Missing required column {e} in row {i+1}; skipping")
+            except Exception as e:
+                log.error(f"Error mapping row {i+1} to Activity: {e}; skipping")
+
+        if not activities:
+            return {"logs": "No valid activities generated; check CSV headers."}
+
+        # 5) Generate the IATI XML
+        container = IatiActivities(version="2.03", activities=activities)
+        generator = IatiXmlGenerator()
+        xml_string = generator.generate_iati_activities_xml(container)
+        logs.append("IATI XML generated successfully")
+
+        # 6) Save to a temporary file
+        out_path = os.path.join(tempfile.gettempdir(), f"iati_{resource_id}.xml")
+        with open(out_path, "w", encoding="utf-8") as f:
+            f.write(xml_string)
+        logs.append(f"XML saved to {out_path}")
 
         return {
-            "file_path": tmp_path,
-            "logs": "\n".join(logs)
+            "file_path": out_path,
+            "logs": "\n".join(logs),
         }
 
     except Exception:
-        # Captura completa del error con traceback
-        error_trace = traceback.format_exc()
-        logs.append("Exception occurred:")
-        logs.append(error_trace)
-
-        return {
-            "logs": "\n".join(logs)
-        }
+        tb = traceback.format_exc()
+        logs.append("Unhandled exception:")
+        logs.append(tb)
+        return {"logs": "\n".join(logs)}
