@@ -38,10 +38,13 @@ def generate_test_iati(package_id):
     result = toolkit.get_action("iati_generate_test_xml")(context, {"resource_id": resource_id})
     logs = result.get("logs", "")
 
-    # Verificamos si se generó correctamente el archivo
-    xml_path = result.get("file_path")
-    if not xml_path:
-        flash("No se pudo generar el archivo XML. Revisá los logs abajo.", "error")
+    # Check if the process finished properly
+    if not result.get("success"):
+        error_msg = result.get("error") or "Could not generate the XML file. Check the logs below."
+        flash(error_msg, "error")
+        xml_path = None
+    else:
+        xml_path = result.get("file_path")
 
     # Fetch the package using package_show once
     pkg_dict = toolkit.get_action("package_show")(context, {"id": package_id})
