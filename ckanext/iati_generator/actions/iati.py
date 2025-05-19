@@ -18,6 +18,7 @@ ROWS_LIMIT = int(toolkit.config.get("iati_generator.rows_limit", 50000))
 
 def iati_generate_test_xml(context, data_dict):
     logs = []
+    invalid_rows = []
 
     try:
         resource_id = data_dict["resource_id"]
@@ -63,12 +64,21 @@ def iati_generate_test_xml(context, data_dict):
                 )
                 activities.append(act)
             except KeyError as e:
-                log.error(f"Missing required column {e} in row {i+1}; skipping")
+                col = e.args[0]
+                msg = f"Row {i+1}: missing required column '{col}'; skipping."
+                log.error(msg)
+                logs.append(msg)
+                invalid_rows.append(i+1)
+
             except Exception as e:
-                log.error(f"Error mapping row {i+1} to Activity: {e}; skipping")
+                msg = f"Row {i+1}: mapping error ({e}); skipping."
+                log.error(msg)
+                logs.append(msg)
+                invalid_rows.append(i+1)
 
         if not activities:
-            return {"logs": "No valid activities generated; check CSV headers."}
+            logs.append(f"No valid activities generated; invalid rows: {invalid_rows}")
+            return {"logs": "\n".join(logs)}
 
         # 5) Generate the IATI XML
         container = IatiActivities(version="2.03", activities=activities)
