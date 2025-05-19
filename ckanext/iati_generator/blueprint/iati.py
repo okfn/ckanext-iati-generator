@@ -1,6 +1,5 @@
-import tempfile
 import io
-from flask import Blueprint, render_template, request, redirect, url_for, flash, send_file
+from flask import Blueprint, render_template, request, redirect, url_for, flash
 from ckan.plugins import toolkit
 from ckanext.iati_generator.decorators import require_sysadmin_user
 
@@ -38,31 +37,36 @@ def generate_test_iati(package_id):
     # Call the action that generates the XML and returns xml_string + logs
     result = toolkit.get_action("iati_generate_test_xml")(context, {"resource_id": resource_id})
     logs = result.get("logs", "")
-
     xml_string = result.get("xml_string")
+
+    xml_url = None
     if not xml_string:
         flash("Could not generate the XML file. Check the logs below.", "error")
-        xml_url = None
     else:
-        # Subir el XML como nuevo archivo para el mismo recurso
-        data_dict = {
-            "id": resource_id,
-            "format": "XML",
-            "name": f"iati_{resource_id}.xml",
-        }
-        #Create a Werkzeug FileStorage object from the in-memory string
+        # --- here we replace the tmpdir with CKAN's uploader API ---
+        filename = f"iati_{resource_id}.xml"
         file_obj = io.BytesIO(xml_string.encode("utf-8"))
-        data_dict["upload"] = toolkit.upload_to_file_storage(file_obj, filename=data_dict["name"])
-        updated = toolkit.get_action("resource_update")(context, data_dict)
-        xml_url = updated.get("url")
-        flash("Archivo XML subido correctamente.", "success")
+        # toolkit.upload_to_file_storage uses the configured backend (local or S3)
+        upload_dict = toolkit.upload_to_file_storage(file_obj, filename=filename)
 
-    # Re-render page
-    pkg_dict = toolkit.get_action("package_show")(context, {"id": package_id})
+        # prepare the data for resource_update
+        data_dict = {
+            "id":       resource_id,
+            "upload":   upload_dict,
+            "format":   "XML",
+            "name":     filename,
+        }
+        updated = toolkit.get_action("resource_update")(context, data_dict)
+        # CKAN has already saved the file and returned the URL
+        xml_url = updated.get("url")
+        flash("XML file uploaded successfully.", "success")
+
+    # Render the same page with the logs and the link to the XML
+    pkg = toolkit.get_action("package_show")(context, {"id": package_id})
     return render_template(
         "package/iati_page.html",
-        pkg=pkg_dict,
-        pkg_dict=pkg_dict,
+        pkg=pkg,
+        pkg_dict=pkg,
         logs=logs,
         xml_url=xml_url
     )
