@@ -43,10 +43,12 @@ def generate_test_iati(package_id):
     if not xml_path:
         flash("No se pudo generar el archivo XML. Revisá los logs abajo.", "error")
 
+    # Fetch the package using package_show once
+    pkg_dict = toolkit.get_action("package_show")(context, {"id": package_id})
     return render_template(
         "package/iati_page.html",
-        pkg=toolkit.get_action("package_show")(context, {"id": package_id}),
-        pkg_dict=toolkit.get_action("package_show")(context, {"id": package_id}),
+        pkg=pkg_dict,
+        pkg_dict=pkg_dict,
         logs=logs,
         xml_download_url=url_for("iati_generator.download_temp_xml", file=os.path.basename(xml_path)) if xml_path else None
     )
