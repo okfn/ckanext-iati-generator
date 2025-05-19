@@ -1,5 +1,5 @@
 import tempfile
-import os
+import io
 from flask import Blueprint, render_template, request, redirect, url_for, flash, send_file
 from ckan.plugins import toolkit
 from ckanext.iati_generator.decorators import require_sysadmin_user
@@ -35,32 +35,34 @@ def generate_test_iati(package_id):
         flash("Resource ID is required", "error")
         return redirect(url_for("iati_generator.iati_page", package_id=package_id))
 
+    # Call the action that generates the XML and returns xml_string + logs
     result = toolkit.get_action("iati_generate_test_xml")(context, {"resource_id": resource_id})
     logs = result.get("logs", "")
 
-    # Check if the process finished properly
-    xml_path = result.get("file_path")
-    if not xml_path:
+    xml_string = result.get("xml_string")
+    if not xml_string:
         flash("Could not generate the XML file. Check the logs below.", "error")
+        xml_url = None
     else:
-        flash("XML file generated successfully.", "success")
+        # Subir el XML como nuevo archivo para el mismo recurso
+        data_dict = {
+            "id": resource_id,
+            "format": "XML",
+            "name": f"iati_{resource_id}.xml",
+        }
+        #Create a Werkzeug FileStorage object from the in-memory string
+        file_obj = io.BytesIO(xml_string.encode("utf-8"))
+        data_dict["upload"] = toolkit.upload_to_file_storage(file_obj, filename=data_dict["name"])
+        updated = toolkit.get_action("resource_update")(context, data_dict)
+        xml_url = updated.get("url")
+        flash("Archivo XML subido correctamente.", "success")
 
-    # Fetch the package using package_show once
+    # Re-render page
     pkg_dict = toolkit.get_action("package_show")(context, {"id": package_id})
     return render_template(
         "package/iati_page.html",
         pkg=pkg_dict,
         pkg_dict=pkg_dict,
         logs=logs,
-        xml_download_url=(
-            url_for("iati_generator.download_temp_xml", file=os.path.basename(xml_path))
-            if xml_path else None
-        )
+        xml_url=xml_url
     )
-
-
-@iati_blueprint.route("/download/<file>", methods=["GET"])
-@require_sysadmin_user
-def download_temp_xml(file):
-    path = os.path.join(tempfile.gettempdir(), file)
-    return send_file(path, as_attachment=True, mimetype="application/xml")
