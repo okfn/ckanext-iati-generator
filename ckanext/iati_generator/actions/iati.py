@@ -40,15 +40,11 @@ def iati_generate_test_xml(context, data_dict):
         # 3) Read rows from the CSV
         with open(path, newline="", encoding="utf-8") as f:
             reader = csv.DictReader(f)
-            rows = list(reader)
-        logs.append(f"Loaded {len(rows)} rows (will truncate at {ROWS_LIMIT})")
-
-        # 4) Map to Activity objects
-        activities = []
-        for i, row in enumerate(rows):
-            if i >= ROWS_LIMIT:
-                logs.append(f"Row limit reached ({ROWS_LIMIT}); stopping")
-                break
+            activities = []
+            for i, row in enumerate(reader):
+                if i >= ROWS_LIMIT:
+                    logs.append(f"Row limit reached ({ROWS_LIMIT}); stopping")
+                    break
 
             try:
                 act = Activity(
