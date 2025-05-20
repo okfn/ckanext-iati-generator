@@ -42,4 +42,4 @@ class TestIatiTab:
         response = app.get(url, headers=auth)
 
         assert response.status_code == 200
-        assert "Generate test IATI" in response.body
+        assert "Generate test IATI" in response.text
