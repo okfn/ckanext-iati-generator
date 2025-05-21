@@ -57,7 +57,7 @@ def generate_iati_xml(context, data_dict):
 
     if not activities:
         logs.append("No valid activities were generated")
-        return None, logs
+        return {"file_path": None, "logs": logs}
 
     # Generate the IATI XML
     try:
@@ -65,7 +65,7 @@ def generate_iati_xml(context, data_dict):
         logs.append("IATI XML generated successfully")
     except Exception as e:
         logs.append(f"Error generating IATI XML: {e}")
-        return None, logs
+        return {"file_path": None, "logs": logs}
 
     # Save to a temporary file
     # TODO, investigate about creating/updating a CKAN resource for this or use cases
@@ -75,4 +75,4 @@ def generate_iati_xml(context, data_dict):
         f.write(xml_string)
     logs.append(f"XML saved to {out_path}")
 
-    return out_path, logs
+    return {"file_path": out_path, "logs": logs}
