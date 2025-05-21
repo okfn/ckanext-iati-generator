@@ -1,5 +1,6 @@
 import os
 from flask import Blueprint, render_template, request, redirect, url_for, flash
+from ckan.lib.uploader import ResourceUpload
 from ckan.plugins import toolkit
 from ckanext.iati_generator.decorators import require_sysadmin_user
 
@@ -43,20 +44,30 @@ def generate_test_iati(package_id):
     if not file_path:
         flash(toolkit._("Could not generate the XML file. Check the logs below."), "error")
     else:
-        # Open the generated file and upload it using CKAN's uploader
-        with open(file_path, "rb") as fp:
-            upload_dict = toolkit.upload_to_file_storage(fp, filename=os.path.basename(file_path))
+        # Get the filename from the file path
+        xml_filename = os.path.basename(file_path)
 
-        # Update the resource with the new XML
-        data_dict = {
-            "id":     resource_id,
-            "upload": upload_dict,
-            "format": "XML",
-            "name":   os.path.basename(file_path),
-        }
-        updated = toolkit.get_action("resource_update")(context, data_dict)
-        xml_url = updated.get("url")
-        flash(toolkit._("XML file uploaded successfully."), "success")
+        with open(file_path, "rb") as fp:
+            # 2. Create resource_data with tuple (file, filename)
+            resource_data = {
+                "package_id": package_id,
+                "upload": (fp, xml_filename),
+                "format": "XML",
+                "name": xml_filename,
+                "url_type": "upload",
+                "description": "Automatically generated file from CSV"
+            }
+            # 3. Physically upload the file to storage
+            uploader = ResourceUpload(resource_data)
+            uploader.upload(package_id)
+
+            # 4. Create the resource in CKAN (with the file already saved)
+            created = toolkit.get_action("resource_create")(context, resource_data)
+
+            # 5. Build the download URL to display in the view
+            xml_url = f"/dataset/{package_id}/resource/{created['id']}/download/{created['name']}"
+
+            flash(toolkit._("XML file uploaded successfully as a new resource."), "success")
 
     # Render the same page with the logs and the link to the XML
     pkg = toolkit.get_action("package_show")(context, {"id": package_id})

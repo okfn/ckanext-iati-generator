@@ -8,7 +8,7 @@
       <label for="resource-select">{{ _("Select a resource:") }}</label>
       <select id="resource-select" name="resource_id" required>
         {% for resource in pkg_dict.resources %}
-          {% if resource.format.lower() in ['csv', 'xml'] and resource.get('url_type') == 'upload' %}
+          {% if resource.format.lower() in ['csv'] and resource.get('url_type') == 'upload' %}
             <option value="{{ resource.id }}">{{ resource.name or resource.id }}</option>
           {% endif %}
         {% endfor %}
@@ -23,7 +23,7 @@
     {% endif %}
 
     {% if xml_url %}
-      <a href="{{ xml_url }}" download>{{ _("Download XML File") }}</a>
+      <a href="{{ xml_url }}" target="_blank" download>{{ _("Download XML File") }}</a>
     {% endif %}
   </div>
 </section>
