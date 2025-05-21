@@ -1,6 +1,5 @@
 import os
 from flask import Blueprint, render_template, request, redirect, url_for, flash
-from ckan.lib.uploader import ResourceUpload
 from ckan.plugins import toolkit
 from ckanext.iati_generator.decorators import require_sysadmin_user
 
@@ -57,14 +56,11 @@ def generate_test_iati(package_id):
                 "url_type": "upload",
                 "description": "Automatically generated file from CSV"
             }
-            # 3. Physically upload the file to storage
-            uploader = ResourceUpload(resource_data)
-            uploader.upload(package_id)
 
-            # 4. Create the resource in CKAN (with the file already saved)
+            # 3. Create the resource in CKAN (with the file already saved)
             created = toolkit.get_action("resource_create")(context, resource_data)
 
-            # 5. Build the download URL to display in the view
+            # 4. Build the download URL to display in the view
             xml_url = f"/dataset/{package_id}/resource/{created['id']}/download/{created['name']}"
 
             flash(toolkit._("XML file uploaded successfully as a new resource."), "success")
