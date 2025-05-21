@@ -35,7 +35,7 @@ def generate_test_iati(package_id):
         return redirect(url_for("iati_generator.iati_page", package_id=package_id))
 
     # Call the action that generates the XML and returns xml_string + logs
-    result = toolkit.get_action("iati_generate_test_xml")(context, {"resource_id": resource_id})
+    result = toolkit.get_action("generate_iati_xml")(context, {"resource_id": resource_id})
     logs = result.get("logs", "")
     file_path = result.get("file_path")
 

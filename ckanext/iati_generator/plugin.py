@@ -2,7 +2,7 @@
 import logging
 from ckan import plugins as p
 from ckan.plugins import toolkit
-from ckanext.iati_generator.actions.iati import iati_generate_test_xml
+from ckanext.iati_generator.actions.iati import generate_iati_xml
 from ckanext.iati_generator.blueprint.iati import iati_blueprint
 
 log = logging.getLogger(__name__)
@@ -25,5 +25,5 @@ class IatiGeneratorPlugin(p.SingletonPlugin):
 
     def get_actions(self):
         return {
-            "iati_generate_test_xml": iati_generate_test_xml,
+            "generate_iati_xml": generate_iati_xml,
         }

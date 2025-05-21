@@ -2,99 +2,77 @@ import logging
 import os
 import tempfile
 import csv
-import traceback
-import ckan.lib.uploader as uploader
+
 from ckan.plugins import toolkit
-from okfn_iati import (
-    Activity, Narrative, OrganizationRef,
-    IatiActivities, IatiXmlGenerator
-)
+
+from ckanext.iati_generator.csv import row_to_iati_activity
+from ckanext.iati_generator.utils import generate_final_iati_xml, get_resource_file_path
+
 
 log = logging.getLogger(__name__)
 
-# Limit the number of rows to process to avoid large XML files
-ROWS_LIMIT = int(toolkit.config.get("iati_generator.rows_limit", 50000))
 
-
-def iati_generate_test_xml(context, data_dict):
+def generate_iati_xml(context, data_dict):
+    """ Generate a IATI file froma CSV resource file.
+        data_dict should contain:
+          - resource_id: the ID of the resource to read from
+        Returns a tuple with:
+          - file_path: the path to the generated XML file or None if failed
+          - logs: a list of logs generated during the process
+    """
+    # Track all steps in this logs list
     logs = []
-    invalid_rows = []
+    resource_id = data_dict.get("resource_id")
+    logs.append(f"Start generting IATI XML file for resource: {resource_id}")
 
+    path = get_resource_file_path(context, resource_id)
+    logs.append(f"Reading CSV at: {path}")
+
+    # Limit the number of rows to process to avoid large XML files
+    ROWS_LIMIT = int(toolkit.config.get("ckanext.iati_generator.rows_limit", 50000))
+    MAX_ALLOWED_FAILURES = int(toolkit.config.get("ckanext.iati_generator.max_allowed_failures", 10))
+    # 3) Read rows from the CSV
+    f = open(path, newline="", encoding="utf-8")
+    reader = csv.DictReader(f)
+    activities = []
+    errred_rows = 0
+    for i, row in enumerate(reader):
+        if i >= ROWS_LIMIT:
+            logs.append(f"Row limit reached ({ROWS_LIMIT}); stopping")
+            break
+
+        try:
+            act = row_to_iati_activity(row)
+            activities.append(act)
+        except Exception as e:
+            msg = f"Row {i+1}: error ({e}); skipping."
+            log.error(msg)
+            logs.append(msg)
+            errred_rows += 1
+            if errred_rows > MAX_ALLOWED_FAILURES:
+                logs.append(f"Max allowed failures reached ({MAX_ALLOWED_FAILURES}); stopping")
+                break
+
+    f.close()
+
+    if not activities:
+        logs.append("No valid activities were generated")
+        return None, logs
+
+    # Generate the IATI XML
     try:
-        resource_id = data_dict["resource_id"]
-        logs.append(f"resource_id: {resource_id}")
-
-        # 1) Get resource metadata
-        resource = toolkit.get_action("resource_show")(context, {"id": resource_id})
-        fmt = resource.get("format", "").lower()
-        if fmt not in ("csv", "xml"):
-            return {"logs": f"Unsupported format '{fmt}'. Only CSV or XML allowed."}
-        if resource.get("url_type") != "upload":
-            return {"logs": "Resource must be a local upload (url_type='upload')."}
-
-        # 2) Locate the file
-        up = uploader.get_resource_uploader(resource)
-        path = up.get_path(resource_id)
-        logs.append(f"Reading CSV at: {path}")
-
-        # 3) Read rows from the CSV
-        with open(path, newline="", encoding="utf-8") as f:
-            reader = csv.DictReader(f)
-            activities = []
-            for i, row in enumerate(reader):
-                if i >= ROWS_LIMIT:
-                    logs.append(f"Row limit reached ({ROWS_LIMIT}); stopping")
-                    break
-
-            try:
-                act = Activity(
-                    iati_identifier=row["iati_identifier"],
-                    reporting_org=OrganizationRef(
-                        ref=row["reporting_org_ref"],
-                        type=row["reporting_org_type"],
-                        narratives=[Narrative(text=row["reporting_org_name"])]
-                    ),
-                    title=[Narrative(text=row["title"])],
-                    # TODO: add more IATI fields here as needed,
-                    # e.g. description=[Narrative(text=row["description"])], etc.
-                )
-                activities.append(act)
-            except KeyError as e:
-                col = e.args[0]
-                msg = f"Row {i+1}: missing required column '{col}'; skipping."
-                log.error(msg)
-                logs.append(msg)
-                invalid_rows.append(i+1)
-
-            except Exception as e:
-                msg = f"Row {i+1}: mapping error ({e}); skipping."
-                log.error(msg)
-                logs.append(msg)
-                invalid_rows.append(i+1)
-
-        if not activities:
-            logs.append(f"No valid activities generated; invalid rows: {invalid_rows}")
-            return {"logs": "\n".join(logs)}
-
-        # 5) Generate the IATI XML
-        container = IatiActivities(version="2.03", activities=activities)
-        generator = IatiXmlGenerator()
-        xml_string = generator.generate_iati_activities_xml(container)
+        xml_string = generate_final_iati_xml(activities)
         logs.append("IATI XML generated successfully")
+    except Exception as e:
+        logs.append(f"Error generating IATI XML: {e}")
+        return None, logs
 
-        # 6) Save to a temporary file
-        out_path = os.path.join(tempfile.gettempdir(), f"iati_{resource_id}.xml")
-        with open(out_path, "w", encoding="utf-8") as f:
-            f.write(xml_string)
-        logs.append(f"XML saved to {out_path}")
+    # Save to a temporary file
+    # TODO, investigate about creating/updating a CKAN resource for this or use cases
+    # when we use AWS S3 or other storage
+    out_path = os.path.join(tempfile.gettempdir(), f"iati_{resource_id}.xml")
+    with open(out_path, "w", encoding="utf-8") as f:
+        f.write(xml_string)
+    logs.append(f"XML saved to {out_path}")
 
-        return {
-            "file_path": out_path,
-            "logs": "\n".join(logs),
-        }
-
-    except Exception:
-        tb = traceback.format_exc()
-        logs.append("Unhandled exception:")
-        logs.append(tb)
-        return {"logs": "\n".join(logs)}
+    return out_path, logs
