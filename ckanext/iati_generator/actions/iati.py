@@ -1,6 +1,5 @@
 import logging
 import os
-import tempfile
 import csv
 from datetime import datetime
 
@@ -17,7 +16,7 @@ def generate_iati_xml(context, data_dict):
     """ Generate a IATI file froma CSV resource file.
         data_dict should contain:
           - resource_id: the ID of the resource to read from
-        Returns a tuple with:
+        Returns a dict with:
           - file_path: the path to the generated XML file or None if failed
           - logs: a list of logs generated during the process
     """
@@ -99,13 +98,26 @@ def generate_iati_xml(context, data_dict):
     # Save to a temporary file
     # TODO, investigate about creating/updating a CKAN resource for this or use cases
     # when we use AWS S3 or other storage
-    # Save to uniquely named temp file
+    # Save to CKAN's storage directory to make it downloadable
+    storage_root = toolkit.config.get("ckan.storage_path", "/app/storage")
+    # Create the folder structure used by CKAN: /resources/<3>/<3>/<resource_id>/
+    resource_dir = os.path.join(
+        storage_root,
+        "resources",
+        resource_id[:3],
+        resource_id[3:6],
+        resource_id
+    )
+    os.makedirs(resource_dir, exist_ok=True)
+
     timestamp = datetime.utcnow().strftime("%Y%m%d%H%M%S")
     clean_name = resource_name.replace(" ", "_").lower()
     filename = f"{clean_name}_iati_{timestamp}.xml"
-    out_path = os.path.join(tempfile.gettempdir(), filename)
+    out_path = os.path.join(resource_dir, filename)
+
     with open(out_path, "w", encoding="utf-8") as f:
         f.write(xml_string)
+
     logs.append(f"XML saved to {out_path}")
 
     return {"file_path": out_path, "logs": logs}

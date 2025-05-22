@@ -1,3 +1,4 @@
+import os
 import ckan.lib.uploader as uploader
 from ckan.plugins import toolkit
 from okfn_iati import (
@@ -39,3 +40,30 @@ def generate_final_iati_xml(activities):
     generator = IatiXmlGenerator()
     xml_string = generator.generate_iati_activities_xml(container)
     return xml_string
+
+
+def create_or_update_iati_resource(context, package_id, xml_path, existing_resource_id=None):
+    """
+    Crea o actualiza un recurso XML en un dataset CKAN.
+
+    - Si existing_resource_id es None, se crea un nuevo recurso.
+    - Si existe, se actualiza el recurso con el nuevo archivo XML.
+    """
+
+    xml_filename = os.path.basename(xml_path)
+    with open(xml_path, "rb") as fp:
+        resource_data = {
+            "package_id": package_id,
+            "upload": (fp, xml_filename),
+            "format": "XML",
+            "name": xml_filename,
+            "url_type": "upload",
+            "url": xml_filename,
+            "description": "Automatically generated file from CSV"
+        }
+
+        if existing_resource_id:
+            resource_data["id"] = existing_resource_id
+            return toolkit.get_action("resource_update")(context, resource_data)
+        else:
+            return toolkit.get_action("resource_create")(context, resource_data)

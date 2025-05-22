@@ -1,7 +1,7 @@
-import os
 from flask import Blueprint, render_template, request, redirect, url_for, flash
 from ckan.plugins import toolkit
 from ckanext.iati_generator.decorators import require_sysadmin_user
+from ckanext.iati_generator.utils import create_or_update_iati_resource
 
 iati_blueprint = Blueprint("iati_generator", __name__, url_prefix="/iati-dataset")
 
@@ -36,34 +36,36 @@ def generate_test_iati(package_id):
 
     # Call the action that generates the XML and returns xml_string + logs
     result = toolkit.get_action("generate_iati_xml")(context, {"resource_id": resource_id})
-    logs = result.get("logs", "")
+    logs = result.get("logs", [])
     file_path = result.get("file_path")
 
     xml_url = None
     if not file_path:
         flash(toolkit._("Could not generate the XML file. Check the logs below."), "error")
     else:
-        # Get the filename from the file path
-        xml_filename = os.path.basename(file_path)
+        # Check if there is already an existing XML resource saved as an extra
+        pkg = toolkit.get_action("package_show")(context, {"id": package_id})
+        extras = {e["key"]: e["value"] for e in pkg.get("extras", [])}
+        existing_resource_id = extras.get("iati_base_resource_id")
 
-        with open(file_path, "rb") as fp:
-            # 2. Create resource_data with tuple (file, filename)
-            resource_data = {
-                "package_id": package_id,
-                "upload": (fp, xml_filename),
-                "format": "XML",
-                "name": xml_filename,
-                "url_type": "upload",
-                "description": "Automatically generated file from CSV"
-            }
+        # Create or update the resource
+        created = create_or_update_iati_resource(
+            context=context,
+            package_id=package_id,
+            xml_path=file_path,
+            existing_resource_id=existing_resource_id
+        )
 
-            # 3. Create the resource in CKAN (with the file already saved)
-            created = toolkit.get_action("resource_create")(context, resource_data)
+        # If it did not exist before, save it as an extra in the dataset
+        if not existing_resource_id:
+            toolkit.get_action("package_patch")(context, {
+                "id": package_id,
+                "extras": [{"key": "iati_base_resource_id", "value": created["id"]}]
+            })
 
-            # 4. Build the download URL to display in the view
-            xml_url = f"/dataset/{package_id}/resource/{created['id']}/download/{created['name']}"
-
-            flash(toolkit._("XML file uploaded successfully as a new resource."), "success")
+        # URL for downloading the XML
+        xml_url = f"/dataset/{package_id}/resource/{created['id']}/download/{created['name']}"
+        flash(toolkit._("XML file uploaded successfully."), "success")
 
     # Render the same page with the logs and the link to the XML
     pkg = toolkit.get_action("package_show")(context, {"id": package_id})
