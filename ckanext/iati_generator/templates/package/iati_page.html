@@ -1,9 +1,30 @@
 {% extends "package/read_base.html" %}
 
 {% block primary_content_inner %}
-  <section class="module">
-    <div class="module-content">
-      <p>{{ _("This dataset is not published as IATI") }}</p>
-    </div>
-  </section>
+<section class="module">
+  <div class="module-content">
+    <form method="post" action="{{ h.url_for('iati_generator.generate_test_iati', package_id=pkg.id) }}">
+      <input type="hidden" name="authenticity_token" value="{{ csrf_token }}">
+      <label for="resource-select">{{ _("Select a resource:") }}</label>
+      <select id="resource-select" name="resource_id" required>
+        {% for resource in pkg_dict.resources %}
+          {% if resource.format.lower() in ['csv'] and resource.get('url_type') == 'upload' %}
+            <option value="{{ resource.id }}">{{ resource.name or resource.id }}</option>
+          {% endif %}
+        {% endfor %}
+      </select>
+
+      <button type="submit">{{ _("Generate test IATI") }}</button>
+    </form>
+
+    {% if logs %}
+      <h3>{{ _("Logs") }}</h3>
+      <pre>{{ logs }}</pre>
+    {% endif %}
+
+    {% if xml_url %}
+      <a href="{{ xml_url }}" target="_blank" download>{{ _("Download XML File") }}</a>
+    {% endif %}
+  </div>
+</section>
 {% endblock %}
