@@ -1,7 +1,5 @@
 import logging
-import os
 import csv
-from datetime import datetime
 
 from ckan.plugins import toolkit
 
@@ -95,29 +93,4 @@ def generate_iati_xml(context, data_dict):
         logs.append(f"Error generating IATI XML: {e}")
         return {"file_path": None, "logs": logs}
 
-    # Save to a temporary file
-    # TODO, investigate about creating/updating a CKAN resource for this or use cases
-    # when we use AWS S3 or other storage
-    # Save to CKAN's storage directory to make it downloadable
-    storage_root = toolkit.config.get("ckan.storage_path", "/app/storage")
-    # Create the folder structure used by CKAN: /resources/<3>/<3>/<resource_id>/
-    resource_dir = os.path.join(
-        storage_root,
-        "resources",
-        resource_id[:3],
-        resource_id[3:6],
-        resource_id
-    )
-    os.makedirs(resource_dir, exist_ok=True)
-
-    timestamp = datetime.utcnow().strftime("%Y%m%d%H%M%S")
-    clean_name = resource_name.replace(" ", "_").lower()
-    filename = f"{clean_name}_iati_{timestamp}.xml"
-    out_path = os.path.join(resource_dir, filename)
-
-    with open(out_path, "w", encoding="utf-8") as f:
-        f.write(xml_string)
-
-    logs.append(f"XML saved to {out_path}")
-
-    return {"file_path": out_path, "logs": logs}
+    return {"xml_string": xml_string, "logs": logs, "resource_name": resource_name}

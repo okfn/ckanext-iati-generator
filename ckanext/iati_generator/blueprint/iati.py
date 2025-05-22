@@ -37,10 +37,12 @@ def generate_test_iati(package_id):
     # Call the action that generates the XML and returns xml_string + logs
     result = toolkit.get_action("generate_iati_xml")(context, {"resource_id": resource_id})
     logs = result.get("logs", [])
-    file_path = result.get("file_path")
+    xml_string = result.get("xml_string")
+    resource_name = result.get("resource_name")
 
     xml_url = None
-    if not file_path:
+    if not xml_string:
+        # If the XML generation failed, log the error
         flash(toolkit._("Could not generate the XML file. Check the logs below."), "error")
     else:
         # Check if there is already an existing XML resource saved as an extra
@@ -52,7 +54,8 @@ def generate_test_iati(package_id):
         created = create_or_update_iati_resource(
             context=context,
             package_id=package_id,
-            xml_path=file_path,
+            xml_string=xml_string,
+            resource_name=resource_name,
             existing_resource_id=existing_resource_id
         )
 

@@ -1,4 +1,5 @@
 import os
+from datetime import datetime
 import ckan.lib.uploader as uploader
 from ckan.plugins import toolkit
 from okfn_iati import (
@@ -42,28 +43,45 @@ def generate_final_iati_xml(activities):
     return xml_string
 
 
-def create_or_update_iati_resource(context, package_id, xml_path, existing_resource_id=None):
+def create_or_update_iati_resource(context, package_id, xml_string, resource_name, existing_resource_id=None):
     """
-    Creates or updates an XML resource in a CKAN dataset.
-
-    - If existing_resource_id is None, a new resource is created.
-    - If it exists, the resource is updated with the new XML file.
+    Crea o actualiza un recurso XML en un dataset CKAN.
+    El archivo físico se guarda bajo /storage/resources/<3>/<3>/<resource_id>/filename
     """
 
-    xml_filename = os.path.basename(xml_path)
-    with open(xml_path, "rb") as fp:
-        resource_data = {
-            "package_id": package_id,
-            "upload": (fp, xml_filename),
-            "format": "XML",
-            "name": xml_filename,
-            "url_type": "upload",
-            "url": xml_filename,
-            "description": "Automatically generated file from CSV"
-        }
+    timestamp = datetime.utcnow().strftime("%Y%m%d%H%M%S")
+    clean_name = resource_name.replace(" ", "_").lower()
+    filename = f"{clean_name}_iati_{timestamp}.xml"
 
-        if existing_resource_id:
-            resource_data["id"] = existing_resource_id
-            return toolkit.get_action("resource_update")(context, resource_data)
-        else:
-            return toolkit.get_action("resource_create")(context, resource_data)
+    resource_data = {
+        "package_id": package_id,
+        "format": "XML",
+        "name": filename,
+        "url_type": "upload",
+        "url": filename,
+        "description": "Automatically generated file from CSV"
+    }
+
+    if existing_resource_id:
+        resource_data["id"] = existing_resource_id
+        created = toolkit.get_action("resource_update")(context, resource_data)
+    else:
+        created = toolkit.get_action("resource_create")(context, resource_data)
+
+    # Ahora que tenemos el resource_id, generamos el archivo en la ruta correcta
+    resource_id = created["id"]
+    storage_root = toolkit.config.get("ckan.storage_path", "/app/storage")
+    resource_dir = os.path.join(
+        storage_root,
+        "resources",
+        resource_id[:3],
+        resource_id[3:6],
+        resource_id
+    )
+    os.makedirs(resource_dir, exist_ok=True)
+
+    out_path = os.path.join(resource_dir, filename)
+    with open(out_path, "w", encoding="utf-8") as f:
+        f.write(xml_string)
+
+    return created
