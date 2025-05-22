@@ -44,10 +44,10 @@ def generate_final_iati_xml(activities):
 
 def create_or_update_iati_resource(context, package_id, xml_path, existing_resource_id=None):
     """
-    Crea o actualiza un recurso XML en un dataset CKAN.
+    Creates or updates an XML resource in a CKAN dataset.
 
-    - Si existing_resource_id es None, se crea un nuevo recurso.
-    - Si existe, se actualiza el recurso con el nuevo archivo XML.
+    - If existing_resource_id is None, a new resource is created.
+    - If it exists, the resource is updated with the new XML file.
     """
 
     xml_filename = os.path.basename(xml_path)
