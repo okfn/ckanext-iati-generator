@@ -10,36 +10,21 @@ from ckanext.iati_generator.utils import generate_final_iati_xml, get_resource_f
 log = logging.getLogger(__name__)
 
 
-def generate_iati_xml(context, data_dict):
-    """ Generate a IATI file from a CSV resource file.
-        data_dict should contain:
-          - resource_id: the ID of the resource to read from
-        Returns a dict with:
-          - file_path: the path to the generated XML file or None if failed
-          - logs: a list of logs generated during the process
-    """
-    # Track all steps in this logs list
+def get_validated_csv_data(context, resource_id):
     logs = []
-    resource_id = data_dict.get("resource_id")
-    logs.append(f"Start generating IATI XML file for resource: {resource_id}")
-
-    # Get the resource file path and metadata
-    path = get_resource_file_path(context, resource_id)
-    logs.append(f"Reading CSV at: {path}")
-
-    try:
-        resource = toolkit.get_action("resource_show")(context, {"id": resource_id})
-        resource_name = resource.get("name", "resource")
-    except Exception as e:
-        msg = f"Error retrieving resource metadata: {e}"
-        log.error(msg)
-        logs.append(msg)
-        return {"file_path": None, "logs": logs}
-
+    resource_name = None
     activities = []
     errored_rows = 0
 
-    # Validate headers
+    # Validate existence of the resource and get its name
+    resource = toolkit.get_action("resource_show")(context, {"id": resource_id})
+    resource_name = resource.get("name", "resource")
+
+    # Validate file type and get path
+    path = get_resource_file_path(context, resource_id)
+    logs.append(f"Reading CSV at: {path}")
+
+    # Read CSV and validate headers
     with open(path, newline="", encoding="utf-8") as f:
         reader = csv.DictReader(f)
         fieldnames = reader.fieldnames
@@ -50,43 +35,65 @@ def generate_iati_xml(context, data_dict):
         missing = [field for field in required_fields if field not in fieldnames]
 
         if missing:
-            msg = f"Missing required columns in CSV header: {', '.join(missing)}"
-            log.error(msg)
-            logs.append(msg)
-            return {"file_path": None, "logs": logs}
+            raise ValueError(f"Missing required columns in CSV header: {', '.join(missing)}")
 
-        # Limit the number of rows to process to avoid large XML files
         ROWS_LIMIT = int(toolkit.config.get("ckanext.iati_generator.rows_limit", 50000))
         MAX_ALLOWED_FAILURES = int(toolkit.config.get("ckanext.iati_generator.max_allowed_failures", 10))
 
-        # Check if the CSV has the required headers
         for i, row in enumerate(reader):
             if i >= ROWS_LIMIT:
                 logs.append(f"Row limit reached ({ROWS_LIMIT}); stopping")
                 break
-
             try:
-                act = row_to_iati_activity(row)
-                activities.append(act)
+                activity = row_to_iati_activity(row)
+                activities.append(activity)
             except Exception as e:
                 msg = f"Row {i+1}: error ({e}); skipping."
-                log.error(msg)
                 logs.append(msg)
+                log.error(msg)
                 errored_rows += 1
                 if errored_rows > MAX_ALLOWED_FAILURES:
                     logs.append(f"Max allowed failures reached ({MAX_ALLOWED_FAILURES}); stopping")
                     break
 
-    if not activities:
-        logs.append("No valid activities were generated")
-        return {"file_path": None, "logs": logs}
+    return activities, logs, resource_name
 
-    # Generate the IATI XML
+
+def build_iati_xml(activities):
+    return generate_final_iati_xml(activities)
+
+
+def generate_iati_xml(context, data_dict):
+    """
+    Generate an IATI XML string from a CSV resource file.
+
+    data_dict should contain:
+        - resource_id: the ID of the resource to read from
+
+    Returns a dict with:
+        - xml_string: the generated IATI XML as a string, or None if failed
+        - logs: a list of logs generated during the process
+        - resource_name: the name of the resource being processed (or None)
+    """
+    logs = []
+    resource_id = data_dict.get("resource_id")
+    logs.append(f"Start generating IATI XML file for resource: {resource_id}")
+
     try:
-        xml_string = generate_final_iati_xml(activities)
-        logs.append("IATI XML generated successfully")
-    except Exception as e:
-        logs.append(f"Error generating IATI XML: {e}")
-        return {"file_path": None, "logs": logs}
+        activities, csv_logs, resource_name = get_validated_csv_data(context, resource_id)
+        logs.extend(csv_logs)
 
-    return {"xml_string": xml_string, "logs": logs, "resource_name": resource_name}
+        if not activities:
+            logs.append("No valid activities were generated")
+            return {"xml_string": None, "logs": logs, "resource_name": resource_name}
+
+        xml_string = build_iati_xml(activities)
+        logs.append("IATI XML generated successfully")
+
+        return {"xml_string": xml_string, "logs": logs, "resource_name": resource_name}
+
+    except Exception as e:
+        msg = f"Error during IATI generation: {e}"
+        log.error(msg)
+        logs.append(msg)
+        return {"xml_string": None, "logs": logs, "resource_name": None}
