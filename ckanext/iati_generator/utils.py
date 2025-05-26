@@ -45,8 +45,8 @@ def generate_final_iati_xml(activities):
 
 def create_or_update_iati_resource(context, package_id, xml_string, resource_name, existing_resource_id=None):
     """
-    Crea o actualiza un recurso XML en un dataset CKAN.
-    El archivo físico se guarda bajo /storage/resources/<3>/<3>/<resource_id>/filename
+    Creates or updates an XML resource in a CKAN dataset.
+    The physical file is saved under /storage/resources/<3>/<3>/<resource_id>/filename
     """
 
     timestamp = datetime.utcnow().strftime("%Y%m%d%H%M%S")
