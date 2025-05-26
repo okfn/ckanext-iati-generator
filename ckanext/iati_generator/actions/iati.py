@@ -9,10 +9,6 @@ from ckanext.iati_generator.utils import generate_final_iati_xml, get_resource_f
 
 log = logging.getLogger(__name__)
 
-# Limit the number of rows to process to avoid large XML files
-ROWS_LIMIT = int(toolkit.config.get("ckanext.iati_generator.rows_limit", 50000))
-MAX_ALLOWED_FAILURES = int(toolkit.config.get("ckanext.iati_generator.max_allowed_failures", 10))
-
 
 def generate_iati_xml(context, data_dict):
     """ Generate a IATI file from a CSV resource file.
@@ -41,7 +37,7 @@ def generate_iati_xml(context, data_dict):
         return {"file_path": None, "logs": logs}
 
     activities = []
-    errred_rows = 0
+    errored_rows = 0
 
     # Validate headers
     with open(path, newline="", encoding="utf-8") as f:
@@ -59,6 +55,10 @@ def generate_iati_xml(context, data_dict):
             logs.append(msg)
             return {"file_path": None, "logs": logs}
 
+        # Limit the number of rows to process to avoid large XML files
+        ROWS_LIMIT = int(toolkit.config.get("ckanext.iati_generator.rows_limit", 50000))
+        MAX_ALLOWED_FAILURES = int(toolkit.config.get("ckanext.iati_generator.max_allowed_failures", 10))
+
         # Check if the CSV has the required headers
         for i, row in enumerate(reader):
             if i >= ROWS_LIMIT:
@@ -72,8 +72,8 @@ def generate_iati_xml(context, data_dict):
                 msg = f"Row {i+1}: error ({e}); skipping."
                 log.error(msg)
                 logs.append(msg)
-                errred_rows += 1
-                if errred_rows > MAX_ALLOWED_FAILURES:
+                errored_rows += 1
+                if errored_rows > MAX_ALLOWED_FAILURES:
                     logs.append(f"Max allowed failures reached ({MAX_ALLOWED_FAILURES}); stopping")
                     break
 
