@@ -70,6 +70,7 @@ def generate_iati_xml(context, data_dict):
         - xml_string: the generated IATI XML as a string, or None if failed
         - logs: a list of logs generated during the process
         - resource_name: the name of the resource being processed (or None)
+        - error: in case of failure, an error message
     """
     logs = []
     resource_id = data_dict.get("resource_id")
@@ -77,20 +78,25 @@ def generate_iati_xml(context, data_dict):
 
     try:
         activities, csv_logs, resource_name = get_validated_csv_data(context, resource_id)
-        logs.extend(csv_logs)
+    except Exception as e:
+        msg = f"Error validating CSV data: {e}"
+        log.error(msg)
+        logs.append(msg)
+        return {"xml_string": None, "logs": logs, "resource_name": None, "error": msg}
 
-        if not activities:
-            logs.append("No valid activities were generated")
-            return {"xml_string": None, "logs": logs, "resource_name": resource_name}
+    logs.extend(csv_logs)
+    if not activities:
+        error = "No valid activities found in the CSV file"
+        logs.append(error)
+        return {"xml_string": None, "logs": logs, "resource_name": resource_name, "error": error}
 
+    try:
         xml_string = generate_final_iati_xml(activities)
-
-        logs.append(f"IATI XML generated successfully for file: {resource_name}")
-
-        return {"xml_string": xml_string, "logs": logs, "resource_name": resource_name}
-
     except Exception as e:
         msg = f"Error during IATI generation: {e}"
         log.error(msg)
         logs.append(msg)
-        return {"xml_string": None, "logs": logs, "resource_name": None}
+        return {"xml_string": None, "logs": logs, "resource_name": None, "error": msg}
+
+    logs.append(f"IATI XML generated successfully for file: {resource_name}")
+    return {"xml_string": xml_string, "logs": logs, "resource_name": resource_name, "error": None}
