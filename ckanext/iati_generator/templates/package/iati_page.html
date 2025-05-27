@@ -5,26 +5,44 @@
   <div class="module-content">
     <form method="post" action="{{ h.url_for('iati_generator.generate_test_iati', package_id=pkg.id) }}">
       <input type="hidden" name="authenticity_token" value="{{ csrf_token }}">
-      <label for="resource-select">{{ _("Select a resource:") }}</label>
-      <select id="resource-select" name="resource_id" required>
-        <option value="" disabled selected>{{ _("Choose a resource") }}</option>
-        {% for resource in pkg_dict.resources %}
-          {% if resource.format.lower() in ['csv'] and resource.get('url_type') == 'upload' %}
-            <option value="{{ resource.id }}">{{ resource.name or resource.id }}</option>
-          {% endif %}
-        {% endfor %}
-      </select>
+      <div class="mb-3">
+        <label for="resource-select" class="form-label">{{ _("Select a resource:") }}</label>
+        <select id="resource-select" name="resource_id" class="form-select" required>
+          <option value="" disabled selected>{{ _("Choose a resource") }}</option>
+          {% for resource in pkg_dict.resources %}
+            {% if resource.format.lower() in ['csv'] and resource.get('url_type') == 'upload' %}
+              <option value="{{ resource.id }}">{{ resource.name or resource.id }}</option>
+            {% endif %}
+          {% endfor %}
+        </select>
+      </div>
 
-      <button type="submit">{{ _("Generate test IATI") }}</button>
+      <button type="submit" class="btn btn-primary">{{ _("Generate test IATI") }}</button>
     </form>
 
     {% if logs %}
-      <h3>{{ _("Logs") }}</h3>
-      <p>{{ logs }}</p>
+      <div class="mt-4">
+        <h3>{{ _("Generation Logs") }}</h3>
+        <ul class="list-group">
+          {% for line in logs %}
+            {% if "error" in line.lower() or "failed" in line.lower() %}
+              <li class="list-group-item list-group-item-danger">❌ {{ line }}</li>
+            {% elif "success" in line.lower() %}
+              <li class="list-group-item list-group-item-success">✅ {{ line }}</li>
+            {% else %}
+              <li class="list-group-item list-group-item-info">🔹 {{ line }}</li>
+            {% endif %}
+          {% endfor %}
+        </ul>
+      </div>
     {% endif %}
 
     {% if xml_url %}
-      <a href="{{ xml_url }}" target="_blank" download>{{ _("Download XML File") }}</a>
+      <div class="mt-4">
+        <a href="{{ xml_url }}" class="btn btn-success" target="_blank" download>
+          {{ _("Download XML File") }}
+        </a>
+      </div>
     {% endif %}
   </div>
 </section>

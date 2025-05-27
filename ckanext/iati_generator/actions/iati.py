@@ -88,7 +88,7 @@ def generate_iati_xml(context, data_dict):
             return {"xml_string": None, "logs": logs, "resource_name": resource_name}
 
         xml_string = build_iati_xml(activities)
-        logs.append("IATI XML generated successfully")
+        logs.append(f"IATI XML generated successfully for file: {resource_name}")
 
         return {"xml_string": xml_string, "logs": logs, "resource_name": resource_name}
 
