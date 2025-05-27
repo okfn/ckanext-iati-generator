@@ -59,10 +59,6 @@ def get_validated_csv_data(context, resource_id):
     return activities, logs, resource_name
 
 
-def build_iati_xml(activities):
-    return generate_final_iati_xml(activities)
-
-
 def generate_iati_xml(context, data_dict):
     """
     Generate an IATI XML string from a CSV resource file.
@@ -87,7 +83,8 @@ def generate_iati_xml(context, data_dict):
             logs.append("No valid activities were generated")
             return {"xml_string": None, "logs": logs, "resource_name": resource_name}
 
-        xml_string = build_iati_xml(activities)
+        xml_string = generate_final_iati_xml(activities)
+
         logs.append(f"IATI XML generated successfully for file: {resource_name}")
 
         return {"xml_string": xml_string, "logs": logs, "resource_name": resource_name}
