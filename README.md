@@ -1,11 +1,10 @@
 [![Tests CKAN 2.10](https://github.com/okfn/ckanext-iati-generator/workflows/CKAN%202.10%20Tests/badge.svg)](https://github.com/okfn/ckanext-iati-generator/actions)
-[![Tests CKAN 2.11](https://github.com/okfn/ckanext-iati-generator/workflows/CKAN%202.11%20Tests/badge.svg)](https://github.com/okfn/ckanext-iati-generator/actions)
-This repository contains a CKAN open-source extension that can be added to any CKAN 2.11+ instance. It was developed by BCIE
-(Banco Centroamericano de Integración Económica) and Open Knowledge Foundation (OKFN).  
+[![Tests CKAN 2.11](https://github.com/okfn/ckanext-iati-generator/workflows/CKAN%202.11%20Tests/badge.svg)](https://github.com/okfn/ckanext-iati-generator/actions)  
 
 # IATI generator
 
-CKAN extension for generating data in IATI format.
+CKAN extension for generating data in IATI format. It was developed by BCIE (Banco Centroamericano de Integración Económica)
+and the Open Knowledge Foundation (OKFN).  
 
 ## Use-cases
 
