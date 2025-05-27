@@ -7,6 +7,7 @@
       <input type="hidden" name="authenticity_token" value="{{ csrf_token }}">
       <label for="resource-select">{{ _("Select a resource:") }}</label>
       <select id="resource-select" name="resource_id" required>
+        <option value="" disabled selected>{{ _("Choose a resource") }}</option>
         {% for resource in pkg_dict.resources %}
           {% if resource.format.lower() in ['csv'] and resource.get('url_type') == 'upload' %}
             <option value="{{ resource.id }}">{{ resource.name or resource.id }}</option>

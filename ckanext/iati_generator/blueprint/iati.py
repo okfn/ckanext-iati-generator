@@ -71,7 +71,6 @@ def generate_test_iati(package_id):
         flash(toolkit._("XML file uploaded successfully."), "success")
 
     # Render the same page with the logs and the link to the XML
-    pkg = toolkit.get_action("package_show")(context, {"id": package_id})
     return render_template(
         "package/iati_page.html",
         pkg=pkg,

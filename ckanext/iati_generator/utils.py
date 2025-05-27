@@ -1,4 +1,5 @@
 import os
+import re
 from datetime import datetime
 import ckan.lib.uploader as uploader
 from ckan.plugins import toolkit
@@ -50,7 +51,7 @@ def create_or_update_iati_resource(context, package_id, xml_string, resource_nam
     """
 
     timestamp = datetime.utcnow().strftime("%Y%m%d%H%M%S")
-    clean_name = resource_name.replace(" ", "_").lower()
+    clean_name = re.sub(r'[^a-zA-Z0-9_-]', '_', resource_name).lower()
     filename = f"{clean_name}_iati_{timestamp}.xml"
 
     resource_data = {
