@@ -1,5 +1,6 @@
 import os
 import re
+import uuid
 from datetime import datetime
 import ckan.lib.uploader as uploader
 from ckan.plugins import toolkit
@@ -54,23 +55,9 @@ def create_or_update_iati_resource(context, package_id, xml_string, resource_nam
     clean_name = re.sub(r'[^a-zA-Z0-9_-]', '_', resource_name).lower()
     filename = f"{clean_name}_iati_{timestamp}.xml"
 
-    resource_data = {
-        "package_id": package_id,
-        "format": "XML",
-        "name": filename,
-        "url_type": "upload",
-        "url": filename,
-        "description": "Automatically generated file from CSV"
-    }
+    # Determine resource ID ahead of time
+    resource_id = existing_resource_id or str(uuid.uuid4())
 
-    if existing_resource_id:
-        resource_data["id"] = existing_resource_id
-        created = toolkit.get_action("resource_update")(context, resource_data)
-    else:
-        created = toolkit.get_action("resource_create")(context, resource_data)
-
-    # Ahora que tenemos el resource_id, generamos el archivo en la ruta correcta
-    resource_id = created["id"]
     storage_root = toolkit.config.get("ckan.storage_path", "/app/storage")
     resource_dir = os.path.join(
         storage_root,
@@ -84,5 +71,23 @@ def create_or_update_iati_resource(context, package_id, xml_string, resource_nam
     out_path = os.path.join(resource_dir, filename)
     with open(out_path, "w", encoding="utf-8") as f:
         f.write(xml_string)
+
+    site_url = toolkit.config.get("ckan.site_url", "http://localhost:5000")
+    url = f"{site_url}/iati-dataset/static-iati/{resource_id}/{filename}"
+
+    resource_data = {
+        "package_id": package_id,
+        "format": "XML",
+        "name": filename,
+        "url_type": "none",
+        "url": url,
+        "description": "Automatically generated file from CSV"
+    }
+
+    if existing_resource_id:
+        resource_data["id"] = existing_resource_id
+        created = toolkit.get_action("resource_update")(context, resource_data)
+    else:
+        created = toolkit.get_action("resource_create")(context, resource_data)
 
     return created

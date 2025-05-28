@@ -1,4 +1,5 @@
-from flask import Blueprint, render_template, request, redirect, url_for, flash
+from flask import Blueprint, render_template, request, redirect, url_for, flash, send_from_directory
+import os
 from ckan.plugins import toolkit
 from ckanext.iati_generator.decorators import require_sysadmin_user
 from ckanext.iati_generator.utils import create_or_update_iati_resource
@@ -78,3 +79,20 @@ def generate_test_iati(package_id):
         logs=logs,
         xml_url=xml_url
     )
+
+
+@iati_blueprint.route("/static-iati/<resource_id>/<filename>")
+@require_sysadmin_user
+def serve_iati_file(resource_id, filename):
+    """Serve a static IATI file from the storage directory.
+    The file is expected to be located in the storage path under
+    /resources/<first_3_chars_of_resource_id>/<next_3_chars>/<resource_id>/<filename>
+    """
+    storage_root = toolkit.config.get("ckan.storage_path", "/app/storage")
+    dir_path = os.path.join(
+        storage_root, "resources",
+        resource_id[:3],
+        resource_id[3:6],
+        resource_id
+    )
+    return send_from_directory(directory=dir_path, path=filename)
