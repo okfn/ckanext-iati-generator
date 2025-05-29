@@ -1,8 +1,9 @@
 
 import logging
-from ckanext.iati_generator.blueprint.iati import iati_blueprint
 from ckan import plugins as p
 from ckan.plugins import toolkit
+from ckanext.iati_generator.actions.iati import generate_iati_xml
+from ckanext.iati_generator.blueprint.iati import iati_blueprint
 
 log = logging.getLogger(__name__)
 
@@ -10,6 +11,7 @@ log = logging.getLogger(__name__)
 class IatiGeneratorPlugin(p.SingletonPlugin):
     p.implements(p.IConfigurer)
     p.implements(p.IBlueprint)
+    p.implements(p.IActions)
 
     def update_config(self, config_):
         toolkit.add_template_directory(config_, "templates")
@@ -20,3 +22,8 @@ class IatiGeneratorPlugin(p.SingletonPlugin):
         return [
             iati_blueprint
         ]
+
+    def get_actions(self):
+        return {
+            "generate_iati_xml": generate_iati_xml,
+        }

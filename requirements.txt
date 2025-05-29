@@ -1,1 +1,2 @@
-git+https://github.com/okfn/okfn_iati.git@main
+okfn-iati==0.2.0
+
