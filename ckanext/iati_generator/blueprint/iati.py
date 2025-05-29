@@ -1,4 +1,4 @@
-from flask import Blueprint, request, redirect, flash, send_from_directory
+from flask import Blueprint, flash, send_from_directory
 import os
 from ckan.lib import base
 from ckan.plugins import toolkit
@@ -30,11 +30,11 @@ def iati_page(package_id):
 @require_sysadmin_user
 def generate_test_iati(package_id):
     context = {"user": toolkit.c.user}
-    resource_id = request.form.get("resource_id")
+    resource_id = toolkit.request.form.get("resource_id")
 
     if not resource_id:
         flash(toolkit._("Resource ID is required"), "error")
-        return redirect(toolkit.url_for("iati_generator.iati_page", package_id=package_id))
+        return toolkit.redirect(toolkit.url_for("iati_generator.iati_page", package_id=package_id))
 
     # Call the action that generates the XML and returns xml_string + logs
     result = toolkit.get_action("generate_iati_xml")(context, {"resource_id": resource_id})
