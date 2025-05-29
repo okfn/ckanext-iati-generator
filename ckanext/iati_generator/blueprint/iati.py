@@ -95,7 +95,7 @@ def serve_iati_file(resource_id, filename):
 
     Requires the user to be authenticated as a sysadmin.
     """
-    storage_root = toolkit.config.get("ckan.storage_path", "/app/storage")
+    storage_root = toolkit.config.get("ckan.storage_path")
     dir_path = os.path.join(
         storage_root, "resources",
         resource_id[:3],
