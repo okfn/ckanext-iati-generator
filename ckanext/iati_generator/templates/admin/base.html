@@ -1,0 +1,10 @@
+{% ckan_extends %}
+
+{% block admin_nav %}
+  {{ super() }}
+  <li class="{% if h.nav_active('iati_generator_admin.index') %}active{% endif %}">
+    <a href="{{ h.url_for('iati_generator_admin.index') }}">
+      <i class="fa fa-file-code-o"></i> {{ _('IATI Generator') }}
+    </a>
+  </li>
+{% endblock %}
