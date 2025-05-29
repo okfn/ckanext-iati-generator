@@ -84,3 +84,26 @@ filterwarnings = [
     "ignore::DeprecationWarning"
 ]
 addopts = "--ckan-ini test.ini"
+
+[tool.babel]
+[tool.babel.extract_messages]
+keywords = ["translate", "isPlural"]
+add_comments = "TRANSLATORS:"
+output_file = "ckanext/iati_generator/i18n/ckanext-iati-generator.pot"
+width = 80
+
+[tool.babel.init_catalog]
+domain = "ckanext-iati-generator"
+input_file = "ckanext/iati_generator/i18n/ckanext-iati-generator.pot"
+output_dir = "ckanext/iati_generator/i18n"
+
+[tool.babel.update_catalog]
+domain = "ckanext-iati-generator"
+input_file = "ckanext/iati_generator/i18n/ckanext-iati-generator.pot"
+output_dir = "ckanext/iati_generator/i18n"
+previous = true
+
+[tool.babel.compile_catalog]
+domain = "ckanext-iati-generator"
+directory = "ckanext/iati_generator/i18n"
+statistics = true
