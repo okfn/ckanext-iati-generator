@@ -1,1 +1,1 @@
--e git+https://github.com/okfn/okfn_iati.git@0.1.0#egg=okfn_iati
+-e git+https://github.com/okfn/okfn_iati.git@0.2.0#egg=okfn_iati
