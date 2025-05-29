@@ -22,7 +22,8 @@ class IatiGeneratorPlugin(p.SingletonPlugin, DefaultTranslation):
 
     def get_blueprint(self):
         return [
-            iati_blueprint
+            iati_blueprint,
+            iati_blueprint_admin
         ]
 
     def get_actions(self):

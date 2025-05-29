@@ -8,23 +8,16 @@ from ckanext.iati_generator.utils import create_or_update_iati_resource
 
 iati_blueprint = Blueprint("iati_generator", __name__, url_prefix="/iati-dataset")
 
-
-@iati_blueprint.route("/<package_id>", methods=["GET"])
+@iati_blueprint.route('/')
 @require_sysadmin_user
-def iati_page(package_id):
-    context = {"user": toolkit.c.user}
-    # Fetch the package using package_show
-    try:
-        pkg_dict = toolkit.get_action("package_show")(context, {"id": package_id})
-    except toolkit.ObjectNotFound:
-        return toolkit.abort(404, toolkit._("Dataset not found"))
-
-    # Pass both pkg and pkg_dict to the template (CKAN templates use both)
+def index():
+    """
+    IATI Generator home page.
+    """
     ctx = {
-        "pkg": pkg_dict,
-        "pkg_dict": pkg_dict,
+        "user": toolkit.c.user,
     }
-    return base.render("package/iati_page.html", ctx)
+    return toolkit.render("admin/iati.html", ctx)
 
 
 @iati_blueprint.route("/<package_id>/generate", methods=["POST"])
