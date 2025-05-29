@@ -1,5 +1,6 @@
-from flask import Blueprint, render_template, request, redirect, url_for, flash, send_from_directory
+from flask import Blueprint, request, redirect, url_for, flash, send_from_directory
 import os
+from ckan.lib import base
 from ckan.plugins import toolkit
 from ckanext.iati_generator.decorators import require_sysadmin_user
 from ckanext.iati_generator.utils import create_or_update_iati_resource
@@ -18,7 +19,7 @@ def iati_page(package_id):
         return toolkit.abort(404, toolkit._("Dataset not found"))
 
     # Pass both pkg and pkg_dict to the template (CKAN templates use both)
-    return render_template(
+    return base.render(
         "package/iati_page.html",
         pkg=pkg_dict,
         pkg_dict=pkg_dict
@@ -72,7 +73,7 @@ def generate_test_iati(package_id):
         flash(toolkit._("XML file uploaded successfully."), "success")
 
     # Render the same page with the logs and the link to the XML
-    return render_template(
+    return base.render(
         "package/iati_page.html",
         pkg=pkg,
         pkg_dict=pkg,
