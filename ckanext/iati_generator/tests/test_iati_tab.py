@@ -53,7 +53,7 @@ class TestIatiTab:
         user = factories.SysadminWithToken()
         org = factories.Organization()
         dataset = factories.Dataset(owner_org=org["id"])
-        # Creamos un recurso sin columnas requeridas para forzar error
+        # Create a resource without required columns to force an error
         resource = factories.Resource(
             package_id=dataset["id"],
             format="CSV",
