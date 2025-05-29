@@ -1,4 +1,4 @@
-from flask import Blueprint, request, redirect, url_for, flash, send_from_directory
+from flask import Blueprint, request, redirect, flash, send_from_directory
 import os
 from ckan.lib import base
 from ckan.plugins import toolkit
@@ -34,7 +34,7 @@ def generate_test_iati(package_id):
 
     if not resource_id:
         flash(toolkit._("Resource ID is required"), "error")
-        return redirect(url_for("iati_generator.iati_page", package_id=package_id))
+        return redirect(toolkit.url_for("iati_generator.iati_page", package_id=package_id))
 
     # Call the action that generates the XML and returns xml_string + logs
     result = toolkit.get_action("generate_iati_xml")(context, {"resource_id": resource_id})
