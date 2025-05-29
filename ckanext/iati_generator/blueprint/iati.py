@@ -20,11 +20,11 @@ def iati_page(package_id):
         return toolkit.abort(404, toolkit._("Dataset not found"))
 
     # Pass both pkg and pkg_dict to the template (CKAN templates use both)
-    return base.render(
-        "package/iati_page.html",
-        pkg=pkg_dict,
-        pkg_dict=pkg_dict
-    )
+    ctx = {
+        "pkg": pkg_dict,
+        "pkg_dict": pkg_dict,
+    }
+    return base.render("package/iati_page.html", ctx)
 
 
 @iati_blueprint.route("/<package_id>/generate", methods=["POST"])
@@ -74,13 +74,13 @@ def generate_test_iati(package_id):
         h.flash_success(toolkit._("XML file uploaded successfully."), "success")
 
     # Render the same page with the logs and the link to the XML
-    return base.render(
-        "package/iati_page.html",
-        pkg=pkg,
-        pkg_dict=pkg,
-        logs=logs,
-        xml_url=xml_url
-    )
+    ctx = {
+        "pkg": pkg,
+        "pkg_dict": pkg,
+        "logs": logs,
+        "xml_url": xml_url,
+    }
+    return base.render("package/iati_page.html", ctx)
 
 
 @iati_blueprint.route("/static-iati/<resource_id>/<filename>")
