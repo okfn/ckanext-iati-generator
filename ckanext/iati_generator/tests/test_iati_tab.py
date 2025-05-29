@@ -66,7 +66,7 @@ class TestIatiTab:
         auth = {"Authorization": user["token"]}
 
         response = app.post(url, headers=auth, params=data, status=200)
-        assert "Could not generate the XML file" in response.text
+        assert "Could not generate the XML file" in response.body
 
     def test_serve_iati_file_not_found(self, app):
         """
@@ -78,4 +78,4 @@ class TestIatiTab:
         url = f"/iati-dataset/static-iati/{resource_id}/{fake_filename}"
         auth = {"Authorization": user["token"]}
         response = app.get(url, headers=auth, status=404)
-        assert "XML file not found" in response.text
+        assert "XML file not found" in response.body
