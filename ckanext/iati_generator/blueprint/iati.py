@@ -1,6 +1,7 @@
-from flask import Blueprint, flash, send_from_directory
+from flask import Blueprint, send_from_directory
 import os
 from ckan.lib import base
+from ckan.lib.helpers import helper_functions as h
 from ckan.plugins import toolkit
 from ckanext.iati_generator.decorators import require_sysadmin_user
 from ckanext.iati_generator.utils import create_or_update_iati_resource
@@ -33,7 +34,7 @@ def generate_test_iati(package_id):
     resource_id = toolkit.request.form.get("resource_id")
 
     if not resource_id:
-        flash(toolkit._("Resource ID is required"), "error")
+        h.flash_error(toolkit._("Resource ID is required"), "error")
         return toolkit.redirect(toolkit.url_for("iati_generator.iati_page", package_id=package_id))
 
     # Call the action that generates the XML and returns xml_string + logs
@@ -45,7 +46,7 @@ def generate_test_iati(package_id):
     xml_url = None
     if not xml_string:
         # If the XML generation failed, log the error
-        flash(toolkit._("Could not generate the XML file. Check the logs below."), "error")
+        h.flash_error(toolkit._("Could not generate the XML file. Check the logs below."), "error")
     else:
         # Check if there is already an existing XML resource saved as an extra
         pkg = toolkit.get_action("package_show")(context, {"id": package_id})
@@ -70,7 +71,7 @@ def generate_test_iati(package_id):
 
         # URL for downloading the XML
         xml_url = f"/dataset/{package_id}/resource/{created['id']}/download/{created['name']}"
-        flash(toolkit._("XML file uploaded successfully."), "success")
+        h.flash_success(toolkit._("XML file uploaded successfully."), "success")
 
     # Render the same page with the logs and the link to the XML
     return base.render(
