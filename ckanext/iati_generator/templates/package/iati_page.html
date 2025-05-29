@@ -4,7 +4,7 @@
 <section class="module">
   <div class="module-content">
     <form method="post" action="{{ h.url_for('iati_generator.generate_test_iati', package_id=pkg.id) }}">
-      <input type="hidden" name="authenticity_token" value="{{ csrf_token }}">
+      {{ h.csrf_input() }}
       <div class="mb-3">
         <label for="resource-select" class="form-label">{{ _("Select a resource:") }}</label>
         <select id="resource-select" name="resource_id" class="form-select" required>
