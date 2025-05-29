@@ -104,4 +104,5 @@ def serve_iati_file(resource_id, filename):
         resource_id[3:6],
         resource_id
     )
+    # TODO check if CKAN FlaskApp -> MultiStaticFlask.send_static_file is a better option
     return send_from_directory(directory=dir_path, path=filename)
