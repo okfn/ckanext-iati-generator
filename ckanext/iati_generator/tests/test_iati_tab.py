@@ -43,7 +43,7 @@ class TestIatiTab:
         response = app.get(url, headers=auth)
 
         assert response.status_code == 200
-        assert "Generate test IATI" in response.body
+        assert "Generate IATI XML File" in response.body
 
     @pytest.mark.ckan_config("ckan.plugins", "iati_generator")
     def test_generate_iati_failure_no_crash(self, app):
