@@ -85,6 +85,9 @@ filterwarnings = [
 ]
 addopts = "--ckan-ini test.ini"
 
+[project.entry-points."babel.extractors"]
+ckan = "ckan.lib.extract:extract_ckan"	ckan = "ckan.lib.extract:extract_ckan"
+
 [tool.babel]
 [tool.babel.extract_messages]
 keywords = ["translate", "isPlural"]
@@ -107,3 +110,8 @@ previous = true
 domain = "ckanext-iati-generator"
 directory = "ckanext/iati_generator/i18n"
 statistics = true
+
+[tool.babel.extractors.ckanext]
+"**.py" = "python"	"**.py" = "python"
+"**.js" = "javascript"	"**.js" = "javascript"
+"**/templates/**.html" = "ckan"	"**/templates/**.html" = "ckan"
