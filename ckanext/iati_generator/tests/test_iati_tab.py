@@ -38,12 +38,22 @@ class TestIatiTab:
         org = factories.Organization()
         dataset = factories.Dataset(owner_org=org["id"])
 
+        # Add a valid CSV resource to the dataset
+        factories.Resource(
+            package_id=dataset["id"],
+            format="CSV",
+            url_type="upload",
+            url="test.csv",
+            name="test.csv"
+        )
+
         url = url_for("iati_generator.iati_page", package_id=dataset["id"])
         auth = {"Authorization": user["token"]}
         response = app.get(url, headers=auth)
 
         assert response.status_code == 200
-        assert "Generate IATI XML File" in response.body
+        assert 'Generate IATI XML File' in response.body
+        assert 'Select a resource' in response.body
 
     @pytest.mark.ckan_config("ckan.plugins", "iati_generator")
     def test_generate_iati_failure_no_crash(self, app):
