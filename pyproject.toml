@@ -4,7 +4,6 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ckanext-iati-generator"
-# see tool.setuptools.dynamic in this file
 dynamic = ["version"]
 description = "CKAN extension to generate data in IATI format"
 readme = "README.md"
@@ -14,13 +13,13 @@ authors = [
     { name = "OKFN", email = "info@okfn.org" },
     { name = "German Favaro", email = "germankay@gmail.com" }
 ]
+
 maintainers = [
     { name = "OKFN", email = "info@okfn.org" },
     { name = "German Favaro", email = "germankay@gmail.com" }
 ]
 
-keywords = ["CKAN", "iati-generator"]
-
+keywords = ["CKAN", "iati", "iati-generator", "extension"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)",
@@ -35,15 +34,24 @@ dependencies = [
 ]
 
 [project.urls]
-"Homepage" = "https://github.com/okfn/ckanext-iati-generator"
-"Issues" = "https://github.com/okfn/ckanext-iati-generator/issues"
+Homepage = "https://github.com/okfn/ckanext-iati-generator"
+Issues = "https://github.com/okfn/ckanext-iati-generator/issues"
 
 [project.optional-dependencies]
-# Optional dependencies can be listed here
-# dev = [
-#     "pytest",
-#     "flake8",
-# ]
+dev = [
+    "pytest",
+    "flake8",
+]
+
+[project.scripts]
+# Add CLI scripts here if needed
+# example = "ckanext.iati_generator.cli:main"
+
+[project.entry-points."ckan.plugins"]
+iati_generator = "ckanext.iati_generator.plugin:IatiGeneratorPlugin"
+
+[project.entry-points."babel.extractors"]
+ckan = "ckan.lib.extract:extract_ckan"
 
 [tool.setuptools.packages.find]
 where = ["."]
@@ -56,37 +64,10 @@ include = ["*"]
 [tool.setuptools.dynamic]
 version = {attr = "ckanext.iati_generator.__VERSION__"}
 
-[tool.setuptools.data-files]
-# Data files can be listed here
-# Example:
-# "my_data" = ["path/to/data/file"]
-
-[project.scripts]
-# Entry points for console scripts can be added here
-# Example:
-# your_command = "your_module:main"
-
-[project.entry-points."ckan.plugins"]
-iati_generator = "ckanext.iati_generator.plugin:IatiGeneratorPlugin"
-
-[project.entry-points."babel.extractors"]
-ckan = "ckan.lib.extract:extract_ckan"
-
 [tool.babel.extractors.ckanext]
 "**.py" = "python"
 "**.js" = "javascript"
 "**/templates/**.html" = "ckan"
-
-[tool.pytest.ini_options]
-filterwarnings = [
-    "ignore::sqlalchemy.exc.SADeprecationWarning",
-    "ignore::sqlalchemy.exc.SAWarning",
-    "ignore::DeprecationWarning"
-]
-addopts = "--ckan-ini test.ini"
-
-[project.entry-points."babel.extractors"]
-ckan = "ckan.lib.extract:extract_ckan"	ckan = "ckan.lib.extract:extract_ckan"
 
 [tool.babel]
 [tool.babel.extract_messages]
@@ -111,7 +92,10 @@ domain = "ckanext-iati-generator"
 directory = "ckanext/iati_generator/i18n"
 statistics = true
 
-[tool.babel.extractors.ckanext]
-"**.py" = "python"	"**.py" = "python"
-"**.js" = "javascript"	"**.js" = "javascript"
-"**/templates/**.html" = "ckan"	"**/templates/**.html" = "ckan"
+[tool.pytest.ini_options]
+filterwarnings = [
+    "ignore::sqlalchemy.exc.SADeprecationWarning",
+    "ignore::sqlalchemy.exc.SAWarning",
+    "ignore::DeprecationWarning"
+]
+addopts = "--ckan-ini test.ini"
