@@ -100,3 +100,17 @@ def generate_iati_xml(context, data_dict):
 
     logs.append(f"IATI XML generated successfully for file: {resource_name}")
     return {"xml_string": xml_string, "logs": logs, "resource_name": resource_name, "error": None}
+
+
+@toolkit.side_effect_free
+def list_datasets_with_iati(context, data_dict=None):
+    """
+    Devuelve todos los datasets que tienen un recurso IATI generado,
+    identificado por el extra 'iati_base_resource_id'.
+    """
+    search_result = toolkit.get_action("package_search")(context, {
+        "q": "extras_iati_base_resource_id:[* TO *]",
+        "rows": 1000,
+        "sort": "metadata_modified desc"
+    })
+    return search_result["results"]

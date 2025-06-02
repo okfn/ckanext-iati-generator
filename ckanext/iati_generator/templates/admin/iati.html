@@ -1,0 +1,32 @@
+{% extends "admin/base.html" %}
+
+{% block primary_content %}
+  <h1>{{ _('Datasets con XML IATI generado') }}</h1>
+
+  {% if datasets %}
+    <table class="table table-striped table-bordered">
+      <thead>
+        <tr>
+          <th>{{ _('Título') }}</th>
+          <th>{{ _('Nombre') }}</th>
+          <th>{{ _('Ver') }}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for dataset in datasets %}
+        <tr>
+          <td>{{ dataset.title or dataset.name }}</td>
+          <td>{{ dataset.name }}</td>
+          <td>
+            <a class="btn btn-default" href="{{ h.url_for('dataset.read', id=dataset.name) }}">
+              {{ _('Ver Dataset') }}
+            </a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p>{{ _('No se encontraron datasets con XML IATI.') }}</p>
+  {% endif %}
+{% endblock %}

@@ -4,20 +4,19 @@ from ckan.lib import base
 from ckan.lib.helpers import helper_functions as h
 from ckan.plugins import toolkit
 from ckanext.iati_generator.decorators import require_sysadmin_user
+from ckanext.iati_generator.actions.iati import list_datasets_with_iati
 from ckanext.iati_generator.utils import create_or_update_iati_resource
 
 iati_blueprint = Blueprint("iati_generator", __name__, url_prefix="/iati-dataset")
+iati_blueprint_admin = Blueprint("iati_generator_admin", __name__, url_prefix="/ckan-admin/iati")
 
-@iati_blueprint.route('/')
+
+@iati_blueprint_admin.route("/", methods=["GET"])
 @require_sysadmin_user
 def index():
-    """
-    IATI Generator home page.
-    """
-    ctx = {
-        "user": toolkit.c.user,
-    }
-    return toolkit.render("admin/iati.html", ctx)
+    context = {"user": toolkit.c.user}
+    datasets = list_datasets_with_iati(context)
+    return toolkit.render("admin/iati.html", {"datasets": datasets})
 
 
 @iati_blueprint.route("/<package_id>/generate", methods=["POST"])
