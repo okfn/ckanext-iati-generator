@@ -107,10 +107,20 @@ def list_datasets_with_iati(context, data_dict=None):
     """
     Returns all datasets that have a generated IATI resource,
     identified by the extra 'iati_base_resource_id'.
+    Supports optional pagination via 'start' and 'rows'.
     """
+    # Ensure data_dict is a dictionary
+    data_dict = data_dict or {}
+
+    # Extract parameters with default values
+    start = data_dict.get("start", 0)
+    rows = data_dict.get("rows", 100)
+
     search_result = toolkit.get_action("package_search")(context, {
         "q": "extras_iati_base_resource_id:[* TO *]",
-        "rows": 1000,
+        "start": start,
+        "rows": rows,
         "sort": "metadata_modified desc"
     })
+
     return search_result["results"]
