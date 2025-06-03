@@ -105,8 +105,8 @@ def generate_iati_xml(context, data_dict):
 @toolkit.side_effect_free
 def list_datasets_with_iati(context, data_dict=None):
     """
-    Devuelve todos los datasets que tienen un recurso IATI generado,
-    identificado por el extra 'iati_base_resource_id'.
+    Returns all datasets that have a generated IATI resource,
+    identified by the extra 'iati_base_resource_id'.
     """
     search_result = toolkit.get_action("package_search")(context, {
         "q": "extras_iati_base_resource_id:[* TO *]",
