@@ -5,6 +5,7 @@ from ckan.plugins import toolkit
 from ckanext.iati_generator.actions.iati import generate_iati_xml
 from ckanext.iati_generator.blueprint.iati import iati_blueprint
 from ckan.lib.plugins import DefaultTranslation
+from ckanext.iati_generator.blueprint.admin import iati_blueprint_admin
 
 log = logging.getLogger(__name__)
 
