@@ -24,7 +24,7 @@ def iati_page(package_id):
         "pkg": pkg_dict,
         "pkg_dict": pkg_dict,
     }
-    return base.render("package/iati_page.html", ctx)
+    return base.render("iati/iati_page.html", ctx)
 
 
 @iati_blueprint.route("/<package_id>/generate", methods=["POST"])
@@ -83,7 +83,7 @@ def generate_test_iati(package_id):
         "logs": logs,
         "xml_url": xml_url,
     }
-    return base.render("package/iati_page.html", ctx)
+    return base.render("iati/iati_page.html", ctx)
 
 
 @iati_blueprint.route("/static-iati/<resource_id>/<filename>")
