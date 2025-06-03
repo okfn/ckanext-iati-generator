@@ -4,14 +4,16 @@ from ckan import plugins as p
 from ckan.plugins import toolkit
 from ckanext.iati_generator.actions.iati import generate_iati_xml
 from ckanext.iati_generator.blueprint.iati import iati_blueprint
+from ckan.lib.plugins import DefaultTranslation
 
 log = logging.getLogger(__name__)
 
 
-class IatiGeneratorPlugin(p.SingletonPlugin):
+class IatiGeneratorPlugin(p.SingletonPlugin, DefaultTranslation):
     p.implements(p.IConfigurer)
     p.implements(p.IBlueprint)
     p.implements(p.IActions)
+    p.implements(p.ITranslation)
 
     def update_config(self, config_):
         toolkit.add_template_directory(config_, "templates")
@@ -27,3 +29,12 @@ class IatiGeneratorPlugin(p.SingletonPlugin):
         return {
             "generate_iati_xml": generate_iati_xml,
         }
+
+    def i18n_locales(self):
+        """Languages this plugin has translations for."""
+        return ["es", "en"]
+
+    def i18n_domain(self):
+        """The domain for the translation files."""
+        # Return the domain for the translation files.
+        return "ckanext-iati-generator"

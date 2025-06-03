@@ -1,0 +1,59 @@
+# Translations template for PROJECT.
+# Copyright (C) 2025 ORGANIZATION
+# This file is distributed under the same license as the PROJECT project.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2025.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: PROJECT VERSION\n"
+"Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
+"POT-Creation-Date: 2025-05-30 17:52+0000\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.15.0\n"
+
+#: ckanext/iati_generator/blueprint/iati.py:20
+msgid "Dataset not found"
+msgstr ""
+
+#: ckanext/iati_generator/blueprint/iati.py:37
+msgid "Resource ID is required"
+msgstr ""
+
+#: ckanext/iati_generator/blueprint/iati.py:49
+msgid "Could not generate the XML file. Check the logs below."
+msgstr ""
+
+#: ckanext/iati_generator/blueprint/iati.py:74
+msgid "XML file uploaded successfully."
+msgstr ""
+
+#: ckanext/iati_generator/templates/package/iati_page.html:9
+msgid "Select a resource"
+msgstr ""
+
+#: ckanext/iati_generator/templates/package/iati_page.html:11
+msgid "Choose a resource"
+msgstr ""
+
+#: ckanext/iati_generator/templates/package/iati_page.html:20
+msgid "Generate IATI XML File"
+msgstr ""
+
+#: ckanext/iati_generator/templates/package/iati_page.html:25
+msgid "Generation Logs"
+msgstr ""
+
+#: ckanext/iati_generator/templates/package/iati_page.html:43
+msgid "Download XML File"
+msgstr ""
+
+#: ckanext/iati_generator/templates/package/read_base.html:9
+msgid "IATI"
+msgstr ""
+
