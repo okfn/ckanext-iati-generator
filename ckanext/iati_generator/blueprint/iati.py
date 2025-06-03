@@ -19,6 +19,22 @@ def index():
     return toolkit.render("admin/iati.html", {"datasets": datasets})
 
 
+@iati_blueprint.route("/<package_id>", methods=["GET"])
+@require_sysadmin_user
+def iati_page(package_id):
+    context = {"user": toolkit.c.user}
+    try:
+        pkg_dict = toolkit.get_action("package_show")(context, {"id": package_id})
+    except toolkit.ObjectNotFound:
+        return toolkit.abort(404, toolkit._("Dataset not found"))
+
+    ctx = {
+        "pkg": pkg_dict,
+        "pkg_dict": pkg_dict,
+    }
+    return base.render("package/iati_page.html", ctx)
+
+
 @iati_blueprint.route("/<package_id>/generate", methods=["POST"])
 @require_sysadmin_user
 def generate_test_iati(package_id):
