@@ -65,12 +65,23 @@ def generate_test_iati(package_id):
             existing_resource_id=existing_resource_id
         )
 
-        # If it did not exist before, save it as an extra in the dataset
-        if not existing_resource_id:
-            toolkit.get_action("package_patch")(context, {
-                "id": package_id,
-                "extras": [{"key": "iati_base_resource_id", "value": created["id"]}]
-            })
+        # 🛠 Reemplazar o agregar el extra sin perder los anteriores
+        current_extras = pkg.get("extras", [])
+        new_extras = []
+        found = False
+        for e in current_extras:
+            if e["key"] == "iati_base_resource_id":
+                new_extras.append({"key": "iati_base_resource_id", "value": created["id"]})
+                found = True
+            else:
+                new_extras.append(e)
+        if not found:
+            new_extras.append({"key": "iati_base_resource_id", "value": created["id"]})
+
+        toolkit.get_action("package_patch")(context, {
+            "id": package_id,
+            "extras": new_extras
+        })
 
         # URL for downloading the XML
         xml_url = f"/dataset/{package_id}/resource/{created['id']}/download/{created['name']}"

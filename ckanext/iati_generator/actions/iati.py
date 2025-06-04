@@ -116,11 +116,14 @@ def list_datasets_with_iati(context, data_dict=None):
     start = data_dict.get("start", 0)
     rows = data_dict.get("rows", 100)
 
-    search_result = toolkit.get_action("package_search")(context, {
-        "q": "extras_iati_base_resource_id:[* TO *]",
+    result = toolkit.get_action("package_search")(context, {
+        "fq": "iati_base_resource_id:*",
         "start": start,
         "rows": rows,
         "sort": "metadata_modified desc"
     })
 
-    return search_result["results"]
+    for pkg in result["results"]:
+        log.debug(f"[IATI Admin] Found dataset: {pkg['name']} - title: {pkg.get('title')}")
+
+    return result["results"]
