@@ -72,7 +72,7 @@ def create_or_update_iati_resource(context, package_id, xml_string, resource_nam
     resource_id = existing_resource_id or str(uuid.uuid4())
 
     # Create the physical directory where the file will be stored
-    storage_root = toolkit.config.get("ckan.storage_path", "/app/storage")
+    storage_root = toolkit.config.get("ckan.storage_path")
     resource_dir = os.path.join(
         storage_root, "resources",
         resource_id[:3],
@@ -87,7 +87,7 @@ def create_or_update_iati_resource(context, package_id, xml_string, resource_nam
         f.write(xml_string)
 
     # Build the static URL to the file, served by a Flask endpoint
-    site_url = toolkit.config.get("ckan.site_url", "http://localhost:5000")
+    site_url = toolkit.config.get("ckan.site_url")
     url = f"{site_url}/iati-dataset/static-iati/{resource_id}/{filename}"
 
     # Prepare the resource data dictionary
