@@ -90,7 +90,7 @@ def generate_test_iati(package_id):
         })
 
         # URL for downloading the XML
-        xml_url = f"/dataset/{package_id}/resource/{created['id']}/download/{created['name']}"
+        xml_url = created["url"]
         h.flash_success(toolkit._("XML file uploaded successfully."), "success")
 
     # Render the same page with the logs and the link to the XML

@@ -1,6 +1,6 @@
 import os
 import re
-import uuid
+import tempfile
 from datetime import datetime
 import ckan.lib.uploader as uploader
 from ckan.plugins import toolkit
@@ -64,47 +64,35 @@ def create_or_update_iati_resource(context, package_id, xml_string, resource_nam
     Returns:
         dict: The created or updated CKAN resource.
     """
+    # Generar identificador legible basado en el nombre + timestamp
     timestamp = datetime.utcnow().strftime("%Y%m%d%H%M%S")
-    clean_name = re.sub(r'[^a-zA-Z0-9_-]', '_', resource_name).lower()
-    filename = f"{clean_name}_iati_{timestamp}.xml"
+    clean_base = re.sub(r'[^a-zA-Z0-9_-]', '_', resource_name).lower()
+    slug_name = f"{clean_base}_iati_{timestamp}"
 
-    # Determine resource ID (use new UUID if not updating)
-    resource_id = existing_resource_id or str(uuid.uuid4())
+    # Crear archivo temporal
+    with tempfile.NamedTemporaryFile("w+b", delete=False, suffix=".xml") as tmp:
+        tmp.write(xml_string.encode("utf-8"))
+        tmp.flush()
+        tmp_path = tmp.name
 
-    # Create the physical directory where the file will be stored
-    storage_root = toolkit.config.get("ckan.storage_path")
-    resource_dir = os.path.join(
-        storage_root, "resources",
-        resource_id[:3],
-        resource_id[3:6],
-        resource_id
-    )
-    os.makedirs(resource_dir, exist_ok=True)
-
-    # Write the XML file to disk
-    out_path = os.path.join(resource_dir, filename)
-    with open(out_path, "w", encoding="utf-8") as f:
-        f.write(xml_string)
-
-    # Build the static URL to the file, served by a Flask endpoint
-    site_url = toolkit.config.get("ckan.site_url")
-    url = f"{site_url}/iati-dataset/static-iati/{resource_id}/{filename}"
-
-    # Prepare the resource data dictionary
+    # Datos del recurso
     resource_data = {
         "package_id": package_id,
+        "name": slug_name,
         "format": "XML",
-        "name": filename,
-        "url_type": "none",
-        "url": url,
-        "description": "Automatically generated file from CSV"
+        "url_type": "upload",
+        "description": f"IATI XML generated from CSV at {timestamp}"
     }
 
-    # Create or update the resource in CKAN
-    if existing_resource_id:
-        resource_data["id"] = existing_resource_id
-        created = toolkit.get_action("resource_update")(context, resource_data)
-    else:
-        created = toolkit.get_action("resource_create")(context, resource_data)
+    # Subir archivo a CKAN
+    with open(tmp_path, "rb") as f:
+        resource_data["upload"] = f
+        if existing_resource_id:
+            resource_data["id"] = existing_resource_id
+            created = toolkit.get_action("resource_update")(context, resource_data)
+        else:
+            created = toolkit.get_action("resource_create")(context, resource_data)
+
+    os.unlink(tmp_path)
 
     return created
