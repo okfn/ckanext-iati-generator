@@ -30,18 +30,24 @@ def iati_page(package_id):
 @iati_blueprint.route("/<package_id>/generate", methods=["POST"])
 @require_sysadmin_user
 def generate_test_iati(package_id):
-    context = {"user": toolkit.c.user}
-    resource_id = toolkit.request.form.get("resource_id")
 
+    context = {"user": toolkit.c.user}
+    try:
+        pkg = toolkit.get_action("package_show")(context, {"id": package_id})
+    except toolkit.ObjectNotFound:
+        toolkit.abort(404, toolkit._("Dataset not found"))
+
+    resource_id = toolkit.request.form.get("resource_id")
     if not resource_id:
         h.flash_error(toolkit._("Resource ID is required"), "error")
         return toolkit.redirect(toolkit.url_for("iati_generator.iati_page", package_id=package_id))
+    else:
+        try:
+            # Validate the resource and get the file path
+            toolkit.get_action("resource_show")(context, {"id": resource_id})
+        except toolkit.ObjectNotFound:
+            toolkit.abort(404, toolkit._("Resource not found"))
 
-    # Check if there is already an existing XML resource saved as an extra
-    pkg = toolkit.get_action("package_show")(context, {"id": package_id})
-    if not pkg:
-        h.flash_error(toolkit._("Dataset not found"), "error")
-        return toolkit.redirect(toolkit.url_for("iati_generator.iati_page", package_id=package_id))
     # Call the action that generates the XML and returns xml_string + logs
     result = toolkit.get_action("generate_iati_xml")(context, {"resource_id": resource_id})
     logs = result.get("logs", [])
