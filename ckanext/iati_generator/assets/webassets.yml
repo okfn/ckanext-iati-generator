@@ -1,14 +1,14 @@
-ckanext-iati-generator-js:
+iati_generator-css:
+  filter: cssrewrite
+  output: iati_generator/%(version)s-main.css
+  contents:
+    - css/main.css
+
+iati_generator-js:
   filter: rjsmin
-  output: ckanext-iati-generator/%(version)s-main.js
+  output: iati_generator/%(version)s-main.js
   contents:
     - js/main.js
   extra:
     preload:
       - base/main
-
-ckanext-iati-generator-css:
-  filter: cssrewrite
-  output: ckanext-iati-generator/%(version)s-main.css
-  contents:
-    - css/main.css
