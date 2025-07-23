@@ -12,6 +12,11 @@ iati_blueprint = Blueprint("iati_generator", __name__, url_prefix="/iati-dataset
 @iati_blueprint.route("/<package_id>", methods=["GET"])
 @require_sysadmin_user
 def iati_page(package_id):
+    # Check configuration flag
+    hide_tab = toolkit.asbool(toolkit.config.get("ckanext.iati_generator.hide_tab", False))
+    if hide_tab:
+        return toolkit.abort(404, toolkit._("Page disabled by configuration"))
+
     context = {"user": toolkit.c.user}
     # Fetch the package using package_show
     try:

@@ -15,6 +15,7 @@ class IatiGeneratorPlugin(p.SingletonPlugin, DefaultTranslation):
     p.implements(p.IBlueprint)
     p.implements(p.IActions)
     p.implements(p.ITranslation)
+    p.implements(p.ITemplateHelpers)
 
     def update_config(self, config_):
         toolkit.add_template_directory(config_, "templates")
@@ -40,3 +41,11 @@ class IatiGeneratorPlugin(p.SingletonPlugin, DefaultTranslation):
         """The domain for the translation files."""
         # Return the domain for the translation files.
         return "ckanext-iati-generator"
+
+    def get_helpers(self):
+        """Return a dictionary of helper functions."""
+        return {
+            "iati_tab_enabled": lambda: not toolkit.asbool(
+                toolkit.config.get("ckanext.iati_generator.hide_tab", False)
+            )
+        }
