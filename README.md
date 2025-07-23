@@ -31,11 +31,16 @@ Compatibility with core CKAN versions:
 
 These are the configuration settings that can be set in your `ckan.ini` file:
 
+
 ```
 # rows_limit is the maximum number of rows to be processed in a single IATI generation request.
 ckanext.iati_generator.rows_limit = 50000 # default is 50000
+
 # max_allowed_failures is the maximum number of failures in rows before canceling the IATI generation request.
 ckanext.iati_generator.max_allowed_failures = 10 # default is 10
+
+# hide_tab allows you to hide the IATI tab from the dataset view for all users.
+ckanext.iati_generator.hide_tab = true # default is false
 ```
 
 
