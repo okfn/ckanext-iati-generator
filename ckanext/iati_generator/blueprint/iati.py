@@ -15,7 +15,7 @@ def iati_page(package_id):
     # Revisión del flag de configuración
     hide_tab = toolkit.asbool(toolkit.config.get("ckanext.iati_generator.hide_tab", False))
     if hide_tab:
-        return toolkit.abort(404, "Página deshabilitada por configuración")
+        return toolkit.abort(404, toolkit._("Page disabled by configuration"))
 
     context = {"user": toolkit.c.user}
     # Fetch the package using package_show
