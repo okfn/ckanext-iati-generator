@@ -119,5 +119,5 @@ class TestIatiTab:
         the `ckanext.iati_generator.hide_tab` config is not defined at all.
         """
         if "ckanext.iati_generator.hide_tab" in toolkit.config:
-            monkeypatch.delitem(toolkit.config, "ckanext.iati_generator.hide_tab", raising=False)
+            monkeypatch.delitem(toolkit.config, "ckanext.iati_generator.hide_tab", None)
         assert iati_tab_enabled() is True
