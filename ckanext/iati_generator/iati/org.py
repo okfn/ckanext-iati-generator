@@ -18,15 +18,23 @@ def process_org_files(namespace, tmp_folder):
         We return the number of files processed
     """
 
-    org_folder = tmp_folder / "org"
+    org_folder = tmp_folder / f"org-{namespace}"
     org_folder.mkdir(parents=True, exist_ok=True)
 
     org_files = IATIFile.query.filter(
         IATIFile.file_type == IATIFileTypes.ORGANIZATION_MAIN_FILE.value
     ).all()
-    if not org_files:
+    # We expect only one organization main file, fail if not
+    if len(org_files) == 0:
         log.warning("No organization IATI files found to process.")
-        return 0
+        raise Exception("No organization IATI files found.")
+
+    if len(org_files) > 1:
+        log.warning(
+            f"Expected one organization IATI file, found {len(org_files)}. "
+            "Processing all found files."
+        )
+        raise Exception("Multiple organization IATI files found.")
 
     c = 0
     for iati_file in org_files:
