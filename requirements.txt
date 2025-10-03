@@ -1,2 +1,2 @@
-okfn-iati==0.2.0
+okfn-iati==0.3.0
 
