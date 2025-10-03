@@ -20,6 +20,7 @@ def upgrade():
     op.create_table(
         'iati_files',
         sa.Column('id', sa.Integer, primary_key=True),
+        sa.Column('namespace', sa.UnicodeText, nullable=False, default='iati-xml'),
         sa.Column('file_type', sa.Integer, nullable=False),
         sa.Column(
             'resource_id',

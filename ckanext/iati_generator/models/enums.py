@@ -3,7 +3,8 @@ from enum import Enum
 
 class IATIFileTypes(Enum):
     """ IATI elements are contained in files for each type of data """
-    ORGANIZATION_MAIN_FILE = 10
+    ORGANIZATION_MAIN_FILE = 100
+    ORGANIZATION_NAMES_FILE = 110
     # Uncomment once needed
     # ORGANIZATION_BUDGET_FILE = 20
     # ORGANIZATION_EXPENDITURE_FILE = 30

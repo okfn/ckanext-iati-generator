@@ -9,8 +9,6 @@ log = logging.getLogger(__name__)
 def save_resource_data(resource_id, destination_path=None):
     """
     Fetch the data from the CKAN resource.
-    This is a placeholder function. The actual implementation will depend on how
-    CKAN resources are accessed in your environment.
 
     :param resource_id: The ID of the CKAN resource to fetch.
     :destination_path: Optional path to save the fetched data.
