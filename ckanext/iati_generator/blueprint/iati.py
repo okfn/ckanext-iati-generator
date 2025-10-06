@@ -35,58 +35,101 @@ def iati_page(package_id):
 @iati_blueprint.route("/<package_id>/generate", methods=["POST"])
 @require_sysadmin_user
 def generate_test_iati(package_id):
+    # Contexto mínimo para actions
     context = {"user": toolkit.c.user}
-    resource_id = toolkit.request.form.get("resource_id")
 
+    # Recurso elegido en el formulario
+    resource_id = toolkit.request.form.get("resource_id")
     if not resource_id:
         h.flash_error(toolkit._("Resource ID is required"), "error")
         return toolkit.redirect(toolkit.url_for("iati_generator.iati_page", package_id=package_id))
 
-    # Check if there is already an existing XML resource saved as an extra
-    pkg = toolkit.get_action("package_show")(context, {"id": package_id})
-    if not pkg:
+    # Dataset
+    try:
+        pkg = toolkit.get_action("package_show")(context, {"id": package_id})
+    except Exception:
         h.flash_error(toolkit._("Dataset not found"), "error")
         return toolkit.redirect(toolkit.url_for("iati_generator.iati_page", package_id=package_id))
-    # Call the action that generates the XML and returns xml_string + logs
-    result = toolkit.get_action("generate_iati_xml")(context, {"resource_id": resource_id})
-    logs = result.get("logs", [])
+
+    # Recurso y sus extras (para namespace y tipo de referencia IATI)
+    try:
+        resource = toolkit.get_action("resource_show")(context, {"id": resource_id})
+    except Exception:
+        h.flash_error(toolkit._("Resource not found"), "error")
+        return toolkit.redirect(toolkit.url_for("iati_generator.iati_page", package_id=package_id))
+
+    # Normaliza extras -> dict
+    res_extras_list = resource.get("extras", []) or []
+    res_extras = {e.get("key"): e.get("value") for e in res_extras_list if isinstance(e, dict)}
+
+    iati_namespace = (res_extras.get("iati_namespace") or "").strip()
+    iati_file_reference = (res_extras.get("iati_file_reference") or "").strip()  # 'activities' | 'transactions' | 'multi' | ''
+
+    # Llama a la action que genera el XML
+    # Enviamos también namespace y file_reference (opcionales) para que el generador decida cómo interpretar el CSV
+    logs = []
+    try:
+        result = toolkit.get_action("generate_iati_xml")(context, {
+            "resource_id": resource_id,
+            "iati_namespace": iati_namespace,
+            "file_reference": iati_file_reference
+        }) or {}
+    except Exception as e:
+        logs.append(f"❌ generate_iati_xml failed: {e}")
+        result = {}
+
+    # Extrae resultados
     xml_string = result.get("xml_string")
-    resource_name = result.get("resource_name")
+    resource_name = result.get("resource_name") or f"iati-{resource.get('name') or resource_id}.xml"
+    logs.extend(result.get("logs", []))
 
     xml_url = None
     if not xml_string:
-        # If the XML generation failed, log the error
+        # Falló la generación
         h.flash_error(toolkit._("Could not generate the XML file. Check the logs below."), "error")
     else:
-        extras = {e["key"]: e["value"] for e in pkg.get("extras", [])}
-        existing_resource_id = extras.get("iati_base_resource_id")
+        # ¿Ya existe un recurso XML asociado al dataset? (guardado en extras del dataset)
+        pkg_extras_list = pkg.get("extras", []) or []
+        pkg_extras = {e.get("key"): e.get("value") for e in pkg_extras_list if isinstance(e, dict)}
+        existing_resource_id = pkg_extras.get("iati_base_resource_id")
 
-        # Create or update the resource
-        created = create_or_update_iati_resource(
-            context=context,
-            package_id=package_id,
-            xml_string=xml_string,
-            resource_name=resource_name,
-            existing_resource_id=existing_resource_id
-        )
+        # Sube o actualiza el recurso XML en el dataset
+        try:
+            created = create_or_update_iati_resource(
+                context=context,
+                package_id=package_id,
+                xml_string=xml_string,
+                resource_name=resource_name,
+                existing_resource_id=existing_resource_id
+            )
+        except Exception as e:
+            logs.append(f"❌ upload failed: {e}")
+            h.flash_error(toolkit._("Failed to upload the XML file."), "error")
+            created = None
 
-        # If it did not exist before, save it as an extra in the dataset
-        if not existing_resource_id:
-            toolkit.get_action("package_patch")(context, {
-                "id": package_id,
-                "extras": [{"key": "iati_base_resource_id", "value": created["id"]}]
-            })
+        if created:
+            # Si no existía, guarda el id en extras del dataset
+            if not existing_resource_id:
+                try:
+                    toolkit.get_action("package_patch")(context, {
+                        "id": package_id,
+                        "extras": [{"key": "iati_base_resource_id", "value": created["id"]}]
+                    })
+                except Exception as e:
+                    logs.append(f"⚠️ could not persist iati_base_resource_id: {e}")
 
-        # URL for downloading the XML
-        xml_url = f"/dataset/{package_id}/resource/{created['id']}/download/{created['name']}"
-        h.flash_success(toolkit._("XML file uploaded successfully."), "success")
+            # URL de descarga del XML
+            # (puedes usar url_for si prefieres: toolkit.url_for('dataset_resource_download', id=package_id, resource_id=created['id']))
+            xml_url = f"/dataset/{package_id}/resource/{created['id']}/download/{created['name']}"
+            h.flash_success(toolkit._("XML file uploaded successfully."), "success")
 
-    # Render the same page with the logs and the link to the XML
+    # Renderiza la misma página con logs y el link al XML si existe
     ctx = {
         "pkg": pkg,
         "pkg_dict": pkg,
         "logs": logs,
         "xml_url": xml_url,
+        "selected_resource_id": resource_id,
     }
     return base.render("iati/iati_page.html", ctx)
 

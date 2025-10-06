@@ -3,25 +3,61 @@
 {% block primary_content_inner %}
 <section class="module">
   <div class="module-content">
+    {# Espera que la vista pase 'selected_resource_id' en el contexto #}
+    {% set selected_id = selected_resource_id or '' %}
+
+    {# Filtramos CSV locales (subidas) en el template de forma segura #}
+    {% set csv_resources = [] %}
+    {% for resource in pkg_dict.resources or [] %}
+      {% if ((resource.format or '')|lower) in ['csv'] and resource.get('url_type') == 'upload' %}
+        {% do csv_resources.append(resource) %}
+      {% endif %}
+    {% endfor %}
+
     <form method="post" action="{{ h.url_for('iati_generator.generate_test_iati', package_id=pkg.id) }}">
       {{ h.csrf_input() }}
-      <div class="mb-3">
-        <label for="resource-select" class="form-label">{{ _("Select a resource") }}</label>
-        <select id="resource-select" name="resource_id" class="form-select" required>
-          <option value="" disabled selected>{{ _("Choose a resource") }}</option>
-          {% for resource in pkg_dict.resources %}
-            {% if resource.format.lower() in ['csv'] and resource.get('url_type') == 'upload' %}
-              <option value="{{ resource.id }}">{{ resource.name or resource.id }}</option>
-            {% endif %}
+
+      <div class="form-group">
+        <label for="resource-select" class="control-label">
+          {{ _("Select a resource") }}
+        </label>
+
+        <select id="resource-select" name="resource_id" class="form-control" required>
+          <option value="" disabled {% if not selected_id %}selected{% endif %}>
+            {{ _("Choose a resource") }}
+          </option>
+          {% for resource in csv_resources %}
+            {# Leer extra iati_file_reference si existe, para etiquetar la opción #}
+            {% set iati_ref = (resource.extras
+                                |selectattr('key','equalto','iati_file_reference')
+                                |map(attribute='value')
+                                |first) %}
+            <option value="{{ resource.id }}"
+                    {% if selected_id == resource.id %}selected{% endif %}>
+              {{ resource.name or resource.id }}
+              {% if iati_ref %}[IATI: {{ iati_ref }}]{% endif %}
+            </option>
           {% endfor %}
         </select>
+        <p class="help-block">
+          {{ _("Only local CSV uploads are listed.") }}
+        </p>
       </div>
 
-      <button type="submit" class="btn btn-primary">{{ _("Generate IATI XML File") }}</button>
+      <button type="submit" class="btn btn-primary"
+              {% if csv_resources|length == 0 %}disabled{% endif %}>
+        {{ _("Generate IATI XML File") }}
+      </button>
     </form>
 
+    {% if csv_resources|length == 0 %}
+      <div class="alert alert-warning" style="margin-top: 15px;">
+        {{ _("No local CSV resources found in this dataset.") }}
+      </div>
+    {% endif %}
+
     {% if logs %}
-      <div class="mt-4">
+      <div class="mt-4" style="margin-top: 20px;">
         <h3>{{ _("Generation Logs") }}</h3>
         <ul class="list-group">
           {% for line in logs %}
@@ -38,7 +74,7 @@
     {% endif %}
 
     {% if xml_url %}
-      <div class="mt-4">
+      <div class="mt-4" style="margin-top: 20px;">
         <a href="{{ xml_url }}" class="btn btn-success" target="_blank" download>
           {{ _("Download XML File") }}
         </a>
