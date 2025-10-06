@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from sqlalchemy import Column, ForeignKey, types, func
 from sqlalchemy import Integer, DateTime
 
@@ -32,6 +33,11 @@ class IATIFile(toolkit.BaseModel, ActiveRecordMixin):
     metadata_created = Column(DateTime, server_default=func.now())
     metadata_updated = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
+    is_valid = Column(types.Boolean, nullable=False, default=False)
+    last_processed = Column(DateTime, nullable=True)
+    last_processed_success = Column(DateTime, nullable=True)
+    last_error = Column(types.UnicodeText, nullable=True)
+
     # TODO allow disable this file temporarily without deleting it
 
     def __repr__(self):
@@ -41,3 +47,21 @@ class IATIFile(toolkit.BaseModel, ActiveRecordMixin):
     def __str__(self):
         file_type_str = IATIFileTypes(self.file_type).name
         return f"IATIFile: {file_type_str} (Resource ID: {self.resource_id})"
+
+    def track_processing(self, success=True, error_message=None):
+        """
+        Update the processing status of this IATI file.
+
+        Parameters:
+            success (bool): Whether the processing was successful. Defaults to True.
+            error_message (str or None): Error message if processing failed. Defaults to None.
+        """
+        self.last_processed = datetime.now(timezone.utc)
+        self.is_valid = success
+        if success:
+            self.last_processed_success = self.last_processed
+        else:
+            self.last_error = error_message
+
+        # The base class ActiveRecordMixin include save and other methods
+        self.save()
