@@ -49,7 +49,12 @@ class IATIFile(toolkit.BaseModel, ActiveRecordMixin):
         return f"IATIFile: {file_type_str} (Resource ID: {self.resource_id})"
 
     def track_processing(self, success=True, error_message=None):
-        """ Update the processing status of this IATI file
+        """
+        Update the processing status of this IATI file.
+
+        Parameters:
+            success (bool): Whether the processing was successful. Defaults to True.
+            error_message (str or None): Error message if processing failed. Defaults to None.
         """
         self.last_processed = datetime.now(timezone.utc)
         self.is_valid = success
