@@ -56,8 +56,11 @@ def _process_org_file(output_folder, filename, iati_file_type, required=True, ma
         log.info(f"Processing IATI Organization file: {iati_file}")
         destination_path = output_folder / filename
         final_path = save_resource_data(iati_file.resource_id, str(destination_path))
+
         if not final_path:
             log.error(f"Failed to fetch data for resource ID: {iati_file.resource_id}")
+            error_message = "Failed to save resource data"
+            iati_file.track_processing(success=False, error_message=error_message)
             continue
         c += 1
         log.info(f"Saved organization CSV data to {final_path}")
