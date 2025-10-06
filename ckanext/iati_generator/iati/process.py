@@ -14,7 +14,8 @@ log = logging.getLogger(__name__)
 
 def process_iati_files(namespace=DEFAULT_NAMESPACE):
     """ Process all IATI files
-        We must save all CSV files into folder to process later
+        We must save all CSV files into folder to process
+        After all, we need two CKAN resources (Organization and activity files) with the generated IATI XML
     """
 
     # TODO allow multiple namespaces with a new field in the IATIFile model

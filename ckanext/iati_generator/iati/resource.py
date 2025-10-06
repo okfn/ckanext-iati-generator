@@ -6,12 +6,14 @@ from ckan.plugins import toolkit
 log = logging.getLogger(__name__)
 
 
-def save_resource_data(resource_id, destination_path=None):
+def save_resource_data(resource_id, destination_path):
     """
     Fetch the data from the CKAN resource.
 
     :param resource_id: The ID of the CKAN resource to fetch.
     :destination_path: Optional path to save the fetched data.
+
+    Returns the path to the saved file or None if fetching failed.
     """
     log.info(f"Fetching data for resource ID: {resource_id}")
     try:
