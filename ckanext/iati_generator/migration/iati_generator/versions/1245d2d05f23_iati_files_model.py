@@ -1,7 +1,7 @@
 """IATI files model
 
 Revision ID: 1245d2d05f23
-Revises: 
+Revises:
 Create Date: 2025-10-02 16:11:18.057546
 
 """
