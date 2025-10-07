@@ -68,47 +68,76 @@
   {% endblock %}
 
 
-  {# --- IATI section ---------------------------------------------------- #}
+ {# --- IATI section (campos planos -> CKAN los convierte a extras) ------ #}
   {% block iati_fields %}
-  <section class="module module-narrow">
-    <label for="form-label">{{ _("IATI") }}</label>
-    <div class="pt-1">
-      <p class="help-block">
-        {{ _("If this resource must be used to build the final XML IATI file, define how. It's not required to make this dataset public.") }}
-      </p>
+    {# Prefill leyendo de extras actuales #}
+    {% set _extras = data.extras if data and data.get('extras') else [] %}
+    {% set ns_val = '' %}
+    {% set ref_val = '' %}
+    {% for e in _extras %}
+      {% if e.key == 'iati_namespace' %}
+        {% set ns_val = e.value %}
+      {% elif e.key == 'iati_file_reference' %}
+        {% set ref_val = e.value %}
+      {% endif %}
+    {% endfor %}
 
-      {# IATI namespace -> extra: iati_namespace #}
-      {{ form.input(
-        'extras__iati_namespace',
-        id='field-iati-namespace',
-        label=_('IATI namespace'),
-        placeholder=_('eg. XM-DAC-46002 or my-org'),
-        value=h.get_dict_value(data.extras, 'iati_namespace') if data and data.get('extras') else '',
-        error=errors.get('extras__iati_namespace'),
-        classes=['control-full'],
-        attrs={'maxlength': '90'}
-      ) }}
-      <p class="info-block info-block-small">
-        <i class="fa fa-info-circle"></i>
-        {{ _("Leave empty for a single IATI file environment.") }}
-      </p>
+    <section class="module module-narrow">
+      <h3 class="module-heading">{{ _("IATI") }}</h3>
+      <div class="module-content">
+        <p class="help-block">
+          {{ _("If this resource must be used to build the final XML IATI file, define how. It's not required to make this dataset public.") }}
+        </p>
 
-      {# IATI file reference -> extra: iati_file_reference #}
-      {{ form.select(
-        'extras__iati_file_reference',
-        id='field-iati-file-reference',
-        label=_('IATI file reference'),
-        options=h.get_iati_file_reference_options(),
-        selected=h.get_dict_value(data.extras, 'iati_file_reference') if data and data.get('extras') else '',
-        error=errors.get('extras__iati_file_reference'),
-        classes=['control-medium']
-      ) }}
-      <p class="">
-        <i class="fa fa-info-circle"></i>
-        {{ _("Choose the reference from the IATI enums list.") }}
-      </p>
-    </div>
-  </section>
+        <div class="control-group">
+          <label class="control-label" for="field-iati-namespace">{{ _("IATI namespace") }}</label>
+          <div class="controls">
+            <input
+              type="text"
+              id="field-iati-namespace"
+              name="iati_namespace"            {# <- campo plano #}
+              value="{{ ns_val }}"
+              maxlength="90"
+              class="control-full"
+              placeholder="{{ _('eg. XM-DAC-46002 or my-org') }}"
+            >
+            <p class="info-block info-block-small">
+              <i class="fa fa-info-circle"></i>
+              {{ _("Leave empty for a single IATI file environment.") }}
+            </p>
+          </div>
+        </div>
+
+        <div class="control-group">
+          <label class="control-label" for="field-iati-file-reference">{{ _("IATI file reference") }}</label>
+          <div class="controls">
+            {% if 'get_iati_file_reference_options' in h %}
+              {% set opts = h.get_iati_file_reference_options() %}
+              <select id="field-iati-file-reference" name="iati_file_reference" class="control-medium">
+                <option value="">{{ _("- Select -") }}</option>
+                {% for o in opts %}
+                  <option value="{{ o.value }}" {% if o.value == ref_val %}selected{% endif %}>{{ o.text }}</option>
+                {% endfor %}
+              </select>
+            {% else %}
+              <input
+                type="text"
+                id="field-iati-file-reference"
+                name="iati_file_reference"     {# <- campo plano #}
+                value="{{ ref_val }}"
+                class="control-medium"
+                placeholder="{{ _('eg. activities / transactions / ...') }}"
+              >
+            {% endif %}
+
+            <p class="info-block info-block-small">
+              <i class="fa fa-info-circle"></i>
+              {{ _("Choose the reference from the IATI enums list.") }}
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
   {% endblock iati_fields %}
   {# --------------------------------------------------------------------- #}
 
