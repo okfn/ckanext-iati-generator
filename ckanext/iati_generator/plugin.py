@@ -3,21 +3,22 @@ import logging
 from ckan import plugins as p
 from ckan.plugins import toolkit
 from ckanext.iati_generator.actions.iati import generate_iati_xml
-from ckan.lib.plugins import DefaultTranslation
+from ckan.lib.plugins import DefaultTranslation, DefaultDatasetForm
 from ckanext.iati_generator.blueprint.iati import iati_blueprint
 from ckanext.iati_generator.blueprint.admin import iati_blueprint_admin
-from ckanext.iati_generator.helpers import iati_tab_enabled, get_iati_file_reference_options
+from ckanext.iati_generator import helpers as h
 
 
 log = logging.getLogger(__name__)
 
 
-class IatiGeneratorPlugin(p.SingletonPlugin, DefaultTranslation):
+class IatiGeneratorPlugin(p.SingletonPlugin, DefaultDatasetForm, DefaultTranslation):
     p.implements(p.IConfigurer)
     p.implements(p.IBlueprint)
     p.implements(p.IActions)
     p.implements(p.ITranslation)
     p.implements(p.ITemplateHelpers)
+    p.implements(p.IDatasetForm)
 
     def update_config(self, config_):
         toolkit.add_template_directory(config_, "templates")
@@ -47,6 +48,39 @@ class IatiGeneratorPlugin(p.SingletonPlugin, DefaultTranslation):
     def get_helpers(self):
         """Return a dictionary of helper functions."""
         return {
-            "iati_tab_enabled": iati_tab_enabled,
-            "get_iati_file_reference_options": get_iati_file_reference_options,
+            "iati_tab_enabled": h.iati_tab_enabled,
+            "get_iati_file_reference_options": h.get_iati_file_reference_options,
+            'extras_as_dict': h.extras_as_dict,
         }
+
+# ---------- IDatasetForm ----------
+    # Aplica al tipo por defecto (“dataset”); si tenés tipos custom, agregalos acá.
+    def is_fallback(self):
+        return True
+
+    def package_types(self):
+        return []
+
+    def create_package_schema(self):
+        schema = super(IatiGeneratorPlugin, self).create_package_schema()
+        schema['resources'].update({
+            'iati_namespace':       [toolkit.get_validator('ignore_missing')],
+            'iati_file_reference':  [toolkit.get_validator('ignore_missing')],
+        })
+        return schema
+
+    def update_package_schema(self):
+        schema = super(IatiGeneratorPlugin, self).update_package_schema()
+        schema['resources'].update({
+            'iati_namespace':       [toolkit.get_validator('ignore_missing')],
+            'iati_file_reference':  [toolkit.get_validator('ignore_missing')],
+        })
+        return schema
+
+    def show_package_schema(self):
+        schema = super(IatiGeneratorPlugin, self).show_package_schema()
+        schema['resources'].update({
+            'iati_namespace':       [toolkit.get_validator('ignore_missing')],
+            'iati_file_reference':  [toolkit.get_validator('ignore_missing')],
+        })
+        return schema

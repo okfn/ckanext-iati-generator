@@ -1,5 +1,6 @@
 import logging
 from ckan.plugins import toolkit
+from ckanext.iati_generator.models.enums import IATIFileTypes
 
 
 log = logging.getLogger(__name__)
@@ -31,6 +32,10 @@ def _extras_as_dict(extras):
     return {}
 
 
+def extras_as_dict(extras):
+    return _extras_as_dict(extras)
+
+
 def get_dict_value(extras, key, default=""):
     """
     Helper seguro para leer un extra por clave.
@@ -46,28 +51,13 @@ def get_dict_value(extras, key, default=""):
 
 def get_iati_file_reference_options():
     """
-    Devuelve opciones para el select de 'IATI file reference' en formato:
-    [{'value': '<valor_enum>', 'text': '<etiqueta>'}, ...]
-
-    Intenta obtenerlas desde un enum local. Si no existe, hace fallback
-    a una lista vacía (no rompe el render).
+    Return options for the 'IATI file reference' select in the format:
+    [{'value': '<enum_value>', 'text': '<label>'}, ...]
     """
-    options = []
-    try:
-        # Ajustá el import al módulo real donde tengas el enum
-        # Debe ser un Enum con miembros que tengan .value y .name (o .label)
-        from ckanext.iati_generator.models.enums import IATIFileTypes
-        for item in IATIFileTypes:
-            value = getattr(item, "value", None) or str(item)
-            # Etiqueta legible: usa .label si existe; si no, formatea el nombre
-            text = getattr(item, "label", None) or item.name.replace("_", " ").title()
-            options.append({"value": value, "text": text})
-
-    except Exception as e:
-        log.warning("IATI enum not found or failed (%s). Returning empty options.", e)
-        # Si querés un fallback estático mientras tanto, descomenta y ajusta:
-        # options = [
-        #     {"value": "activities", "text": "Activities"},
-        #     {"value": "transactions", "text": "Transactions"},
-        # ]
-    return options
+    return [
+        {
+            "value": getattr(item, "value", str(item)),
+            "text": getattr(item, "label", None) or item.name.replace("_", " ").title(),
+        }
+        for item in IATIFileTypes
+    ]
