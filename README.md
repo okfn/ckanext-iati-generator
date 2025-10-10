@@ -47,18 +47,56 @@ ckanext.iati_generator.hide_tab = true # default is false
 
 This extension requires resource extras:
 
- - `iati_namespace`: If you plan to expose more than one IATI file, define a custom namespace per each IATI file. If you plan to have only one IATI file (this includes organization and activities file), leave this empty
+ - `iati_namespace`: If you plan to expose more than one IATI file group, define a custom namespace per each IATI file.
+   If you plan to have only one IATI file group (organization + activities files), leave this empty
  - `iati_file_type` A selector for the specific IATI file type (e.g., base organization file, names file, org documents file, etc)
 
-If you are not using the `scheming` extendion: TODO update the schema manually. We will fix this in future version
+### Using the scheming extension
 
-If you are using the `scheming` extnesion, add this to your `yaml` file
+If you are using the `scheming` extension, add this to your schema `yaml` file
 
 ```yaml
-iati_namespace: ... (complete)
+...
 
-iati_file_type .... (complete)
+# Section (fieldset) shown on the resource form
+resource_form_groups:
+  - id: iati
+    label:
+      en: IATI
+      es: IATI
+    description:
+      en: If this resource must be used to build the final XML IATI file, define how. It's not required to make this dataset public.
+      es: Si este recurso debe usarse para construir el archivo IATI XML final, define cómo. No es necesario hacer público este conjunto de datos.
+
+resource_fields:
+  ...
+
+  # --- IATI fields ---
+  - field_name: iati_namespace
+    label:
+      en: IATI namespace
+      es: Espacio de nombres IATI
+    form_group_id: iati
+    help_text:
+      en: Leave empty for a single IATI file environment.
+      es: Dejar vacío para un entorno con un solo archivo IATI.
+    form_placeholder: eg. XM-DAC-46002 or my-org
+    validators: ignore_missing
+
+  - field_name: iati_file_type
+    label:
+      en: IATI file type
+      es: Tipo de archivo IATI
+    form_group_id: iati
+    preset: select
+    # Helper exposed by this extension that returns [{'value','label'}, ...]
+    choices_helper: iati_file_type
+    validators: ignore_missing
 ```
+
+### Without scheming (classic CKAN)
+
+If you are not using the `scheming` extension: **TODO** update the schema manually. We will fix/document this in a future version
 
 ## License
 
