@@ -43,6 +43,22 @@ ckanext.iati_generator.max_allowed_failures = 10 # default is 10
 ckanext.iati_generator.hide_tab = true # default is false
 ```
 
+## Extra fields: Revisar documentacion completa [AQUI](/docs/extra-fields.md)
+
+This extension requires resource extras:
+
+ - `iati_namespace`: If you plan to expose more than one IATI file, define a custom namespace per each IATI file. If you plan to have only one IATI file (this includes organization and activities file), leave this empty
+ - `iati_file_type` A selector for the specific IATI file type (e.g., base organization file, names file, org documents file, etc)
+
+If you are not using the `scheming` extendion: TODO update the schema manually. We will fix this in future version
+
+If you are using the `scheming` extnesion, add this to your `yaml` file
+
+```yaml
+iati_namespace: ... (complete)
+
+iati_file_type .... (complete)
+```
 
 ## License
 
