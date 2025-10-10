@@ -6,7 +6,7 @@ from ckanext.iati_generator.actions.iati import generate_iati_xml
 from ckan.lib.plugins import DefaultTranslation
 from ckanext.iati_generator.blueprint.iati import iati_blueprint
 from ckanext.iati_generator.blueprint.admin import iati_blueprint_admin
-from ckanext.iati_generator.helpers import iati_tab_enabled
+from ckanext.iati_generator import helpers as h
 
 
 log = logging.getLogger(__name__)
@@ -47,5 +47,6 @@ class IatiGeneratorPlugin(p.SingletonPlugin, DefaultTranslation):
     def get_helpers(self):
         """Return a dictionary of helper functions."""
         return {
-            "iati_tab_enabled": iati_tab_enabled,
+            "iati_tab_enabled": h.iati_tab_enabled,
+            "iati_file_type": h.iati_file_type,
         }
