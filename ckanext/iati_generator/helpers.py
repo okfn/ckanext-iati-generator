@@ -16,8 +16,8 @@ def iati_tab_enabled():
 
 def _extras_as_dict(extras):
     """
-    CKAN puede pasar extras como lista de {'key','value'} o como dict plano.
-    Normaliza a dict.
+    CKAN may pass extras as a list of {'key','value'} or as a plain dict.
+    Normalizes to dict.
     """
     if isinstance(extras, dict):
         return extras
@@ -38,8 +38,8 @@ def extras_as_dict(extras):
 
 def get_dict_value(extras, key, default=""):
     """
-    Helper seguro para leer un extra por clave.
-    Se usa en la template para precargar valores.
+    Safe helper to read an extra by key.
+    Used in the template to preload values.
     """
     try:
         data = _extras_as_dict(extras)
