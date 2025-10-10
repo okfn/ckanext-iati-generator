@@ -3,7 +3,7 @@ import logging
 from ckan import plugins as p
 from ckan.plugins import toolkit
 from ckanext.iati_generator.actions.iati import generate_iati_xml
-from ckan.lib.plugins import DefaultTranslation, DefaultDatasetForm
+from ckan.lib.plugins import DefaultTranslation
 from ckanext.iati_generator.blueprint.iati import iati_blueprint
 from ckanext.iati_generator.blueprint.admin import iati_blueprint_admin
 from ckanext.iati_generator import helpers as h
@@ -12,7 +12,7 @@ from ckanext.iati_generator import helpers as h
 log = logging.getLogger(__name__)
 
 
-class IatiGeneratorPlugin(p.SingletonPlugin, DefaultDatasetForm, DefaultTranslation):
+class IatiGeneratorPlugin(p.SingletonPlugin, DefaultTranslation):
     p.implements(p.IConfigurer)
     p.implements(p.IBlueprint)
     p.implements(p.IActions)
