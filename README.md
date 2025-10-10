@@ -56,17 +56,8 @@ This extension requires resource extras:
 If you are using the `scheming` extension, add this to your schema `yaml` file
 
 ```yaml
-...
 
-# Section (fieldset) shown on the resource form
-resource_form_groups:
-  - id: iati
-    label:
-      en: IATI
-      es: IATI
-    description:
-      en: If this resource must be used to build the final XML IATI file, define how. It's not required to make this dataset public.
-      es: Si este recurso debe usarse para construir el archivo IATI XML final, define cómo. No es necesario hacer público este conjunto de datos.
+...
 
 resource_fields:
   ...
@@ -76,7 +67,6 @@ resource_fields:
     label:
       en: IATI namespace
       es: Espacio de nombres IATI
-    form_group_id: iati
     help_text:
       en: Leave empty for a single IATI file environment.
       es: Dejar vacío para un entorno con un solo archivo IATI.
@@ -87,7 +77,6 @@ resource_fields:
     label:
       en: IATI file type
       es: Tipo de archivo IATI
-    form_group_id: iati
     preset: select
     # Helper exposed by this extension that returns [{'value','label'}, ...]
     choices_helper: iati_file_type
