@@ -30,22 +30,7 @@ resource_form_groups:
       es: Si este recurso debe usarse para construir el archivo IATI XML final, define cómo. No es necesario hacer público este conjunto de datos.
 
 resource_fields:
-  - field_name: url
-    label: URL
-    preset: resource_url_upload
-
-  - field_name: name
-    label: Name
-    form_placeholder: eg. January 2011 Gold Prices
-
-  - field_name: description
-    label: Description
-    form_snippet: markdown.html
-    form_placeholder: Some useful notes about the data
-
-  - field_name: format
-    label: Format
-    preset: resource_format_autocomplete
+  ...
 
   # --- IATI fields ---
   - field_name: iati_namespace
