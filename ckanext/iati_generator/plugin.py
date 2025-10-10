@@ -18,7 +18,6 @@ class IatiGeneratorPlugin(p.SingletonPlugin, DefaultDatasetForm, DefaultTranslat
     p.implements(p.IActions)
     p.implements(p.ITranslation)
     p.implements(p.ITemplateHelpers)
-    p.implements(p.IDatasetForm)
 
     def update_config(self, config_):
         toolkit.add_template_directory(config_, "templates")
@@ -52,35 +51,3 @@ class IatiGeneratorPlugin(p.SingletonPlugin, DefaultDatasetForm, DefaultTranslat
             "get_iati_file_reference_options": h.get_iati_file_reference_options,
             'extras_as_dict': h.extras_as_dict,
         }
-
-# ---------- IDatasetForm ----------
-    # Aplica al tipo por defecto (“dataset”); si tenés tipos custom, agregalos acá.
-    def is_fallback(self):
-        return True
-
-    def package_types(self):
-        return []
-
-    def create_package_schema(self):
-        schema = super().create_package_schema()
-        schema['resources'].update({
-            'iati_namespace':       [toolkit.get_validator('ignore_missing')],
-            'iati_file_reference':  [toolkit.get_validator('ignore_missing')],
-        })
-        return schema
-
-    def update_package_schema(self):
-        schema = super().update_package_schema()
-        schema['resources'].update({
-            'iati_namespace':       [toolkit.get_validator('ignore_missing')],
-            'iati_file_reference':  [toolkit.get_validator('ignore_missing')],
-        })
-        return schema
-
-    def show_package_schema(self):
-        schema = super().show_package_schema()
-        schema['resources'].update({
-            'iati_namespace':       [toolkit.get_validator('ignore_missing')],
-            'iati_file_reference':  [toolkit.get_validator('ignore_missing')],
-        })
-        return schema
