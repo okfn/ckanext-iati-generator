@@ -16,9 +16,7 @@ You can add these fields to the resource form in two ways:
 Add a resource form group and the two fields to your YAML:
 
 ```yaml
-scheming_version: 2
-dataset_type: dataset
-
+...
 # Section (fieldset) shown on the resource form
 resource_form_groups:
   - id: iati
