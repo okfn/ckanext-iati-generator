@@ -32,10 +32,6 @@ def _extras_as_dict(extras):
     return {}
 
 
-def extras_as_dict(extras):
-    return _extras_as_dict(extras)
-
-
 def get_dict_value(extras, key, default=""):
     """
     Safe helper to read an extra by key.

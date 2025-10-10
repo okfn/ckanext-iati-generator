@@ -49,5 +49,4 @@ class IatiGeneratorPlugin(p.SingletonPlugin, DefaultTranslation):
         return {
             "iati_tab_enabled": h.iati_tab_enabled,
             "get_iati_file_reference_options": h.get_iati_file_reference_options,
-            'extras_as_dict': h.extras_as_dict,
         }
