@@ -4,7 +4,6 @@
 {% block content_primary_nav %}
 
     {{ super() }}
-    <p>DDDDDDDDDDDDDDDDDDDDDDDDDD</p>
 
     {% if h.iati_tab_enabled() and h.check_access('sysadmin') %}
         {{ h.build_nav_icon('iati_generator.iati_page', _('IATI'), package_id=pkg.id, icon='lock') }}

@@ -62,7 +62,7 @@ class IatiGeneratorPlugin(p.SingletonPlugin, DefaultDatasetForm, DefaultTranslat
         return []
 
     def create_package_schema(self):
-        schema = super(IatiGeneratorPlugin, self).create_package_schema()
+        schema = super().create_package_schema()
         schema['resources'].update({
             'iati_namespace':       [toolkit.get_validator('ignore_missing')],
             'iati_file_reference':  [toolkit.get_validator('ignore_missing')],
@@ -70,7 +70,7 @@ class IatiGeneratorPlugin(p.SingletonPlugin, DefaultDatasetForm, DefaultTranslat
         return schema
 
     def update_package_schema(self):
-        schema = super(IatiGeneratorPlugin, self).update_package_schema()
+        schema = super().update_package_schema()
         schema['resources'].update({
             'iati_namespace':       [toolkit.get_validator('ignore_missing')],
             'iati_file_reference':  [toolkit.get_validator('ignore_missing')],
@@ -78,7 +78,7 @@ class IatiGeneratorPlugin(p.SingletonPlugin, DefaultDatasetForm, DefaultTranslat
         return schema
 
     def show_package_schema(self):
-        schema = super(IatiGeneratorPlugin, self).show_package_schema()
+        schema = super().show_package_schema()
         schema['resources'].update({
             'iati_namespace':       [toolkit.get_validator('ignore_missing')],
             'iati_file_reference':  [toolkit.get_validator('ignore_missing')],
