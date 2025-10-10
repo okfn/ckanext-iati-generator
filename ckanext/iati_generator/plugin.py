@@ -48,5 +48,5 @@ class IatiGeneratorPlugin(p.SingletonPlugin, DefaultTranslation):
         """Return a dictionary of helper functions."""
         return {
             "iati_tab_enabled": h.iati_tab_enabled,
-            "get_iati_file_reference_options": h.get_iati_file_reference_options,
+            "iati_file_type": h.iati_file_type,
         }
