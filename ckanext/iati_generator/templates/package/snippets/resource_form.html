@@ -2,11 +2,10 @@
 
 {% block metadata_fields %}
   {{ super() }}
-<p>AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA</p>
 
-  {# Prefill desde extras #}
+  {# Pre-carga desde extras (edición) #}
   {% set ex = h.extras_as_dict(data.extras) if data and data.extras else {} %}
-  {% set ns_val = ex.get('iati_namespace','') %}
+  {% set ns_val  = ex.get('iati_namespace','') %}
   {% set ref_val = ex.get('iati_file_reference','') %}
 
   <section class="module module-narrow">
@@ -32,7 +31,6 @@
       <div class="control-group">
         <label class="control-label" for="field-iati-file-reference">{{ _("IATI file reference") }}</label>
         <div class="controls">
-          {# Llamamos directo al helper (no uses "in h") #}
           {% set opts = h.get_iati_file_reference_options() or [] %}
           {% if opts %}
             <select id="field-iati-file-reference" name="iati_file_reference" class="control-medium">
@@ -46,7 +44,6 @@
                    value="{{ ref_val }}" class="control-medium"
                    placeholder="{{ _('eg. activities / transactions / ...') }}">
           {% endif %}
-
           <p class="info-block info-block-small">
             <i class="fa fa-info-circle"></i>
             {{ _("Choose the reference from the IATI enums list.") }}
