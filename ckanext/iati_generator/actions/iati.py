@@ -2,9 +2,12 @@ import logging
 import csv
 
 from ckan.plugins import toolkit
+from ckan import model
 
 from ckanext.iati_generator.csv import row_to_iati_activity
 from ckanext.iati_generator.utils import generate_final_iati_xml, get_resource_file_path
+from ckanext.iati_generator.models.iati_files import IATIFile
+from ckanext.iati_generator.models.enums import IATIFileTypes
 
 
 log = logging.getLogger(__name__)
@@ -124,3 +127,93 @@ def list_datasets_with_iati(context, data_dict=None):
     })
 
     return search_result["results"]
+
+
+def iati_file_create(context, data_dict):
+    """
+    Create an IATIFile record linked to a CKAN resource.
+    Only organization admins can create files for their resources.
+    """
+    _check_org_admin_for_resource(context, data_dict['resource_id'])
+
+    file = IATIFile(
+        namespace=data_dict.get('namespace', 'iati-xml'),
+        file_type=data_dict['file_type'],
+        resource_id=data_dict['resource_id'],
+    )
+    file.save()
+    return toolkit.get_action('iati_file_show')(context, {'id': file.id})
+
+
+def iati_file_update(context, data_dict):
+    """
+    Update an existing IATIFile record.
+    """
+    session = model.Session
+    file = session.query(IATIFile).get(data_dict['id'])
+    if not file:
+        raise toolkit.ObjectNotFound(f"IATIFile {data_dict['id']} not found")
+
+    _check_org_admin_for_resource(context, file.resource_id)
+
+    for key in ['namespace', 'file_type', 'is_valid', 'last_error']:
+        if key in data_dict:
+            setattr(file, key, data_dict[key])
+
+    file.save()
+    return toolkit.get_action('iati_file_show')(context, {'id': file.id})
+
+
+def iati_file_delete(context, data_dict):
+    """
+    Delete an existing IATIFile.
+    """
+    session = model.Session
+    file = session.query(IATIFile).get(data_dict['id'])
+    if not file:
+        raise toolkit.ObjectNotFound(f"IATIFile {data_dict['id']} not found")
+
+    _check_org_admin_for_resource(context, file.resource_id)
+    session.delete(file)
+    session.commit()
+    return {'success': True}
+
+
+def iati_file_show(context, data_dict):
+    """
+    Get a single IATIFile by ID.
+    """
+    session = model.Session
+    file = session.query(IATIFile).get(data_dict['id'])
+    if not file:
+        raise toolkit.ObjectNotFound(f"IATIFile {data_dict['id']} not found")
+
+    return {
+        'id': file.id,
+        'namespace': file.namespace,
+        'file_type': IATIFileTypes(file.file_type).name,
+        'resource_id': file.resource_id,
+        'is_valid': file.is_valid,
+        'last_error': file.last_error,
+        'metadata_created': file.metadata_created.isoformat(),
+        'metadata_updated': file.metadata_updated.isoformat() if file.metadata_updated else None,
+    }
+
+
+def _check_org_admin_for_resource(context, resource_id):
+    """
+    Ensure the current user is an admin of the organization that owns
+    the dataset of the resource.
+    """
+    model_ = toolkit.model
+    resource = model_.Resource.get(resource_id)
+    if not resource:
+        raise toolkit.ObjectNotFound(f"Resource {resource_id} not found")
+
+    pkg = resource.resource_group.package if resource.resource_group else resource.package
+    if not pkg:
+        raise toolkit.ObjectNotFound("Associated dataset not found for resource")
+
+    org_id = pkg.owner_org
+    if not toolkit.check_access('organization_update', context, {'id': org_id}):
+        raise toolkit.NotAuthorized("User must be an admin of the resource's organization")
