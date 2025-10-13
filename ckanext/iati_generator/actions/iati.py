@@ -134,6 +134,20 @@ def iati_file_create(context, data_dict):
     Create an IATIFile record linked to a CKAN resource.
     Only organization admins can create files for their resources.
     """
+    if 'resource_id' not in data_dict or not data_dict['resource_id']:
+        raise toolkit.ValidationError({'resource_id': 'Missing required field resource_id'})
+    if 'file_type' not in data_dict:
+        raise toolkit.ValidationError({'file_type': 'Missing required field file_type'})
+    try:
+        # acepta int o nombre del enum
+        ft = data_dict['file_type']
+        if isinstance(ft, str):
+            data_dict['file_type'] = IATIFileTypes[ft].value
+        else:
+            _ = IATIFileTypes(ft)  # valida que exista
+    except Exception:
+        raise toolkit.ValidationError({'file_type': 'Invalid IATIFileTypes value'})
+
     _check_org_admin_for_resource(context, data_dict['resource_id'])
 
     file = IATIFile(
@@ -215,5 +229,4 @@ def _check_org_admin_for_resource(context, resource_id):
         raise toolkit.ObjectNotFound("Associated dataset not found for resource")
 
     org_id = pkg.owner_org
-    if not toolkit.check_access('organization_update', context, {'id': org_id}):
-        raise toolkit.NotAuthorized("User must be an admin of the resource's organization")
+    toolkit.check_access('organization_update', context, {'id': org_id})
