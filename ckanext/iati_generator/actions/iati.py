@@ -134,6 +134,8 @@ def iati_file_create(context, data_dict):
     Create an IATIFile record linked to a CKAN resource.
     Only organization admins can create files for their resources.
     """
+    toolkit.check_access('iati_file_create', context, data_dict)
+
     if 'resource_id' not in data_dict or not data_dict['resource_id']:
         raise toolkit.ValidationError({'resource_id': 'Missing required field resource_id'})
     if 'file_type' not in data_dict:
@@ -148,8 +150,6 @@ def iati_file_create(context, data_dict):
     except Exception:
         raise toolkit.ValidationError({'file_type': 'Invalid IATIFileTypes value'})
 
-    _check_org_admin_for_resource(context, data_dict['resource_id'])
-
     file = IATIFile(
         namespace=data_dict.get('namespace', 'iati-xml'),
         file_type=data_dict['file_type'],
@@ -163,12 +163,12 @@ def iati_file_update(context, data_dict):
     """
     Update an existing IATIFile record.
     """
+    toolkit.check_access('iati_file_update', context, data_dict)
+
     session = model.Session
     file = session.query(IATIFile).get(data_dict['id'])
     if not file:
         raise toolkit.ObjectNotFound(f"IATIFile {data_dict['id']} not found")
-
-    _check_org_admin_for_resource(context, file.resource_id)
 
     for key in ['namespace', 'file_type', 'is_valid', 'last_error']:
         if key in data_dict:
@@ -182,12 +182,13 @@ def iati_file_delete(context, data_dict):
     """
     Delete an existing IATIFile.
     """
+    toolkit.check_access('iati_file_delete', context, data_dict)
+
     session = model.Session
     file = session.query(IATIFile).get(data_dict['id'])
     if not file:
         raise toolkit.ObjectNotFound(f"IATIFile {data_dict['id']} not found")
 
-    _check_org_admin_for_resource(context, file.resource_id)
     session.delete(file)
     session.commit()
     return {'success': True}
@@ -197,6 +198,8 @@ def iati_file_show(context, data_dict):
     """
     Get a single IATIFile by ID.
     """
+    toolkit.check_access('iati_file_show', context, data_dict)
+
     session = model.Session
     file = session.query(IATIFile).get(data_dict['id'])
     if not file:
@@ -212,21 +215,3 @@ def iati_file_show(context, data_dict):
         'metadata_created': file.metadata_created.isoformat(),
         'metadata_updated': file.metadata_updated.isoformat() if file.metadata_updated else None,
     }
-
-
-def _check_org_admin_for_resource(context, resource_id):
-    """
-    Ensure the current user is an admin of the organization that owns
-    the dataset of the resource.
-    """
-    model_ = toolkit.model
-    resource = model_.Resource.get(resource_id)
-    if not resource:
-        raise toolkit.ObjectNotFound(f"Resource {resource_id} not found")
-
-    pkg = resource.resource_group.package if resource.resource_group else resource.package
-    if not pkg:
-        raise toolkit.ObjectNotFound("Associated dataset not found for resource")
-
-    org_id = pkg.owner_org
-    toolkit.check_access('organization_update', context, {'id': org_id})
