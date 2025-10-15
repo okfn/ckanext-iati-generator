@@ -21,6 +21,7 @@ class IatiGeneratorPlugin(p.SingletonPlugin, DefaultTranslation):
     p.implements(p.IActions)
     p.implements(p.ITranslation)
     p.implements(p.ITemplateHelpers)
+    p.implements(p.IAuthFunctions)
 
     def update_config(self, config_):
         toolkit.add_template_directory(config_, "templates")
