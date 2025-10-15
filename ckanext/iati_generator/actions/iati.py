@@ -6,7 +6,7 @@ from ckan import model
 
 from ckanext.iati_generator.csv import row_to_iati_activity
 from ckanext.iati_generator.utils import generate_final_iati_xml, get_resource_file_path
-from ckanext.iati_generator.models.iati_files import IATIFile
+from ckanext.iati_generator.models.iati_files import DEFAULT_NAMESPACE, IATIFile
 from ckanext.iati_generator.models.enums import IATIFileTypes
 
 
@@ -151,7 +151,7 @@ def iati_file_create(context, data_dict):
         raise toolkit.ValidationError({'file_type': 'Invalid IATIFileTypes value'})
 
     file = IATIFile(
-        namespace=data_dict.get('namespace', 'iati-xml'),
+        namespace=data_dict.get('namespace', DEFAULT_NAMESPACE),
         file_type=data_dict['file_type'],
         resource_id=data_dict['resource_id'],
     )
