@@ -1,4 +1,4 @@
-from ckan import model, authz
+from ckan import model
 from ckan.plugins import toolkit
 from ckanext.iati_generator.models.iati_files import IATIFile
 
@@ -30,13 +30,29 @@ def _is_sysadmin(context):
     return bool(user_obj and user_obj.sysadmin)
 
 
-def _user_can_update_package(context, package_id):
-    """True si el usuario puede actualizar el dataset (org-admin o con permisos equivalentes)."""
+def _user_is_org_admin_for_package(context, package_id):
+    """
+    True si el usuario es ADMIN en la organización dueña del dataset.
+    No confundir con 'package_update' (que permite editor).
+    """
     if not package_id:
         return False
-    # reutilizamos el sistema de permisos estándar de CKAN
-    authorized = authz.is_authorized("package_update", context, {"id": package_id})
-    return bool(authorized and authorized.get("success"))
+
+    # owner_org del dataset (sin acciones ni permisos)
+    pkg = model.Package.get(package_id)
+    if not pkg or not pkg.owner_org:
+        return False
+    org_id = pkg.owner_org
+
+    # user_id desde el contexto
+    user_name = context.get("user")
+    user_obj = model.User.get(user_name) if user_name else None
+    if not user_obj:
+        return False
+
+    # listar organizaciones del usuario y chequear capacity
+    user_orgs = toolkit.get_action("organization_list_for_user")(context, {"id": user_obj.id})
+    return any(o.get("id") == org_id and o.get("capacity") == "admin" for o in user_orgs)
 
 
 def _allow_if_sysadmin_or_org_admin(context, data_dict):
@@ -44,7 +60,7 @@ def _allow_if_sysadmin_or_org_admin(context, data_dict):
         return {"success": True}
 
     package_id = _resolve_package_id(data_dict)
-    if _user_can_update_package(context, package_id):
+    if _user_is_org_admin_for_package(context, package_id):
         return {"success": True}
 
     return {
