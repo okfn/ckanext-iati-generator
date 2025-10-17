@@ -16,7 +16,7 @@
       <tbody>
         {% for row in iati_files %}
           <tr>
-            <td>{{ row.file_type }}</td>
+            <td>{{ h.iati_file_type(row.file_type) }}</td>
             <td>
               {# link text = resource name; link goes to the resource page #}
               <a href="{{ h.url_for('resource.read', id=row.dataset_name, resource_id=row.resource_id) }}">
