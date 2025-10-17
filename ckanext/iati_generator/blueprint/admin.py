@@ -1,4 +1,5 @@
 from flask import Blueprint
+from sqlalchemy.orm import joinedload
 
 from ckan.plugins import toolkit
 from ckan import model as ckan_model
@@ -20,10 +21,10 @@ def index():
 @iati_file_admin.route("/iati-files")
 @require_sysadmin_user
 def iati_files_index():
-    """ List all IATI “files” (resources with IATI extras) in the system.
-        This is a simple admin view to see the status of IATI files.
+    """List all IATI “files” (resources with IATI extras) in the system.
+    This is a simple admin view to see the status of IATI files.
     """
-    # Collect IATI “file” rows from resources that define the IATI extras
+    # Collect IATI “file” rows from resources that define the IATI extras.
     # Expected extras:
     #   - iati_namespace (string)
     #   - iati_file_reference (enum value from IATIFileTypes)
@@ -33,9 +34,18 @@ def iati_files_index():
     #   - iati_error_message (string)
     # Adjust keys if your naming differs.
     rows = []
-    q = ckan_model.Session.query(ckan_model.Resource).all()
-    for res in q:
-        extras = {e.key: e.value for e in getattr(res, "extras_list", [])}
+    # Collect IATI “file” rows from resources that define the IATI extras.
+    resources = (
+        ckan_model.Session.query(ckan_model.Resource)
+        .options(joinedload(ckan_model.Resource.package))
+        .all()
+    )
+    for res in resources:
+        extras = {}
+        if hasattr(res, "extras") and isinstance(res.extras, dict):
+            extras = res.extras or {}
+        elif hasattr(res, "extras_list"):
+            extras = {e.key: e.value for e in (res.extras_list or [])}
         file_ref = extras.get("iati_file_reference")
         if not file_ref:
             continue
