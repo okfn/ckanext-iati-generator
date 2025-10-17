@@ -1,28 +1,5 @@
 from ckan import model
 from ckan.plugins import toolkit
-from ckanext.iati_generator.models.iati_files import IATIFile
-
-
-def _resolve_package_id(data_dict):
-    """Devuelve el package_id a partir de package_id/dataset_id, resource_id o id de IATIFile."""
-    pkg_id = data_dict.get("package_id") or data_dict.get("dataset_id")
-    if pkg_id:
-        return pkg_id
-
-    res_id = data_dict.get("resource_id")
-    if res_id:
-        res = model.Resource.get(res_id)
-        if res:
-            return res.package_id
-
-    file_id = data_dict.get("id") or data_dict.get("iati_file_id")
-    if file_id:
-        f = model.Session.query(IATIFile).get(file_id)
-        if f:
-            res = model.Resource.get(f.resource_id)
-            if res:
-                return res.package_id
-    return None
 
 
 def _is_sysadmin(context):
@@ -32,8 +9,8 @@ def _is_sysadmin(context):
 
 def _user_is_org_admin_for_package(context, package_id):
     """
-    True si el usuario es ADMIN en la organización dueña del dataset.
-    No confundir con 'package_update' (que permite editor).
+    Return True if the user is an admin of the organization that owns the dataset.
+    Not to be confused with 'package_update' (which allows editors).
     """
     if not package_id:
         return False
@@ -55,11 +32,10 @@ def _user_is_org_admin_for_package(context, package_id):
     return any(o.get("id") == org_id and o.get("capacity") == "admin" for o in user_orgs)
 
 
-def _allow_if_sysadmin_or_org_admin(context, data_dict):
+def _allow_if_sysadmin_or_org_admin(context, package_id):
     if _is_sysadmin(context):
         return {"success": True}
 
-    package_id = _resolve_package_id(data_dict)
     if _user_is_org_admin_for_package(context, package_id):
         return {"success": True}
 
@@ -71,15 +47,18 @@ def _allow_if_sysadmin_or_org_admin(context, data_dict):
 
 def iati_file_create(context, data_dict):
     # org-admin del dataset (o sysadmin)
-    return _allow_if_sysadmin_or_org_admin(context, data_dict)
+    package_id = data_dict.get("package_id") or data_dict.get("dataset_id")
+    return _allow_if_sysadmin_or_org_admin(context, package_id)
 
 
 def iati_file_update(context, data_dict):
-    return _allow_if_sysadmin_or_org_admin(context, data_dict)
+    package_id = data_dict.get("package_id") or data_dict.get("dataset_id")
+    return _allow_if_sysadmin_or_org_admin(context, package_id)
 
 
 def iati_file_delete(context, data_dict):
-    return _allow_if_sysadmin_or_org_admin(context, data_dict)
+    package_id = data_dict.get("package_id") or data_dict.get("dataset_id")
+    return _allow_if_sysadmin_or_org_admin(context, package_id)
 
 
 def iati_file_show(context, data_dict):
