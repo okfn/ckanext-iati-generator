@@ -2,9 +2,12 @@ import logging
 import csv
 
 from ckan.plugins import toolkit
+from ckan import model
 
 from ckanext.iati_generator.csv import row_to_iati_activity
 from ckanext.iati_generator.utils import generate_final_iati_xml, get_resource_file_path
+from ckanext.iati_generator.models.iati_files import DEFAULT_NAMESPACE, IATIFile
+from ckanext.iati_generator.models.enums import IATIFileTypes
 
 
 log = logging.getLogger(__name__)
@@ -124,3 +127,91 @@ def list_datasets_with_iati(context, data_dict=None):
     })
 
     return search_result["results"]
+
+
+def iati_file_create(context, data_dict):
+    """
+    Create an IATIFile record linked to a CKAN resource.
+    Only organization admins can create files for their resources.
+    """
+    toolkit.check_access('iati_file_create', context, data_dict)
+
+    if 'resource_id' not in data_dict or not data_dict['resource_id']:
+        raise toolkit.ValidationError({'resource_id': 'Missing required field resource_id'})
+    if 'file_type' not in data_dict:
+        raise toolkit.ValidationError({'file_type': 'Missing required field file_type'})
+    try:
+        # acepta int o nombre del enum
+        ft = data_dict['file_type']
+        if isinstance(ft, str):
+            data_dict['file_type'] = IATIFileTypes[ft].value
+        else:
+            _ = IATIFileTypes(ft)  # valida que exista
+    except Exception:
+        raise toolkit.ValidationError({'file_type': 'Invalid IATIFileTypes value'})
+
+    file = IATIFile(
+        namespace=data_dict.get('namespace', DEFAULT_NAMESPACE),
+        file_type=data_dict['file_type'],
+        resource_id=data_dict['resource_id'],
+    )
+    file.save()
+    return toolkit.get_action('iati_file_show')(context, {'id': file.id})
+
+
+def iati_file_update(context, data_dict):
+    """
+    Update an existing IATIFile record.
+    """
+    toolkit.check_access('iati_file_update', context, data_dict)
+
+    session = model.Session
+    file = session.query(IATIFile).get(data_dict['id'])
+    if not file:
+        raise toolkit.ObjectNotFound(f"IATIFile {data_dict['id']} not found")
+
+    for key in ['namespace', 'file_type', 'is_valid', 'last_error']:
+        if key in data_dict:
+            setattr(file, key, data_dict[key])
+
+    file.save()
+    return toolkit.get_action('iati_file_show')(context, {'id': file.id})
+
+
+def iati_file_delete(context, data_dict):
+    """
+    Delete an existing IATIFile.
+    """
+    toolkit.check_access('iati_file_delete', context, data_dict)
+
+    session = model.Session
+    file = session.query(IATIFile).get(data_dict['id'])
+    if not file:
+        raise toolkit.ObjectNotFound(f"IATIFile {data_dict['id']} not found")
+
+    session.delete(file)
+    session.commit()
+    return {'success': True}
+
+
+def iati_file_show(context, data_dict):
+    """
+    Get a single IATIFile by ID.
+    """
+    toolkit.check_access('iati_file_show', context, data_dict)
+
+    session = model.Session
+    file = session.query(IATIFile).get(data_dict['id'])
+    if not file:
+        raise toolkit.ObjectNotFound(f"IATIFile {data_dict['id']} not found")
+
+    return {
+        'id': file.id,
+        'namespace': file.namespace,
+        'file_type': IATIFileTypes(file.file_type).name,
+        'resource_id': file.resource_id,
+        'is_valid': file.is_valid,
+        'last_error': file.last_error,
+        'metadata_created': file.metadata_created.isoformat(),
+        'metadata_updated': file.metadata_updated.isoformat() if file.metadata_updated else None,
+    }

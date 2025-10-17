@@ -23,8 +23,7 @@ class IATIFile(toolkit.BaseModel, ActiveRecordMixin):
     # CKAN resource (CSV or tabular data file)
     resource_id = Column(
         types.UnicodeText,
-        ForeignKey('resource.id'),
-        ondelete='CASCADE',
+        ForeignKey('resource.id', ondelete='CASCADE'),
         nullable=False,
         unique=True,
         index=True,
