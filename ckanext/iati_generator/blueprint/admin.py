@@ -1,11 +1,11 @@
 from flask import Blueprint
-from sqlalchemy.orm import aliased
-from sqlalchemy import and_
 
 from ckan.plugins import toolkit
 from ckan import model as ckan_model
 from ckanext.iati_generator.decorators import require_sysadmin_user
 from ckanext.iati_generator.actions.iati import list_datasets_with_iati
+from ckanext.iati_generator.models.iati_files import IATIFile
+from ckanext.iati_generator.models.enums import IATIFileTypes
 
 iati_blueprint_admin = Blueprint("iati_generator_admin", __name__, url_prefix="/ckan-admin/iati")
 iati_file_admin = Blueprint("iati_generator_admin_files", __name__, url_prefix="/ckan-admin/list-iati-files")
@@ -37,81 +37,48 @@ def iati_files_index():
     Session = ckan_model.Session
     Resource = ckan_model.Resource
     Package = ckan_model.Package
-    ResourceExtra = ckan_model.ResourceExtra
-
-    # Aliases for each resource extra we want to read
-    re_file_ref = aliased(ResourceExtra)
-    re_namespace = aliased(ResourceExtra)
-    re_valid = aliased(ResourceExtra)
-    re_last_success = aliased(ResourceExtra)
-    re_last_error = aliased(ResourceExtra)
-    re_error_message = aliased(ResourceExtra)
 
     q = (
         Session.query(
+            IATIFile.id.label("iati_id"),
+            IATIFile.namespace.label("namespace"),
+            IATIFile.file_type.label("file_type"),
+            IATIFile.is_valid.label("is_valid"),
+            IATIFile.last_processed_success.label("last_success"),
+            IATIFile.last_error.label("error_message"),
+
             Resource.id.label("resource_id"),
             Resource.name.label("resource_name"),
+            Resource.url.label("resource_url"),
+            Resource.format.label("resource_format"),
+            Resource.description.label("resource_description"),
+
             Package.name.label("package_name"),
-            re_file_ref.value.label("file_type"),
-            re_namespace.value.label("namespace"),
-            re_valid.value.label("valid"),
-            re_last_success.value.label("last_success"),
-            re_last_error.value.label("last_error"),
-            re_error_message.value.label("error_message"),
         )
+        .join(Resource, Resource.id == IATIFile.resource_id)
         .join(Package, Resource.package_id == Package.id)
-        .filter(Resource.state == 'active')
-        .filter(Package.state == 'active')
-        # Only include resources that have iati_file_reference
-        .join(
-            re_file_ref,
-            and_(re_file_ref.resource_id == Resource.id,
-                 re_file_ref.key == "iati_file_reference"),
-        )
-        # Optional extras (use outerjoin)
-        .outerjoin(
-            re_namespace,
-            and_(re_namespace.resource_id == Resource.id,
-                 re_namespace.key == "iati_namespace"),
-        )
-        .outerjoin(
-            re_valid,
-            and_(re_valid.resource_id == Resource.id,
-                 re_valid.key == "iati_valid"),
-        )
-        .outerjoin(
-            re_last_success,
-            and_(re_last_success.resource_id == Resource.id,
-                 re_last_success.key == "iati_last_success"),
-        )
-        .outerjoin(
-            re_last_error,
-            and_(re_last_error.resource_id == Resource.id,
-                 re_last_error.key == "iati_last_error"),
-        )
-        .outerjoin(
-            re_error_message,
-            and_(re_error_message.resource_id == Resource.id,
-                 re_error_message.key == "iati_error_message"),
-        )
+        .filter(Resource.state == "active", Package.state == "active")
         .order_by(Package.name.asc(), Resource.name.asc())
     )
 
     rows = []
     for r in q.all():
-        valid_str = (r.valid or "").strip().lower()
-        is_valid = valid_str in ("1", "true", "yes")
+        # Mapear el file_type (int) al nombre del Enum, con fallback seguro
+        try:
+            file_type_label = IATIFileTypes(r.file_type).name
+        except Exception:
+            file_type_label = str(r.file_type or "")
+
+        is_valid = bool(r.is_valid)
 
         notes = ""
-        if is_valid and (r.last_success or "").strip():
-            notes = f"Last success: {r.last_success.strip()}"
-        elif not is_valid and (r.last_error or "").strip():
-            notes = f"Last error: {r.last_error.strip()}"
-            if (r.error_message or "").strip():
-                notes += f" – {r.error_message.strip()}"
+        if is_valid and r.last_success:
+            notes = f"Last success: {r.last_success}"
+        elif not is_valid and (r.error_message or ""):
+            notes = f"Last error: {r.error_message}"
 
         rows.append({
-            "file_type": r.file_type or "",
+            "file_type": file_type_label,
             "resource_name": r.resource_name or r.resource_id,
             "resource_id": r.resource_id,
             "dataset_name": r.package_name or "",
