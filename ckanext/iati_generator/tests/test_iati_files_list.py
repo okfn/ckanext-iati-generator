@@ -1,41 +1,8 @@
-import pytest
 from ckan.lib.helpers import url_for
 from ckan.tests import factories
-from ckan import model as ckan_model
 
-from ckanext.iati_generator.models.iati_files import IATIFile
+from ckanext.iati_generator.tests.factories import create_iati_file
 from ckanext.iati_generator.models.enums import IATIFileTypes
-
-
-# -------------------- Fixtures --------------------
-
-@pytest.fixture(autouse=True)
-def ensure_iati_files_table():
-    """
-    Ensures the iati_files table exists in the test database
-    and cleans up after each test.
-    """
-    IATIFile.__table__.create(ckan_model.meta.engine, checkfirst=True)
-    yield
-    ckan_model.Session.query(IATIFile).delete()
-    ckan_model.Session.commit()
-
-
-# -------------------- Helpers --------------------
-
-def make_iati_file(resource_dict, file_type=IATIFileTypes.ORGANIZATION_MAIN_FILE, **kwargs):
-    """
-    Create an IATIFile record associated with a CKAN resource.
-    """
-    obj = IATIFile(
-        namespace=kwargs.get("namespace", "iati-xml"),
-        file_type=file_type.value if hasattr(file_type, "value") else int(file_type),
-        resource_id=resource_dict["id"],
-        is_valid=kwargs.get("is_valid", True),
-        last_error=kwargs.get("last_error"),
-    )
-    obj.save()
-    return obj
 
 
 # -------------------- Auth tests --------------------
@@ -66,8 +33,8 @@ def test_iati_files_index_lists_all_iati_files_for_sysadmin(app):
     res1 = factories.Resource(package_id=ds1["id"], name="Res A", format="CSV")
     res2 = factories.Resource(package_id=ds2["id"], name="Res B", format="CSV")
 
-    make_iati_file(res1, IATIFileTypes.ORGANIZATION_MAIN_FILE)
-    make_iati_file(res2, IATIFileTypes.ORGANIZATION_NAMES_FILE)
+    create_iati_file(resource_id=res1["id"], file_type=IATIFileTypes.ORGANIZATION_MAIN_FILE)
+    create_iati_file(resource_id=res2["id"], file_type=IATIFileTypes.ORGANIZATION_NAMES_FILE)
 
     url = url_for("iati_generator_admin_files.iati_files_index")
     auth = {"Authorization": sys["token"]}
@@ -95,8 +62,9 @@ def test_iati_files_index_shows_valid_and_error_notes(app):
 
     # one valid (should show "Last success" when populated),
     # and one invalid with an error message
-    make_iati_file(res_ok, IATIFileTypes.ORGANIZATION_MAIN_FILE, is_valid=True)
-    make_iati_file(res_bad, IATIFileTypes.ORGANIZATION_NAMES_FILE, is_valid=False, last_error="Boom!")
+    create_iati_file(resource_id=res_ok["id"], file_type=IATIFileTypes.ORGANIZATION_MAIN_FILE, is_valid=True)
+    create_iati_file(resource_id=res_bad["id"],
+                     file_type=IATIFileTypes.ORGANIZATION_NAMES_FILE, is_valid=False, last_error="Boom!")
 
     url = url_for("iati_generator_admin_files.iati_files_index")
     auth = {"Authorization": sys["token"]}
