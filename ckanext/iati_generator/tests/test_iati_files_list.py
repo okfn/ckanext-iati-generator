@@ -7,13 +7,13 @@ from ckanext.iati_generator.models.enums import IATIFileTypes
 
 # -------------------- Auth tests --------------------
 
-def test_iati_files_index_forbidden_without_user(app):
+def test_iati_files_index_forbidden_without_user(app, clean_db):
     """Ensure unauthenticated users cannot access the view."""
     url = url_for("iati_generator_admin_files.iati_files_index")
     app.get(url, status=403)
 
 
-def test_iati_files_index_forbidden_for_non_admin(app):
+def test_iati_files_index_forbidden_for_non_admin(app, clean_db):
     """Ensure non-admin users cannot access the view."""
     user = factories.UserWithToken()
     url = url_for("iati_generator_admin_files.iati_files_index")
@@ -22,7 +22,7 @@ def test_iati_files_index_forbidden_for_non_admin(app):
 
 # -------------------- Content tests --------------------
 
-def test_iati_files_index_lists_all_iati_files_for_sysadmin(app):
+def test_iati_files_index_lists_all_iati_files_for_sysadmin(app, clean_db):
     """Ensure the view lists all IATI files (resources with IATI extras)."""
 
     sys = factories.SysadminWithToken()
@@ -51,7 +51,7 @@ def test_iati_files_index_lists_all_iati_files_for_sysadmin(app):
     assert res2["id"] in resp.body
 
 
-def test_iati_files_index_shows_valid_and_error_notes(app):
+def test_iati_files_index_shows_valid_and_error_notes(app, clean_db):
     """Ensure the 'Notes' column shows the last success or error as appropriate."""
     sys = factories.SysadminWithToken()
 
