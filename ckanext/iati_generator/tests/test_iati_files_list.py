@@ -70,18 +70,18 @@ def test_iati_files_index_lists_all_iati_files_for_sysadmin(app):
     make_iati_file(res2, IATIFileTypes.ORGANIZATION_NAMES_FILE)
 
     url = url_for("iati_generator_admin_files.iati_files_index")
-    resp = app.get(url, headers={"Authorization": sys["token"]})
+    auth = {"Authorization": sys["token"]}
+    resp = app.get(url, headers=auth)
     assert resp.status_code == 200
 
-    body = resp.text
     # both resources appear
-    assert "Res A" in body
-    assert "Res B" in body
+    assert "Res A" in resp.body
+    assert "Res B" in resp.body
     # and links to their resource pages (dataset + resource_id)
-    assert ds1["name"] in body
-    assert ds2["name"] in body
-    assert res1["id"] in body
-    assert res2["id"] in body
+    assert ds1["name"] in resp.body
+    assert ds2["name"] in resp.body
+    assert res1["id"] in resp.body
+    assert res2["id"] in resp.body
 
 
 def test_iati_files_index_shows_valid_and_error_notes(app):
@@ -99,13 +99,13 @@ def test_iati_files_index_shows_valid_and_error_notes(app):
     make_iati_file(res_bad, IATIFileTypes.ORGANIZATION_NAMES_FILE, is_valid=False, last_error="Boom!")
 
     url = url_for("iati_generator_admin_files.iati_files_index")
-    resp = app.get(url, headers={"Authorization": sys["token"]})
-    body = resp.text
+    auth = {"Authorization": sys["token"]}
+    resp = app.get(url, headers=auth)
 
     # both are present by name
-    assert "Res OK" in body
-    assert "Res BAD" in body
+    assert "Res OK" in resp.body
+    assert "Res BAD" in resp.body
 
     # the invalid one should show the message in 'Notes'
-    assert "Last error" in body
-    assert "Boom!" in body
+    assert "Last error" in resp.body
+    assert "Boom!" in resp.body
