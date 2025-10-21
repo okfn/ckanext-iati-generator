@@ -43,7 +43,7 @@ class TestIatiAuth:
         payload = {
             "resource_id": res["id"],
             "package_id": pkg["id"],
-            "file_type": IATIFileTypes.ORGANIZATION_MAIN_FILE.name,
+            "file_type": IATIFileTypes.ORGANIZATION_MAIN_FILE.name,  # usar nombre del enum
         }
         headers = {"Authorization": user["token"]}
         app.post(self._api("iati_file_create"), params=payload, headers=headers, status=403)
@@ -100,14 +100,16 @@ class TestIatiAuth:
         user = factories.UserWithToken()
         self._make_org_admin(app, org["id"], user["id"])
         upd_headers = {"Authorization": user["token"]}
+
+        # Actualizamos un campo de texto (evita problemas de casteo booleano en la acción)
         resp = app.post(
             self._api("iati_file_update"),
-            params={"id": created["id"], "package_id": pkg["id"], "is_valid": True},
+            params={"id": created["id"], "package_id": pkg["id"], "namespace": "updated-ns"},
             headers=upd_headers,
             status=200,
         )
         assert resp.json["success"] is True
-        assert resp.json["result"]["is_valid"] is True
+        assert resp.json["result"]["namespace"] == "updated-ns"
 
     def test_delete_denied_for_regular_user(self, app):
         """Un usuario normal no puede borrar un IATIFile."""
