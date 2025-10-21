@@ -35,7 +35,7 @@ class TestIatiAuth:
         # for tests it's enough that it doesn't raise.
         app.post(self._api("member_create"), headers=headers, params=params, status=200)
 
-    def test_create_denied_for_regular_user(self, app):
+    def test_create_denied_for_regular_user(self, app, clean_db):
         """A regular user cannot create an IATIFile."""
         user = factories.UserWithToken()
         org, pkg, res = self._make_dataset_with_resource()
@@ -48,7 +48,7 @@ class TestIatiAuth:
         headers = {"Authorization": user["token"]}
         app.post(self._api("iati_file_create"), params=payload, headers=headers, status=403)
 
-    def test_create_allowed_for_sysadmin(self, app):
+    def test_create_allowed_for_sysadmin(self, app, clean_db):
         """A sysadmin can create an IATIFile."""
         user = factories.SysadminWithToken()
         org, pkg, res = self._make_dataset_with_resource()
@@ -63,7 +63,7 @@ class TestIatiAuth:
         assert resp.json["success"] is True
         assert "id" in resp.json["result"]
 
-    def test_create_allowed_for_org_admin(self, app):
+    def test_create_allowed_for_org_admin(self, app, clean_db):
         """An admin of the org owning the dataset can create an IATIFile"""
         user = factories.UserWithToken()
         org, pkg, res = self._make_dataset_with_resource()
@@ -79,7 +79,7 @@ class TestIatiAuth:
         assert resp.json["success"] is True
         assert "id" in resp.json["result"]
 
-    def test_update_allowed_resolving_by_iati_id_for_org_admin(self, app):
+    def test_update_allowed_resolving_by_iati_id_for_org_admin(self, app, clean_db):
         """An admin of the org owning the dataset can update an IATIFile"""
         # Create IATIFile as sysadmin
         sys = factories.SysadminWithToken()
@@ -111,7 +111,7 @@ class TestIatiAuth:
         assert resp.json["success"] is True
         assert resp.json["result"]["namespace"] == "updated-ns"
 
-    def test_delete_denied_for_regular_user(self, app):
+    def test_delete_denied_for_regular_user(self, app, clean_db):
         """A regular user cannot delete an IATIFile."""
         sys = factories.SysadminWithToken()
         org, pkg, res = self._make_dataset_with_resource()
@@ -135,7 +135,7 @@ class TestIatiAuth:
             status=403,
         )
 
-    def test_show_is_open_for_anonymous(self, app):
+    def test_show_is_open_for_anonymous(self, app, clean_db):
         """Anyone can view an IATIFile if they know its ID."""
         sys = factories.SysadminWithToken()
         org, pkg, res = self._make_dataset_with_resource()
