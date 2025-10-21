@@ -1,6 +1,8 @@
 import pytest
 from ckan.tests import factories
 
+from ckanext.iati_generator.models.enums import IATIFileTypes
+
 
 @pytest.mark.ckan_config("ckan.plugins", "iati_generator")
 class TestIatiAuth:
@@ -38,7 +40,11 @@ class TestIatiAuth:
         user = factories.UserWithToken()
         org, pkg, res = self._make_dataset_with_resource()
 
-        payload = {"resource_id": res["id"], "file_type": 1}
+        payload = {
+            "resource_id": res["id"],
+            "package_id": pkg["id"],
+            "file_type": IATIFileTypes.ORGANIZATION_MAIN_FILE.name,
+        }
         headers = {"Authorization": user["token"]}
         app.post(self._api("iati_file_create"), params=payload, headers=headers, status=403)
 
@@ -47,7 +53,11 @@ class TestIatiAuth:
         user = factories.SysadminWithToken()
         org, pkg, res = self._make_dataset_with_resource()
 
-        payload = {"resource_id": res["id"], "file_type": 1}
+        payload = {
+            "resource_id": res["id"],
+            "package_id": pkg["id"],
+            "file_type": IATIFileTypes.ORGANIZATION_MAIN_FILE.name,
+        }
         headers = {"Authorization": user["token"]}
         resp = app.post(self._api("iati_file_create"), params=payload, headers=headers, status=200)
         assert resp.json["success"] is True
@@ -59,7 +69,11 @@ class TestIatiAuth:
         org, pkg, res = self._make_dataset_with_resource()
         self._make_org_admin(app, org["id"], user["id"])
 
-        payload = {"resource_id": res["id"], "file_type": 1}
+        payload = {
+            "resource_id": res["id"],
+            "package_id": pkg["id"],
+            "file_type": IATIFileTypes.ORGANIZATION_MAIN_FILE.name,
+        }
         headers = {"Authorization": user["token"]}
         resp = app.post(self._api("iati_file_create"), params=payload, headers=headers, status=200)
         assert resp.json["success"] is True
@@ -73,7 +87,11 @@ class TestIatiAuth:
         create_headers = {"Authorization": sys["token"]}
         created = app.post(
             self._api("iati_file_create"),
-            params={"resource_id": res["id"], "file_type": 1},
+            params={
+                "resource_id": res["id"],
+                "package_id": pkg["id"],
+                "file_type": IATIFileTypes.ORGANIZATION_MAIN_FILE.name,
+            },
             headers=create_headers,
             status=200,
         ).json["result"]
@@ -84,7 +102,7 @@ class TestIatiAuth:
         upd_headers = {"Authorization": user["token"]}
         resp = app.post(
             self._api("iati_file_update"),
-            params={"id": created["id"], "is_valid": True},
+            params={"id": created["id"], "package_id": pkg["id"], "is_valid": True},
             headers=upd_headers,
             status=200,
         )
@@ -97,7 +115,11 @@ class TestIatiAuth:
         org, pkg, res = self._make_dataset_with_resource()
         created = app.post(
             self._api("iati_file_create"),
-            params={"resource_id": res["id"], "file_type": 1},
+            params={
+                "resource_id": res["id"],
+                "package_id": pkg["id"],
+                "file_type": IATIFileTypes.ORGANIZATION_MAIN_FILE.name,
+            },
             headers={"Authorization": sys["token"]},
             status=200,
         ).json["result"]
@@ -106,7 +128,7 @@ class TestIatiAuth:
         headers = {"Authorization": user["token"]}
         app.post(
             self._api("iati_file_delete"),
-            params={"id": created["id"]},
+            params={"id": created["id"], "package_id": pkg["id"]},
             headers=headers,
             status=403,
         )
@@ -117,7 +139,11 @@ class TestIatiAuth:
         org, pkg, res = self._make_dataset_with_resource()
         created = app.post(
             self._api("iati_file_create"),
-            params={"resource_id": res["id"], "file_type": 1},
+            params={
+                "resource_id": res["id"],
+                "package_id": pkg["id"],
+                "file_type": IATIFileTypes.ORGANIZATION_MAIN_FILE.name,
+            },
             headers={"Authorization": sys["token"]},
             status=200,
         ).json["result"]
