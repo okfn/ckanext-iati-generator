@@ -115,30 +115,45 @@ def iati_activities_to_xml(context, data_dict):
     return {"xml_string": xml_string, "logs": logs, "error": None}
 
 
+def _resolve_action(name, local_fn):
+    """
+    Resolve an action from the registry. If not found and strict lookup is disabled,
+    fallback to the local implementation.
+
+    Config:
+      ckanext.iati_generator.strict_action_lookup (bool) -> default: False
+    """
+    strict = toolkit.asbool(toolkit.config.get(
+        "ckanext.iati_generator.strict_action_lookup", False
+    ))
+    try:
+        return toolkit.get_action(name)
+    except KeyError:
+        if strict:
+            # In strict mode we surface a config/registry error
+            raise
+        # Non-strict: fallback keeps generate_iati_xml usable in minimal test contexts
+        return local_fn
+
+
+@toolkit.side_effect_free
 def generate_iati_xml(context, data_dict):
     """
-    Orchestrates the chain:
-      1) iati_csv_to_activities
-      2) iati_activities_to_xml
-    External extensions can override any of the two steps.
+    Orchestrates:
+    1) iati_csv_to_activities
+    2) iati_activities_to_xml
+    External extensions can override any step via the action registry.
 
-    data_dict must include:
-      - resource_id: the resource to read from
-
-    Returns:
-      - xml_string, logs, resource_name, error
+    Note: by default this function falls back to the local implementations if the
+    actions are not found in the registry. Set
+    `ckanext.iati_generator.strict_action_lookup = true` to raise instead.
     """
     logs = []
     resource_id = data_dict.get("resource_id")
     logs.append(f"Start generating IATI XML file for resource: {resource_id}")
 
     # ---- Step 1: CSV -> activities (try registry, fallback local) ----
-    try:
-        step1_action = toolkit.get_action("iati_csv_to_activities")
-    except KeyError:
-        # Fallback to local implementation if the action is not registered in the registry (e.g., in tests)
-        step1_action = iati_csv_to_activities
-
+    step1_action = _resolve_action("iati_csv_to_activities", iati_csv_to_activities)
     step1 = step1_action(context, {"resource_id": resource_id})
     logs.extend(step1.get("logs", []))
     if step1.get("error"):
@@ -150,16 +165,10 @@ def generate_iati_xml(context, data_dict):
         return {"xml_string": None, "logs": logs, "resource_name": step1.get("resource_name"), "error": error}
 
     # ---- Step 2: activities -> XML (try registry, fallback local) ----
-    try:
-        step2_action = toolkit.get_action("iati_activities_to_xml")
-    except KeyError:
-        # Fallback to local implementation if the action is not registered in the registry
-        step2_action = iati_activities_to_xml
-
+    step2_action = _resolve_action("iati_activities_to_xml", iati_activities_to_xml)
     step2 = step2_action(context, {
         "activities": step1["activities"],
         "logs": logs,
-        "resource_name": step1.get("resource_name")
     })
 
     logs = step2.get("logs", logs)
