@@ -132,8 +132,14 @@ def generate_iati_xml(context, data_dict):
     resource_id = data_dict.get("resource_id")
     logs.append(f"Start generating IATI XML file for resource: {resource_id}")
 
-    # 1) CSV -> activities  (chainable)
-    step1 = toolkit.get_action("iati_csv_to_activities")(context, {"resource_id": resource_id})
+    # ---- Step 1: CSV -> activities (try registry, fallback local) ----
+    try:
+        step1_action = toolkit.get_action("iati_csv_to_activities")
+    except KeyError:
+        # Fallback to local implementation if the action is not registered in the registry (e.g., in tests)
+        step1_action = iati_csv_to_activities
+
+    step1 = step1_action(context, {"resource_id": resource_id})
     logs.extend(step1.get("logs", []))
     if step1.get("error"):
         return {"xml_string": None, "logs": logs, "resource_name": None, "error": step1["error"]}
@@ -143,18 +149,30 @@ def generate_iati_xml(context, data_dict):
         logs.append(error)
         return {"xml_string": None, "logs": logs, "resource_name": step1.get("resource_name"), "error": error}
 
-    # 2) activities -> XML  (chainable)
-    step2 = toolkit.get_action("iati_activities_to_xml")(context, {
+    # ---- Step 2: activities -> XML (try registry, fallback local) ----
+    try:
+        step2_action = toolkit.get_action("iati_activities_to_xml")
+    except KeyError:
+        # Fallback to local implementation if the action is not registered in the registry
+        step2_action = iati_activities_to_xml
+
+    step2 = step2_action(context, {
         "activities": step1["activities"],
         "logs": logs,
         "resource_name": step1.get("resource_name")
     })
+
     logs = step2.get("logs", logs)
     if step2.get("error"):
         return {"xml_string": None, "logs": logs, "resource_name": None, "error": step2["error"]}
 
     logs.append(f"IATI XML generated successfully for file: {step1.get('resource_name')}")
-    return {"xml_string": step2["xml_string"], "logs": logs, "resource_name": step1.get("resource_name"), "error": None}
+    return {
+        "xml_string": step2["xml_string"],
+        "logs": logs,
+        "resource_name": step1.get("resource_name"),
+        "error": None
+    }
 
 
 @toolkit.side_effect_free
