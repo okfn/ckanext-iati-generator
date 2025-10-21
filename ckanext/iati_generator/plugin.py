@@ -4,7 +4,8 @@ from ckan import plugins as p
 from ckan.plugins import toolkit
 from ckanext.iati_generator.actions.iati import (generate_iati_xml, iati_file_create,
                                                  iati_file_update, iati_file_delete,
-                                                 iati_file_show)
+                                                 iati_file_show, iati_csv_to_activities,
+                                                 iati_activities_to_xml)
 from ckanext.iati_generator.auth import iati as iati_auth
 from ckan.lib.plugins import DefaultTranslation
 from ckanext.iati_generator.blueprint.iati import iati_blueprint
@@ -42,6 +43,9 @@ class IatiGeneratorPlugin(p.SingletonPlugin, DefaultTranslation):
             'iati_file_update': iati_file_update,
             'iati_file_delete': iati_file_delete,
             'iati_file_show': iati_file_show,
+            # aliases to avoid breaking changes
+            'iati_csv_to_activities_original': iati_csv_to_activities,
+            'iati_activities_to_xml_original': iati_activities_to_xml,
         }
 
     def get_auth_functions(self):
@@ -50,6 +54,8 @@ class IatiGeneratorPlugin(p.SingletonPlugin, DefaultTranslation):
             'iati_file_update': iati_auth.iati_file_update,
             'iati_file_delete': iati_auth.iati_file_delete,
             'iati_file_show': iati_auth.iati_file_show,
+            'iati_csv_to_activities': iati_auth.iati_csv_to_activities,
+            'iati_activities_to_xml': iati_auth.iati_activities_to_xml,
         }
 
     def i18n_locales(self):

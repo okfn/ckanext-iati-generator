@@ -64,3 +64,11 @@ def iati_file_delete(context, data_dict):
 def iati_file_show(context, data_dict):
     # mostrar no restringido
     return {"success": True}
+
+
+def iati_csv_to_activities(context, data_dict):
+    return {"success": True}
+
+
+def iati_activities_to_xml(context, data_dict):
+    return {"success": True}
