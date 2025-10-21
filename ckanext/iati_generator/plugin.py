@@ -41,6 +41,9 @@ class IatiGeneratorPlugin(p.SingletonPlugin, DefaultTranslation):
             'iati_file_delete': iati_actions.iati_file_delete,
             'iati_file_show': iati_actions.iati_file_show,
             'iati_file_list': iati_actions.iati_file_list,
+            # aliases to avoid breaking changes
+            'iati_csv_to_activities_original': iati_actions.iati_csv_to_activities,
+            'iati_activities_to_xml_original': iati_actions.iati_activities_to_xml,
         }
 
     def get_auth_functions(self):
@@ -50,6 +53,8 @@ class IatiGeneratorPlugin(p.SingletonPlugin, DefaultTranslation):
             'iati_file_delete': iati_auth.iati_file_delete,
             'iati_file_show': iati_auth.iati_file_show,
             'iati_file_list': iati_auth.iati_file_list,
+            'iati_csv_to_activities': iati_auth.iati_csv_to_activities,
+            'iati_activities_to_xml': iati_auth.iati_activities_to_xml,
         }
 
     def i18n_locales(self):

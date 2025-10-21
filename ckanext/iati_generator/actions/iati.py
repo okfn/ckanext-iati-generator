@@ -63,36 +63,45 @@ def get_validated_csv_data(context, resource_id):
     return activities, logs, resource_name
 
 
-def generate_iati_xml(context, data_dict):
+@toolkit.side_effect_free
+def iati_csv_to_activities(context, data_dict):
     """
-    Generate an IATI XML string from a CSV resource file.
-
-    data_dict should contain:
-        - resource_id: the ID of the resource to read from
-
-    Returns a dict with:
-        - xml_string: the generated IATI XML as a string, or None if failed
-        - logs: a list of logs generated during the process
-        - resource_name: the name of the resource being processed (or None)
-        - error: in case of failure, an error message
+    Read & validate a CKAN resource CSV and return IATI activities in memory.
+    Useful hook point for external extensions to preprocess/transform CSV rows
+    before turning them into IATI activities.
     """
-    logs = []
     resource_id = data_dict.get("resource_id")
-    logs.append(f"Start generating IATI XML file for resource: {resource_id}")
+    if not resource_id:
+        raise toolkit.ValidationError({"resource_id": "Missing resource_id"})
 
     try:
-        activities, csv_logs, resource_name = get_validated_csv_data(context, resource_id)
+        activities, logs, resource_name = get_validated_csv_data(context, resource_id)
     except Exception as e:
         msg = f"Error validating CSV data: {e}"
         log.error(msg)
-        logs.append(msg)
-        return {"xml_string": None, "logs": logs, "resource_name": None, "error": msg}
+        return {"activities": [], "logs": [msg], "resource_name": None, "error": msg}
 
-    logs.extend(csv_logs)
+    return {
+        "activities": activities,
+        "logs": logs,
+        "resource_name": resource_name,
+        "error": None,
+    }
+
+
+@toolkit.side_effect_free
+def iati_activities_to_xml(context, data_dict):
+    """
+    Turn a list of in-memory IATI activities into a final XML string.
+    External extensions can override this to inject extra steps
+    (e.g., enrichment, validation, post-processing).
+    """
+    activities = data_dict.get("activities") or []
+    logs = list(data_dict.get("logs") or [])
     if not activities:
-        error = "No valid activities found in the CSV file"
+        error = "No activities provided"
         logs.append(error)
-        return {"xml_string": None, "logs": logs, "resource_name": resource_name, "error": error}
+        return {"xml_string": None, "logs": logs, "error": error}
 
     try:
         xml_string = generate_final_iati_xml(activities)
@@ -100,10 +109,52 @@ def generate_iati_xml(context, data_dict):
         msg = f"Error during IATI generation: {e}"
         log.error(msg)
         logs.append(msg)
-        return {"xml_string": None, "logs": logs, "resource_name": None, "error": msg}
+        return {"xml_string": None, "logs": logs, "error": msg}
 
-    logs.append(f"IATI XML generated successfully for file: {resource_name}")
-    return {"xml_string": xml_string, "logs": logs, "resource_name": resource_name, "error": None}
+    logs.append("IATI XML generated successfully from activities")
+    return {"xml_string": xml_string, "logs": logs, "error": None}
+
+
+def generate_iati_xml(context, data_dict):
+    """
+    Orchestrates the chain:
+      1) iati_csv_to_activities
+      2) iati_activities_to_xml
+    External extensions can override any of the two steps.
+
+    data_dict must include:
+      - resource_id: the resource to read from
+
+    Returns:
+      - xml_string, logs, resource_name, error
+    """
+    logs = []
+    resource_id = data_dict.get("resource_id")
+    logs.append(f"Start generating IATI XML file for resource: {resource_id}")
+
+    # 1) CSV -> activities  (chainable)
+    step1 = toolkit.get_action("iati_csv_to_activities")(context, {"resource_id": resource_id})
+    logs.extend(step1.get("logs", []))
+    if step1.get("error"):
+        return {"xml_string": None, "logs": logs, "resource_name": None, "error": step1["error"]}
+
+    if not step1.get("activities"):
+        error = "No valid activities found in the CSV file"
+        logs.append(error)
+        return {"xml_string": None, "logs": logs, "resource_name": step1.get("resource_name"), "error": error}
+
+    # 2) activities -> XML  (chainable)
+    step2 = toolkit.get_action("iati_activities_to_xml")(context, {
+        "activities": step1["activities"],
+        "logs": logs,
+        "resource_name": step1.get("resource_name")
+    })
+    logs = step2.get("logs", logs)
+    if step2.get("error"):
+        return {"xml_string": None, "logs": logs, "resource_name": None, "error": step2["error"]}
+
+    logs.append(f"IATI XML generated successfully for file: {step1.get('resource_name')}")
+    return {"xml_string": step2["xml_string"], "logs": logs, "resource_name": step1.get("resource_name"), "error": None}
 
 
 @toolkit.side_effect_free
