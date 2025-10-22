@@ -64,3 +64,13 @@ def iati_file_delete(context, data_dict):
 def iati_file_show(context, data_dict):
     # mostrar no restringido
     return {"success": True}
+
+
+def iati_file_list(context, data_dict):
+    # Listado global: solo sysadmin (es el equivalente API de la vista /ckan-admin/list-iati-files)
+    if _is_sysadmin(context):
+        return {"success": True}
+    return {
+        "success": False,
+        "msg": toolkit._("Only sysadmins can list IATI files.")
+    }

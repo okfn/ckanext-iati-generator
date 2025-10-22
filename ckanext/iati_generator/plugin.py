@@ -2,9 +2,7 @@
 import logging
 from ckan import plugins as p
 from ckan.plugins import toolkit
-from ckanext.iati_generator.actions.iati import (generate_iati_xml, iati_file_create,
-                                                 iati_file_update, iati_file_delete,
-                                                 iati_file_show)
+from ckanext.iati_generator.actions import iati as iati_actions
 from ckanext.iati_generator.auth import iati as iati_auth
 from ckan.lib.plugins import DefaultTranslation
 from ckanext.iati_generator.blueprint.iati import iati_blueprint
@@ -37,11 +35,12 @@ class IatiGeneratorPlugin(p.SingletonPlugin, DefaultTranslation):
 
     def get_actions(self):
         return {
-            "generate_iati_xml": generate_iati_xml,
-            'iati_file_create': iati_file_create,
-            'iati_file_update': iati_file_update,
-            'iati_file_delete': iati_file_delete,
-            'iati_file_show': iati_file_show,
+            "generate_iati_xml": iati_actions.generate_iati_xml,
+            'iati_file_create': iati_actions.iati_file_create,
+            'iati_file_update': iati_actions.iati_file_update,
+            'iati_file_delete': iati_actions.iati_file_delete,
+            'iati_file_show': iati_actions.iati_file_show,
+            'iati_file_list': iati_actions.iati_file_list,
         }
 
     def get_auth_functions(self):
