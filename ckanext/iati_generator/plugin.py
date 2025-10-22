@@ -49,6 +49,7 @@ class IatiGeneratorPlugin(p.SingletonPlugin, DefaultTranslation):
             'iati_file_update': iati_auth.iati_file_update,
             'iati_file_delete': iati_auth.iati_file_delete,
             'iati_file_show': iati_auth.iati_file_show,
+            'iati_file_list': iati_auth.iati_file_list,
         }
 
     def i18n_locales(self):

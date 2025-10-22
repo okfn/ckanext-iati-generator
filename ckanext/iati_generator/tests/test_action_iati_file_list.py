@@ -1,6 +1,7 @@
 from types import SimpleNamespace
 import pytest
 from ckan.tests import helpers, factories
+from ckan.plugins import toolkit
 from ckanext.iati_generator.models.enums import IATIFileTypes
 
 
@@ -40,27 +41,14 @@ def setup_data():
     return obj
 
 
-@pytest.mark.ckan_config("ckan.plugins", "iati_generator")
-@pytest.mark.usefixtures("clean_db")
+@pytest.mark.usefixtures('with_plugins', 'clean_db')
 class TestIatiFileListAction:
 
-    def _make_pkg_res(self):
-        org = factories.Organization()
-        pkg = factories.Dataset(owner_org=org["id"])
-        res = factories.Resource(
-            package_id=pkg["id"],
-            format="CSV",
-            url_type="upload",
-            url="test.csv",
-            name="test.csv",
-        )
-        return org, pkg, res
-
-    def _create_iati_file(self, resource_id, file_type=IATIFileTypes.ORGANIZATION_MAIN_FILE.value, is_valid=True, namespace="iati-xml"):
-        """Helper to create an IATIFile row for a resource."""
-        # usamos la acción pública de creación para asegurar integridad
-        sys = factories.Sysadmin()
-        context = {"user": sys["name"]}
+    def _create_iati_file(self, user_name, resource_id,
+                          file_type=IATIFileTypes.ORGANIZATION_MAIN_FILE.value,
+                          is_valid=True, namespace="iati-xml"):
+        """Crea un IATIFile usando la acción pública (asegura validaciones)."""
+        context = {"user": user_name}
         return helpers.call_action(
             "iati_file_create",
             context=context,
@@ -70,67 +58,88 @@ class TestIatiFileListAction:
             is_valid=is_valid,
         )
 
-    def test_list_returns_items_and_fields(self):
+    # ---- helpers for calling actions
+    def _call_action_as_user(self, action, user_name, **data):
+        """Call an action with a specific user context."""
+        context = {"user": user_name}
+        return helpers.call_action(action, context=context, **data)
+
+    # ---------- tests ----------
+    def test_list_returns_items_and_fields(self, setup_data):
         """Test that the action returns IATI files with expected fields."""
-        org, pkg, res = self._make_pkg_res()
-        self._create_iati_file(res["id"], file_type=IATIFileTypes.ORGANIZATION_MAIN_FILE.value)
 
-        # sysadmin llama a la acción
-        sys = factories.Sysadmin()
-        context = {"user": sys["name"]}
-        out = helpers.call_action("iati_file_list", context=context)
+        # Crear 1 IATIFile
+        self._create_iati_file(setup_data.sysadmin["name"], setup_data.res["id"])
 
-        assert out["count"] >= 1
-        item = out["results"][0]
-        assert "id" in item and "file_type" in item and "resource" in item and "dataset" in item
-        assert item["file_type"] in (IATIFileTypes.ORGANIZATION_MAIN_FILE.name, IATIFileTypes.ORGANIZATION_NAMES_FILE.name)
+        # Sysadmin consulta la acción
+        result = self._call_action_as_user("iati_file_list", setup_data.sysadmin["name"])
 
-    def test_filter_by_file_type_string_and_valid_flag(self):
+        assert result["count"] >= 1
+        item = result["results"][0]
+        assert {"id", "file_type", "resource", "dataset"} <= set(item.keys())
+        assert item["file_type"] in (
+            IATIFileTypes.ORGANIZATION_MAIN_FILE.name,
+            IATIFileTypes.ORGANIZATION_NAMES_FILE.name,
+        )
+
+    def test_filter_by_file_type_string_and_valid_flag(self, setup_data):
         """Test filtering by file_type (string) and valid (boolean)."""
-        _, _, res1 = self._make_pkg_res()
-        _, _, res2 = self._make_pkg_res()
+        # Dos IATIFile distintos
+        self._create_iati_file(
+            setup_data.sysadmin["name"],
+            setup_data.res["id"],
+            file_type=IATIFileTypes.ORGANIZATION_MAIN_FILE.value,
+            is_valid=True,
+        )
 
-        self._create_iati_file(res1["id"], file_type=IATIFileTypes.ORGANIZATION_MAIN_FILE.value, is_valid=True)
-        self._create_iati_file(res2["id"], file_type=IATIFileTypes.ORGANIZATION_NAMES_FILE.value, is_valid=False)
+        # Crear otro dataset+resource para el segundo file
+        pkg2 = factories.Dataset(owner_org=setup_data.org["id"])
+        res2 = factories.Resource(
+            package_id=pkg2["id"], format="CSV", url_type="upload", url="b.csv", name="b.csv"
+        )
+        self._create_iati_file(
+            setup_data.sysadmin["name"],
+            res2["id"],
+            file_type=IATIFileTypes.ORGANIZATION_NAMES_FILE.value,
+            is_valid=False,
+        )
 
-        sys = factories.Sysadmin()
-        context = {"user": sys["name"]}
-
-        # filtra por tipo (nombre del enum) + valid=true
-        out = helpers.call_action(
+        # Filtro: tipo por nombre + valid=true
+        result = self._call_action_as_user(
             "iati_file_list",
-            context=context,
+            setup_data.sysadmin["name"],
             file_type="ORGANIZATION_MAIN_FILE",
             valid="true",
         )
-        assert out["count"] == 1
-        assert out["results"][0]["file_type"] == "ORGANIZATION_MAIN_FILE"
-        assert out["results"][0]["is_valid"] is True
+        assert result["count"] == 1
+        assert result["results"][0]["file_type"] == "ORGANIZATION_MAIN_FILE"
+        assert result["results"][0]["is_valid"] is True
 
-    def test_requires_sysadmin(self):
+    def test_requires_sysadmin(self, setup_data):
         """Only sysadmin users can call this action."""
-        _, _, res = self._make_pkg_res()
-        self._create_iati_file(res["id"])
 
-        user = factories.User()
-        context = {"user": user["name"]}
+        # Hay al menos un registro
+        self._create_iati_file(setup_data.sysadmin["name"], setup_data.res["id"])
 
-        with pytest.raises(Exception):
-            helpers.call_action("iati_file_list", context=context)
+        # Usuario regular intenta listar - should raise authorization error
+        with pytest.raises(toolkit.NotAuthorized):
+            self._call_action_as_user("iati_file_list", setup_data.user_editor["name"])
 
-    def test_pagination(self):
+    def test_pagination(self, setup_data):
         """Test start/rows pagination parameters."""
-        # Crear varios items
+        # Generar varios items
         for _ in range(3):
-            _, _, res = self._make_pkg_res()
-            self._create_iati_file(res["id"])
+            pkg = factories.Dataset(owner_org=setup_data.org["id"])
+            res = factories.Resource(
+                package_id=pkg["id"], format="CSV", url_type="upload", url="x.csv", name="x.csv"
+            )
+            self._create_iati_file(setup_data.sysadmin["name"], res["id"])
 
-        sys = factories.Sysadmin()
-        context = {"user": sys["name"]}
+        # page 1
+        result1 = self._call_action_as_user("iati_file_list", setup_data.sysadmin["name"], start=0, rows=2)
+        # page 2
+        result2 = self._call_action_as_user("iati_file_list", setup_data.sysadmin["name"], start=2, rows=2)
 
-        out1 = helpers.call_action("iati_file_list", context=context, start=0, rows=2)
-        out2 = helpers.call_action("iati_file_list", context=context, start=2, rows=2)
-
-        assert out1["count"] >= 3
-        assert len(out1["results"]) == 2
-        assert len(out2["results"]) >= 1
+        assert result1["count"] >= 3
+        assert len(result1["results"]) == 2
+        assert len(result2["results"]) >= 1
