@@ -4,7 +4,7 @@ from ckan.tests import factories
 from ckanext.iati_generator.models.enums import IATIFileTypes
 
 
-@pytest.mark.usefixtures("clean_db")
+@pytest.mark.usefixtures('with_plugins', 'clean_db')
 class TestIatiAuth:
     def _make_dataset_with_resource_and_members(self):
         # Users
