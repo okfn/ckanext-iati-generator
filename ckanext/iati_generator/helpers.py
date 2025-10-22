@@ -14,15 +14,12 @@ def iati_tab_enabled():
     return not bool_val
 
 
-def iati_file_type():
-    """
-    Returns options for the 'IATI file type' select in the format:
-    [{'value': '<enum_value>', 'text': '<label>'}, ...]
-    """
-    return [
-        {
+def iati_file_type(field=None, **kwargs):
+    options = []
+    for item in IATIFileTypes:
+        label = getattr(item, "label", None) or item.name.replace("_", " ").title()
+        options.append({
             "value": getattr(item, "value", str(item)),
-            "text": getattr(item, "label", None) or item.name.replace("_", " ").title(),
-        }
-        for item in IATIFileTypes
-    ]
+            "label": label,
+        })
+    return options
