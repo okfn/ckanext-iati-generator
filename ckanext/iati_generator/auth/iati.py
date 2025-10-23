@@ -1,10 +1,44 @@
 from ckan import model
 from ckan.plugins import toolkit
+from ckanext.iati_generator.models.iati_files import IATIFile
 
 
 def _is_sysadmin(context):
     user_obj = context.get("auth_user_obj")
     return bool(user_obj and user_obj.sysadmin)
+
+
+def _resolve_package_id_from_resource_id(resource_id):
+    """Return package_id owning a given CKAN resource_id, or None."""
+    if not resource_id:
+        return None
+    res = model.Resource.get(resource_id)
+    return getattr(res, "package_id", None) if res else None
+
+
+def _resolve_package_id_for_update_delete(data_dict):
+    """
+    Best-effort package_id resolution for update/delete:
+      1) package_id / dataset_id in payload
+      2) resource_id in payload
+      3) id (IATIFile.id) -> resource_id -> package_id
+    """
+    pkg_id = data_dict.get("package_id") or data_dict.get("dataset_id")
+    if pkg_id:
+        return pkg_id
+
+    res_id = data_dict.get("resource_id")
+    if res_id:
+        pkg_id = _resolve_package_id_from_resource_id(res_id)
+        if pkg_id:
+            return pkg_id
+
+    file_id = data_dict.get("id")
+    if file_id:
+        file = model.Session.query(IATIFile).get(file_id)
+        if file:
+            return _resolve_package_id_from_resource_id(file.resource_id)
+    return None
 
 
 def _user_is_org_admin_for_package(context, package_id):
@@ -46,18 +80,21 @@ def _allow_if_sysadmin_or_org_admin(context, package_id):
 
 
 def iati_file_create(context, data_dict):
-    # org-admin del dataset (o sysadmin)
+    # org-admin del dataset (o sysadmin).
+    # Permitir payload con solo resource_id.
     package_id = data_dict.get("package_id") or data_dict.get("dataset_id")
+    if not package_id:
+        package_id = _resolve_package_id_from_resource_id(data_dict.get("resource_id"))
     return _allow_if_sysadmin_or_org_admin(context, package_id)
 
 
 def iati_file_update(context, data_dict):
-    package_id = data_dict.get("package_id") or data_dict.get("dataset_id")
+    package_id = _resolve_package_id_for_update_delete(data_dict)
     return _allow_if_sysadmin_or_org_admin(context, package_id)
 
 
 def iati_file_delete(context, data_dict):
-    package_id = data_dict.get("package_id") or data_dict.get("dataset_id")
+    package_id = _resolve_package_id_for_update_delete(data_dict)
     return _allow_if_sysadmin_or_org_admin(context, package_id)
 
 
