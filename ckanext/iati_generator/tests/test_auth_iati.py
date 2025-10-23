@@ -54,7 +54,6 @@ class TestIatiAuth:
 
         payload = {
             "resource_id": setup_data.res["id"],
-            "package_id": setup_data.pkg["id"],
             "file_type": IATIFileTypes.ORGANIZATION_MAIN_FILE.name,
         }
         app.post(
@@ -68,7 +67,6 @@ class TestIatiAuth:
         """A sysadmin can create an IATIFile."""
         payload = {
             "resource_id": setup_data.res["id"],
-            "package_id": setup_data.pkg["id"],
             "file_type": IATIFileTypes.ORGANIZATION_MAIN_FILE.name,
         }
         resp = app.post(
@@ -84,7 +82,6 @@ class TestIatiAuth:
         """The admin of the organization owning the dataset can create an IATIFile."""
         payload = {
             "resource_id": setup_data.res["id"],
-            "package_id": setup_data.pkg["id"],
             "file_type": IATIFileTypes.ORGANIZATION_MAIN_FILE.name,
         }
         resp = app.post(
@@ -104,7 +101,6 @@ class TestIatiAuth:
             self._api("iati_file_create"),
             params={
                 "resource_id": setup_data.res["id"],
-                "package_id": setup_data.pkg["id"],
                 "file_type": IATIFileTypes.ORGANIZATION_MAIN_FILE.name,
             },
             headers=setup_data.sysadmin["headers"],
@@ -115,7 +111,6 @@ class TestIatiAuth:
             self._api("iati_file_update"),
             params={
                 "id": created["id"],
-                "package_id": setup_data.pkg["id"],
                 "namespace": "updated-ns",
             },
             headers=setup_data.user_admin["headers"],
@@ -132,7 +127,6 @@ class TestIatiAuth:
             self._api("iati_file_create"),
             params={
                 "resource_id": setup_data.res["id"],
-                "package_id": setup_data.pkg["id"],
                 "file_type": IATIFileTypes.ORGANIZATION_MAIN_FILE.name,
             },
             headers=setup_data.sysadmin["headers"],
@@ -154,7 +148,6 @@ class TestIatiAuth:
             self._api("iati_file_create"),
             params={
                 "resource_id": setup_data.res["id"],
-                "package_id": setup_data.pkg["id"],
                 "file_type": IATIFileTypes.ORGANIZATION_MAIN_FILE.name,
             },
             headers=setup_data.sysadmin["headers"],
@@ -164,3 +157,8 @@ class TestIatiAuth:
         resp = app.post(self._api("iati_file_show"), params={"id": created["id"]}, status=200)
         assert resp.json["success"] is True
         assert resp.json["result"]["id"] == created["id"]
+        assert resp.json["result"]["resource_id"] == created["resource_id"]
+        assert resp.json["result"]["namespace"] == created["namespace"]
+        assert resp.json["result"]["file_type"] == created["file_type"]
+        assert resp.json["result"]["is_valid"] == created["is_valid"]
+        assert resp.json["result"]["last_error"] == created["last_error"]
