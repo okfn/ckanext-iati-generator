@@ -14,12 +14,17 @@ def iati_tab_enabled():
     return not bool_val
 
 
-def iati_file_type(field=None, **kwargs):
+def iati_file_type(field):
+    """
+    Returns options (value/label) for the Scheming select.
+    Scheming calls with `field`, although we don't use it.
+    """
     options = []
-    for item in IATIFileTypes:
-        label = getattr(item, "label", None) or item.name.replace("_", " ").title()
+    # optional: sorted by value
+    for item in sorted(IATIFileTypes, key=lambda e: e.value):
+        label = item.name.replace("_", " ").title()
         options.append({
-            "value": getattr(item, "value", str(item)),
+            "value": str(item.value),  # Scheming expects a string
             "label": label,
         })
     return options
