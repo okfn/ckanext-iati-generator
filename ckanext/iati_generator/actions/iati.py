@@ -221,45 +221,51 @@ def iati_file_show(context, data_dict):
 @toolkit.side_effect_free
 def iati_file_list(context, data_dict=None):
     """
-    Listado paginado de 'IATI files' (registros IATIFile unidos a Resource/Package).
+    Paginated list of IATI files (IATIFile records joined with Resource/Package).
 
-    Parámetros (opcionales):
-      - start: int (default 0)
-      - rows: int (default 100)
-      - file_type: puede ser nombre del enum (p.ej. 'ORGANIZATION_MAIN_FILE') o int
-      - owner_org: id de la organización (filtra por datasets del owner_org)
-      - package_id: id del dataset (filtra por un dataset concreto)
-      - resource_id: id del recurso (filtra por un recurso concreto)
-      - valid: 'true'/'false' (filtra por IATIFile.is_valid)
+    Parameters (data_dict keys):
+      - start (int, optional): Offset for pagination. Default: 0.
+      - rows (int, optional): Page size. Default: 100.
+      - file_type (str|int, optional): IATI file type filter. Accepts Enum name
+        (e.g. "ORGANIZATION_MAIN_FILE") or the corresponding integer value.
+      - owner_org (str, optional): Filter by owning organization id (dataset.owner_org).
+      - package_id (str, optional): Filter by a specific dataset id.
+      - resource_id (str, optional): Filter by a specific resource id.
+      - valid (str|bool|int, optional): Filter by validity. Truthy values: "true", "1", "yes";
+        Falsy values: "false", "0", "no". Case-insensitive.
 
-    Respuesta:
-      {
-        "count": <total_sin_paginación>,
+    Returns:
+      dict: {
+        "count": <int total_without_pagination>,
         "results": [
           {
             "id": <iati_file_id>,
-            "namespace": "...",
-            "file_type": "<NOMBRE_ENUM>",
-            "is_valid": true/false,
+            "namespace": "<str>",
+            "file_type": "<ENUM_NAME>",
+            "is_valid": <bool>,
             "last_success": "YYYY-MM-DD" | null,
-            "last_error": "mensaje" | null,
+            "last_error": "<str | null>",
             "resource": {
-              "id": "...",
-              "name": "...",
-              "format": "...",
-              "url": "...",
-              "description": "..."
+              "id": "<str>",
+              "name": "<str>",
+              "format": "<str>",
+              "url": "<str>",
+              "description": "<str | null>"
             },
             "dataset": {
-              "id": "...",
-              "name": "...",
-              "title": "...",
-              "owner_org": "..."
+              "id": "<str>",
+              "name": "<str>",
+              "title": "<str>",
+              "owner_org": "<str>"
             }
-          },
-          ...
+          }, ...
         ]
       }
+
+    Usage examples:
+      toolkit.get_action("iati_file_list")(context, {"start": 0, "rows": 20})
+      toolkit.get_action("iati_file_list")(context, {"file_type": "ORGANIZATION_MAIN_FILE"})
+      toolkit.get_action("iati_file_list")(context, {"valid": "true", "owner_org": "<org_id>"})
     """
     data_dict = data_dict or {}
     toolkit.check_access("iati_file_list", context, data_dict)
@@ -296,7 +302,7 @@ def iati_file_list(context, data_dict=None):
         .filter(Resource.state == "active", Package.state == "active")
     )
 
-    # -------- filtros opcionales
+    # -------- optional filters
     if data_dict.get("resource_id"):
         q_base = q_base.filter(Resource.id == data_dict["resource_id"])
 
@@ -313,21 +319,21 @@ def iati_file_list(context, data_dict=None):
     if data_dict.get("file_type") is not None:
         ft = data_dict["file_type"]
         try:
-            # admite nombre del enum o int
+            # accepts enum name or int
             if isinstance(ft, str) and not ft.isdigit():
                 ft = IATIFileTypes[ft].value
             else:
                 ft = int(ft)
-            _ = IATIFileTypes(ft)  # valida
+            _ = IATIFileTypes(ft)  # validates existence
             q_base = q_base.filter(IATIFile.file_type == ft)
         except Exception:
             raise toolkit.ValidationError({"file_type": "Invalid IATIFileTypes value"})
 
-    # -------- conteo total sin paginar
+    # -------- total count without pagination
     count_q = Session.query(func.count()).select_from(q_base.subquery())
     total = count_q.scalar() or 0
 
-    # -------- orden + paginación
+    # -------- ordering + pagination
     q = q_base.order_by(Package.name.asc(), Resource.name.asc()).offset(start).limit(rows)
 
     results = []
