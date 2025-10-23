@@ -14,7 +14,7 @@ def iati_tab_enabled():
     return not bool_val
 
 
-def iati_file_type(field):
+def iati_file_types(field):
     """
     Returns options (value/label) for the Scheming select.
     Scheming calls with `field`, although we don't use it.
