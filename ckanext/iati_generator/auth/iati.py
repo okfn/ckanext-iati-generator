@@ -15,19 +15,19 @@ def _user_is_org_admin_for_package(context, package_id):
     if not package_id:
         return False
 
-    # owner_org del dataset (sin acciones ni permisos)
+    # owner_org of the dataset (no actions or permissions)
     pkg = model.Package.get(package_id)
     if not pkg or not pkg.owner_org:
         return False
     org_id = pkg.owner_org
 
-    # user_id desde el contexto
+    # user_id from the context
     user_name = context.get("user")
     user_obj = model.User.get(user_name) if user_name else None
     if not user_obj:
         return False
 
-    # listar organizaciones del usuario y chequear capacity
+    # list the user's organizations and check their capacity
     user_orgs = toolkit.get_action("organization_list_for_user")(context, {"id": user_obj.id})
     return any(o.get("id") == org_id and o.get("capacity") == "admin" for o in user_orgs)
 
@@ -62,12 +62,12 @@ def iati_file_delete(context, data_dict):
 
 
 def iati_file_show(context, data_dict):
-    # mostrar no restringido
+    # viewing is not restricted
     return {"success": True}
 
 
 def iati_file_list(context, data_dict):
-    # Listado global: solo sysadmin (es el equivalente API de la vista /ckan-admin/list-iati-files)
+    # Global listing: only sysadmins (API equivalent of the /ckan-admin/list-iati-files view)
     if _is_sysadmin(context):
         return {"success": True}
     return {

@@ -74,13 +74,11 @@ class TestIatiFileListAction:
         # Sysadmin calls the action
         result = self._call_action_as_user("iati_file_list", setup_data.sysadmin["name"])
 
-        assert result["count"] >= 1
+        assert result["count"] == 1
+        # Test exactly what we expect here
         item = result["results"][0]
         assert {"id", "file_type", "resource", "dataset"} <= set(item.keys())
-        assert item["file_type"] in (
-            IATIFileTypes.ORGANIZATION_MAIN_FILE.name,
-            IATIFileTypes.ORGANIZATION_NAMES_FILE.name,
-        )
+        assert item["file_type"] == IATIFileTypes.ORGANIZATION_MAIN_FILE.name
 
     def test_filter_by_file_type_string_and_valid_flag(self, setup_data):
         """Test filtering by file_type (string) and valid (boolean)."""
@@ -140,6 +138,6 @@ class TestIatiFileListAction:
         # page 2
         result2 = self._call_action_as_user("iati_file_list", setup_data.sysadmin["name"], start=2, rows=2)
 
-        assert result1["count"] >= 3
+        assert result1["count"] == 3
         assert len(result1["results"]) == 2
-        assert len(result2["results"]) >= 1
+        assert len(result2["results"]) == 1
