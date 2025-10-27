@@ -162,3 +162,79 @@ class TestIatiAuth:
         assert resp.json["result"]["file_type"] == created["file_type"]
         assert resp.json["result"]["is_valid"] == created["is_valid"]
         assert resp.json["result"]["last_error"] == created["last_error"]
+
+    # --- ERRORS / CLEAR MESSAGES -------------------------------------------
+
+    def test_create_fails_without_resource_id(self, app, setup_data):
+        """If resource_id is missing, authorization should reject with a clear message."""
+        payload = {
+            # resource_id intentionally absent
+            "file_type": IATIFileTypes.ORGANIZATION_MAIN_FILE.name,
+        }
+        resp = app.post(
+            self._api("iati_file_create"),
+            params=payload,
+            headers=setup_data.user_admin["headers"],
+            status=403,
+        )
+        # CKAN returns {"success": False, "error": {"message": "...", "__type": "Authorization Error"}}
+        assert "error" in resp.json
+        assert "Missing or invalid resource_id" in resp.json["error"]["message"]
+
+    def test_update_fails_without_id_and_resource_id(self, app, setup_data):
+        """Without id or resource_id the dataset cannot be resolved (update)."""
+        resp = app.post(
+            self._api("iati_file_update"),
+            params={"namespace": "x"},  # nothing provided to resolve package_id
+            headers=setup_data.user_admin["headers"],
+            status=403,
+        )
+        assert "Cannot resolve dataset for IATI file update" in resp.json["error"]["message"]
+
+    def test_delete_fails_without_id_and_resource_id(self, app, setup_data):
+        """Without id or resource_id the dataset cannot be resolved (delete)."""
+        resp = app.post(
+            self._api("iati_file_delete"),
+            params={},  # empty on purpose
+            headers=setup_data.user_admin["headers"],
+            status=403,
+        )
+        assert "Cannot resolve dataset for IATI file deletion" in resp.json["error"]["message"]
+
+    def test_create_denied_for_editor(self, app, setup_data):
+        """An 'editor' cannot create (only org admin or sysadmin can)."""
+        payload = {
+            "resource_id": setup_data.res["id"],
+            "file_type": IATIFileTypes.ORGANIZATION_MAIN_FILE.name,
+        }
+        app.post(
+            self._api("iati_file_create"),
+            params=payload,
+            headers=setup_data.user_editor["headers"],
+            status=403,
+        )
+
+    def test_update_denied_when_not_admin_of_owning_org(self, app, setup_data):
+        """If the dataset belongs to another org, the admin of the original org cannot update."""
+        # Create another organization + dataset + resource (where user_admin is NOT an admin)
+        other_org = factories.Organization()
+        other_pkg = factories.Dataset(owner_org=other_org["id"])
+        other_res = factories.Resource(
+            package_id=other_pkg["id"], format="CSV", url_type="upload", url="other.csv", name="other.csv"
+        )
+
+        # Create IATIFile in that dataset as sysadmin
+        created = app.post(
+            self._api("iati_file_create"),
+            params={"resource_id": other_res["id"], "file_type": IATIFileTypes.ORGANIZATION_MAIN_FILE.name},
+            headers=setup_data.sysadmin["headers"],
+            status=200,
+        ).json["result"]
+
+        # Attempted update by original org admin -> 403
+        app.post(
+            self._api("iati_file_update"),
+            params={"id": created["id"], "namespace": "should-not-allow"},
+            headers=setup_data.user_admin["headers"],
+            status=403,
+        )
