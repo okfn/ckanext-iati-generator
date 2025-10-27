@@ -3,6 +3,7 @@ import pytest
 from ckan.tests import helpers, factories
 from ckan.plugins import toolkit
 from ckanext.iati_generator.models.enums import IATIFileTypes
+from ckanext.iati_generator.tests.factories import create_iati_file
 
 
 @pytest.fixture
@@ -44,24 +45,10 @@ def setup_data():
 @pytest.mark.usefixtures('with_plugins', 'clean_db')
 class TestIatiFileListAction:
 
-    def _create_iati_file(self, user_name, resource_id,
-                          file_type=IATIFileTypes.ORGANIZATION_MAIN_FILE.value,
-                          is_valid=True, namespace="iati-xml"):
-        """Create an IATIFile using the public action (ensures validations)."""
-        context = {"user": user_name}
-        return helpers.call_action(
-            "iati_file_create",
-            context=context,
-            resource_id=resource_id,
-            file_type=file_type,
-            namespace=namespace,
-            is_valid=is_valid,
-        )
-
     # ---- helpers for calling actions
     def _call_action_as_user(self, action, user_name, **data):
         """Call an action with a specific user context."""
-        context = {"user": user_name}
+        context = {"user": user_name, "ignore_auth": False}
         return helpers.call_action(action, context=context, **data)
 
     # ---------- tests ----------
@@ -69,7 +56,7 @@ class TestIatiFileListAction:
         """Test that the action returns IATI files with expected fields."""
 
         # Create 1 IATIFile
-        self._create_iati_file(setup_data.sysadmin["name"], setup_data.res["id"])
+        create_iati_file(resource_id=setup_data.res["id"])
 
         # Sysadmin calls the action
         result = self._call_action_as_user("iati_file_list", setup_data.sysadmin["name"])
@@ -83,10 +70,9 @@ class TestIatiFileListAction:
     def test_filter_by_file_type_string_and_valid_flag(self, setup_data):
         """Test filtering by file_type (string) and valid (boolean)."""
         # Two distinct IATIFiles
-        self._create_iati_file(
-            setup_data.sysadmin["name"],
-            setup_data.res["id"],
-            file_type=IATIFileTypes.ORGANIZATION_MAIN_FILE.value,
+        create_iati_file(
+            resource_id=setup_data.res["id"],
+            file_type=IATIFileTypes.ORGANIZATION_MAIN_FILE,
             is_valid=True,
         )
 
@@ -95,10 +81,9 @@ class TestIatiFileListAction:
         res2 = factories.Resource(
             package_id=pkg2["id"], format="CSV", url_type="upload", url="b.csv", name="b.csv"
         )
-        self._create_iati_file(
-            setup_data.sysadmin["name"],
-            res2["id"],
-            file_type=IATIFileTypes.ORGANIZATION_NAMES_FILE.value,
+        create_iati_file(
+            resource_id=res2["id"],
+            file_type=IATIFileTypes.ORGANIZATION_NAMES_FILE,
             is_valid=False,
         )
 
@@ -117,7 +102,7 @@ class TestIatiFileListAction:
         """Only sysadmin users can call this action."""
 
         # Ensure at least one record exists
-        self._create_iati_file(setup_data.sysadmin["name"], setup_data.res["id"])
+        create_iati_file(resource_id=setup_data.res["id"])
 
         # Regular user tries to list - should raise authorization error
         with pytest.raises(toolkit.NotAuthorized):
@@ -131,7 +116,7 @@ class TestIatiFileListAction:
             res = factories.Resource(
                 package_id=pkg["id"], format="CSV", url_type="upload", url="x.csv", name="x.csv"
             )
-            self._create_iati_file(setup_data.sysadmin["name"], res["id"])
+            create_iati_file(resource_id=res["id"])
 
         # page 1
         result1 = self._call_action_as_user("iati_file_list", setup_data.sysadmin["name"], start=0, rows=2)
