@@ -16,29 +16,27 @@ def _resolve_package_id_from_resource_id(resource_id):
     return getattr(res, "package_id", None) if res else None
 
 
-def _resolve_package_id_for_update_delete(data_dict):
+def _resolve_package_id_from_iati_file_id(file_id):
+    """Return package_id from an IATIFile.id -> resource_id -> package_id chain, or None."""
+    if not file_id:
+        return None
+    file = model.Session.query(IATIFile).get(file_id)
+    if not file:
+        return None
+    return _resolve_package_id_from_resource_id(file.resource_id)
+
+
+def _resolve_package_id(data_dict):
+    """Return package_id from data_dict which may contain resource_id or IATIFile.id.
+       1) resource_id  -> package_id (for create)
+       2) id (IATIFile.id) -> resource_id -> package_id (for update or delete)
     """
-    Best-effort package_id resolution for update/delete:
-      1) package_id / dataset_id in payload
-      2) resource_id in payload
-      3) id (IATIFile.id) -> resource_id -> package_id
-    """
-    pkg_id = data_dict.get("package_id") or data_dict.get("dataset_id")
+    # 1) If an IATIFile id is provided (update/delete)
+    pkg_id = _resolve_package_id_from_iati_file_id(data_dict.get("id"))
     if pkg_id:
         return pkg_id
-
-    res_id = data_dict.get("resource_id")
-    if res_id:
-        pkg_id = _resolve_package_id_from_resource_id(res_id)
-        if pkg_id:
-            return pkg_id
-
-    file_id = data_dict.get("id")
-    if file_id:
-        file = model.Session.query(IATIFile).get(file_id)
-        if file:
-            return _resolve_package_id_from_resource_id(file.resource_id)
-    return None
+    # 2) Fallback: resource_id (create o update/delete con solo resource_id)
+    return _resolve_package_id_from_resource_id(data_dict.get("resource_id"))
 
 
 def _user_is_org_admin_for_package(context, package_id):
@@ -81,25 +79,40 @@ def _allow_if_sysadmin_or_org_admin(context, package_id):
 
 def iati_file_create(context, data_dict):
     # org-admin del dataset (o sysadmin).
-    # Permitir payload con solo resource_id.
-    package_id = data_dict.get("package_id") or data_dict.get("dataset_id")
+    # Expect only resource_id; resolve package_id from it.
+    package_id = _resolve_package_id(data_dict)
     if not package_id:
-        package_id = _resolve_package_id_from_resource_id(data_dict.get("resource_id"))
+        return {
+            "success": False,
+            "msg": toolkit._("Missing or invalid resource_id; cannot resolve dataset for IATI file creation."),
+        }
     return _allow_if_sysadmin_or_org_admin(context, package_id)
 
 
 def iati_file_update(context, data_dict):
-    package_id = _resolve_package_id_for_update_delete(data_dict)
+    # Expect id (IATIFile.id); fallback to resource_id.
+    package_id = _resolve_package_id(data_dict)
+    if not package_id:
+        return {
+            "success": False,
+            "msg": toolkit._("Cannot resolve dataset for IATI file update (need valid id or resource_id)."),
+        }
     return _allow_if_sysadmin_or_org_admin(context, package_id)
 
 
 def iati_file_delete(context, data_dict):
-    package_id = _resolve_package_id_for_update_delete(data_dict)
+    # Expect id (IATIFile.id); fallback to resource_id.
+    package_id = _resolve_package_id(data_dict)
+    if not package_id:
+        return {
+            "success": False,
+            "msg": toolkit._("Cannot resolve dataset for IATI file deletion (need valid id or resource_id)."),
+        }
     return _allow_if_sysadmin_or_org_admin(context, package_id)
 
 
 def iati_file_show(context, data_dict):
-    # viewing is not restricted
+    # Unrestricted access
     return {"success": True}
 
 
