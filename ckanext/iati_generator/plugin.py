@@ -53,7 +53,7 @@ class IatiGeneratorPlugin(p.SingletonPlugin, DefaultTranslation):
             'iati_file_show': iati_auth.iati_file_show,
         }
 
-    def get_validators(self):  # <-- NUEVO
+    def get_validators(self):
         return {
             "iati_protect_org_admin_only": iati_auth.iati_protect_org_admin_only
         }

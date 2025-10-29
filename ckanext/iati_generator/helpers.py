@@ -1,7 +1,6 @@
 import logging
 from ckan.plugins import toolkit
 from ckanext.iati_generator.models.enums import IATIFileTypes
-from ckanext.iati_generator.auth import iati as iati_auth
 
 log = logging.getLogger(__name__)
 

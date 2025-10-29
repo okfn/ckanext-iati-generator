@@ -89,36 +89,31 @@ def _get_existing_value(res_dict, field_name):
 
 def iati_protect_org_admin_only(key, data, errors, context):
     """
-    Validador para usar en schema:
-      validators: ignore_missing iati_protect_org_admin_only
-
-    Si el usuario NO es admin de la organización dueña del dataset,
-    fuerza el valor entrante del campo IATI a ser el valor existente (evita cambios).
+    Validator to protect IATI extra fields so that only org admins (or sysadmins)
+    can set or modify them.
+    If the user is not authorized, the existing value is restored (or removed on create).
     """
-    # clave del campo (('iati_file_type',), ...)
-    field_name = key[0] if isinstance(key, tuple) and key else key
 
-    # solo aplica a nuestros campos
+    field_name = key[0] if isinstance(key, tuple) and key else key
     if field_name not in IATI_EXTRA_KEYS:
         return
 
     res_id = data.get(('id',)) or data.get('id')
     if not res_id:
-        # creación: permitir (org-admin) o dejar pasar vacío (ignore_missing manejará)
+        # CREATE: check using package_id from payload
+        pkg_id = data.get(('package_id',)) or data.get('package_id') \
+                 or data.get(('dataset_id',)) or data.get('dataset_id')
+        if not _user_is_org_admin_for_package(context, pkg_id):
+            # discard the incoming value if the user is not an org admin
+            data.pop(key, None)
         return
 
-    # obtener recurso actual
+    # UPDATE: check using the resource's package
     current_res = _resource_show(context, res_id)
     package_id = current_res.get("package_id")
-
-    # si es org-admin, permitir cambios
     if _user_is_org_admin_for_package(context, package_id):
         return
-
-    # NO admin: restaurar valor previo (si existe)
+    # not authorized: restore existing value
     existing = _get_existing_value(current_res, field_name)
     if existing is not None:
         data[key] = existing
-    else:
-        # si no había valor previo, no poner error, solo no tocar (ignore_missing)
-        pass
