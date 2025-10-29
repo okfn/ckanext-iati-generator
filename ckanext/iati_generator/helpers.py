@@ -1,7 +1,7 @@
 import logging
 from ckan.plugins import toolkit
 from ckanext.iati_generator.models.enums import IATIFileTypes
-
+from ckanext.iati_generator.auth import iati as iati_auth
 
 log = logging.getLogger(__name__)
 
@@ -14,7 +14,7 @@ def iati_tab_enabled():
     return not bool_val
 
 
-def iati_file_types(field=None):
+def iati_file_type(field=None, **kwargs):
     """
     Returns options (value/label) for the Scheming select.
     We plan to use this in the schema file, like "choices_helper: iati_file_types".

@@ -2,6 +2,9 @@ from ckan import model
 from ckan.plugins import toolkit
 
 
+IATI_EXTRA_KEYS = {"iati_namespace", "iati_file_type"}
+
+
 def _is_sysadmin(context):
     user_obj = context.get("auth_user_obj")
     return bool(user_obj and user_obj.sysadmin)
@@ -64,3 +67,58 @@ def iati_file_delete(context, data_dict):
 def iati_file_show(context, data_dict):
     # mostrar no restringido
     return {"success": True}
+
+
+def _resource_show(context, rid):
+    try:
+        return toolkit.get_action("resource_show")(context, {"id": rid})
+    except Exception:
+        return {}
+
+
+def _get_existing_value(res_dict, field_name):
+    # CKAN guarda campos scheming de recurso como atributos directos si están mapeados
+    if field_name in res_dict:
+        return res_dict.get(field_name)
+    # fallback: buscar en extras
+    for it in res_dict.get("extras", []):
+        if it.get("key") == field_name:
+            return it.get("value")
+    return None
+
+
+def iati_protect_org_admin_only(key, data, errors, context):
+    """
+    Validador para usar en schema:
+      validators: ignore_missing iati_protect_org_admin_only
+
+    Si el usuario NO es admin de la organización dueña del dataset,
+    fuerza el valor entrante del campo IATI a ser el valor existente (evita cambios).
+    """
+    # clave del campo (('iati_file_type',), ...)
+    field_name = key[0] if isinstance(key, tuple) and key else key
+
+    # solo aplica a nuestros campos
+    if field_name not in IATI_EXTRA_KEYS:
+        return
+
+    res_id = data.get(('id',)) or data.get('id')
+    if not res_id:
+        # creación: permitir (org-admin) o dejar pasar vacío (ignore_missing manejará)
+        return
+
+    # obtener recurso actual
+    current_res = _resource_show(context, res_id)
+    package_id = current_res.get("package_id")
+
+    # si es org-admin, permitir cambios
+    if _user_is_org_admin_for_package(context, package_id):
+        return
+
+    # NO admin: restaurar valor previo (si existe)
+    existing = _get_existing_value(current_res, field_name)
+    if existing is not None:
+        data[key] = existing
+    else:
+        # si no había valor previo, no poner error, solo no tocar (ignore_missing)
+        pass
