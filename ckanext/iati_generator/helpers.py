@@ -14,10 +14,11 @@ def iati_tab_enabled():
     return not bool_val
 
 
-def iati_file_types(field):
+def iati_file_types(field=None):
     """
     Returns options (value/label) for the Scheming select.
-    Scheming calls with `field`, although we don't use it.
+    We plan to use this in the schema file, like "choices_helper: iati_file_types".
+    So the Scheming extension call this helper with `field`, although we don't use it.
     """
     options = []
     # optional: sorted by value

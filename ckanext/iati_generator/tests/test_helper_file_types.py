@@ -6,7 +6,7 @@ from ckanext.iati_generator.models.enums import IATIFileTypes
 class TestIatiHelpers:
     def test_iati_file_types_returns_all_enum_values_sorted(self):
         """Should return a list of dicts with value/label for all Enum members, ordered by value."""
-        opts = iati_file_types(field=None)
+        opts = iati_file_types()
 
         # 1) count matches the Enum
         assert len(opts) == len(list(IATIFileTypes))
@@ -23,8 +23,7 @@ class TestIatiHelpers:
 
     def test_iati_file_types_accepts_field_param(self):
         """Scheming passes 'field'; the helper doesn't use it but must not fail."""
-        dummy_field = object()
-        opts = iati_file_types(dummy_field)
+        opts = iati_file_types()
         assert isinstance(opts, list)
         assert all(isinstance(o, dict) and "value" in o and "label" in o for o in opts)
 
