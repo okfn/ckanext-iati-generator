@@ -14,15 +14,18 @@ def iati_tab_enabled():
     return not bool_val
 
 
-def iati_file_type():
+def iati_file_types(field=None):
     """
-    Returns options for the 'IATI file type' select in the format:
-    [{'value': '<enum_value>', 'text': '<label>'}, ...]
+    Returns options (value/label) for the Scheming select.
+    We plan to use this in the schema file, like "choices_helper: iati_file_types".
+    So the Scheming extension call this helper with `field`, although we don't use it.
     """
-    return [
-        {
-            "value": getattr(item, "value", str(item)),
-            "text": getattr(item, "label", None) or item.name.replace("_", " ").title(),
-        }
-        for item in IATIFileTypes
-    ]
+    options = []
+    # optional: sorted by value
+    for item in sorted(IATIFileTypes, key=lambda e: e.value):
+        label = item.name.replace("_", " ").title()
+        options.append({
+            "value": str(item.value),  # Scheming expects a string
+            "label": label,
+        })
+    return options
