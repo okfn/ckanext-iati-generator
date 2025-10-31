@@ -47,3 +47,35 @@
   </div>
 </section>
 {% endblock %}
+
+
+{% block secondary_content %}
+  {% if public_iati_links and public_iati_links|length %}
+    <section class="module module-narrow">
+      <h2 class="module-heading">{{ _("IATI public links") }}</h2>
+      <div class="module-content">
+        <ul class="list-unstyled">
+          {% for item in public_iati_links %}
+            <li class="mb-2">
+              <a href="{{ item.url }}" target="_blank" rel="noopener">
+                {{ item.label }}
+              </a>
+              {% if item.status == 'valid' %}
+                <span class="label label-success" title="{{_('Valid')}}">✓</span>
+              {% else %}
+                <span class="label label-danger" title="{{_('Invalid')}}">!</span>
+              {% endif %}
+            </li>
+          {% endfor %}
+        </ul>
+      </div>
+    </section>
+  {% else %}
+    <section class="module module-narrow">
+      <h2 class="module-heading">{{ _("IATI public links") }}</h2>
+      <div class="module-content">
+        <p class="muted">{{ _("No IATI files found for this dataset yet.") }}</p>
+      </div>
+    </section>
+  {% endif %}
+{% endblock %}
