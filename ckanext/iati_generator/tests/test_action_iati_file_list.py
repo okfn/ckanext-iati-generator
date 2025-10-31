@@ -62,10 +62,20 @@ class TestIatiFileListAction:
         result = self._call_action_as_user("iati_file_list", setup_data.sysadmin["name"])
 
         assert result["count"] == 1
-        # Test exactly what we expect here
+        # Test exactly what we expect here (shape + a couple of values)
         item = result["results"][0]
-        assert {"id", "file_type", "resource", "dataset"} <= set(item.keys())
+        assert set(item.keys()) == {
+            "id", "namespace", "file_type", "is_valid", "last_success", "last_error",
+            "resource", "dataset"
+        }
+        # nested shapes
+        assert set(item["resource"].keys()) == {"id", "name", "format", "url", "description"}
+        assert set(item["dataset"].keys()) == {"id", "name", "title", "owner_org"}
+        # sample values
         assert item["file_type"] == IATIFileTypes.ORGANIZATION_MAIN_FILE.name
+        assert item["is_valid"] in (True, False)
+        assert item["resource"]["id"]
+        assert item["dataset"]["id"]
 
     def test_filter_by_file_type_string_and_valid_flag(self, setup_data):
         """Test filtering by file_type (string) and valid (boolean)."""
