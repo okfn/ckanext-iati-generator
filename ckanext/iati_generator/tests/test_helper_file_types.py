@@ -1,4 +1,4 @@
-from ckanext.iati_generator.helpers import iati_file_types
+from ckanext.iati_generator.helpers import iati_file_type
 from ckanext.iati_generator.plugin import IatiGeneratorPlugin
 from ckanext.iati_generator.models.enums import IATIFileTypes
 
@@ -6,7 +6,7 @@ from ckanext.iati_generator.models.enums import IATIFileTypes
 class TestIatiHelpers:
     def test_iati_file_types_returns_all_enum_values_sorted(self):
         """Should return a list of dicts with value/label for all Enum members, ordered by value."""
-        opts = iati_file_types()
+        opts = iati_file_type()
 
         # 1) count matches the Enum
         assert len(opts) == len(list(IATIFileTypes))
@@ -23,7 +23,7 @@ class TestIatiHelpers:
 
     def test_iati_file_types_accepts_field_param(self):
         """Scheming passes 'field'; the helper doesn't use it but must not fail."""
-        opts = iati_file_types()
+        opts = iati_file_type()
         assert isinstance(opts, list)
         assert all(isinstance(o, dict) and "value" in o and "label" in o for o in opts)
 
@@ -32,4 +32,4 @@ class TestIatiHelpers:
         plugin = IatiGeneratorPlugin()
         helpers = plugin.get_helpers()
         assert "iati_file_type" in helpers
-        assert helpers["iati_file_type"] is iati_file_types
+        assert helpers["iati_file_type"] is iati_file_type

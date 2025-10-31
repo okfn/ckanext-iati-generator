@@ -22,6 +22,7 @@ class IatiGeneratorPlugin(p.SingletonPlugin, DefaultTranslation):
     p.implements(p.ITranslation)
     p.implements(p.ITemplateHelpers)
     p.implements(p.IAuthFunctions)
+    p.implements(p.IValidators)
 
     def update_config(self, config_):
         toolkit.add_template_directory(config_, "templates")
@@ -52,6 +53,11 @@ class IatiGeneratorPlugin(p.SingletonPlugin, DefaultTranslation):
             'iati_file_show': iati_auth.iati_file_show,
         }
 
+    def get_validators(self):
+        return {
+            "iati_protect_org_admin_only": iati_auth.iati_protect_org_admin_only
+        }
+
     def i18n_locales(self):
         """Languages this plugin has translations for."""
         return ["es", "en"]
@@ -65,5 +71,5 @@ class IatiGeneratorPlugin(p.SingletonPlugin, DefaultTranslation):
         """Return a dictionary of helper functions."""
         return {
             "iati_tab_enabled": h.iati_tab_enabled,
-            "iati_file_type": h.iati_file_types,
+            "iati_file_type": h.iati_file_type,
         }
