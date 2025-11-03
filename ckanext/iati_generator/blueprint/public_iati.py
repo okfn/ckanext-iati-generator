@@ -1,4 +1,4 @@
-from flask import Blueprint, abort
+from flask import Blueprint, abort, redirect
 
 from ckan.plugins import toolkit
 from ckan import model
@@ -17,9 +17,9 @@ def serve_public_iati(namespace, filename):
         /iati/bcie/activities.xml
     """
     # Map filename -> enum type
-    if filename.lower() == "organization.xml":
+    if filename == "organization.xml":
         file_type = IATIFileTypes.ORGANIZATION_MAIN_FILE.value
-    elif filename.lower() == "activities.xml":
+    elif filename == "activities.xml":
         file_type = IATIFileTypes.ACTIVITY_MAIN_FILE.value
     else:
         abort(404, "Unknown IATI file type")
@@ -39,4 +39,4 @@ def serve_public_iati(namespace, filename):
     url = resource.get("url")
     if not url:
         abort(404, "Resource URL not found")
-    return toolkit.redirect(url)
+    return redirect(url)
