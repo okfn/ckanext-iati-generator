@@ -3,65 +3,13 @@ import os
 from ckan.lib import base
 from ckan.lib.helpers import helper_functions as h
 from ckan.plugins import toolkit
-from ckan import model as ckan_model
 
-from ckanext.iati_generator.models.iati_files import IATIFile
-from ckanext.iati_generator.models.enums import IATIFileTypes
+
 from ckanext.iati_generator.decorators import require_sysadmin_user
 from ckanext.iati_generator.utils import create_or_update_iati_resource
-from ckanext.iati_generator.helpers import build_public_iati_links_by_namespace
+from ckanext.iati_generator.helpers import build_public_iati_links_namespace
 
 iati_blueprint = Blueprint("iati_generator", __name__, url_prefix="/iati-dataset")
-
-_FILENAME_BY_TYPE = {
-    IATIFileTypes.ORGANIZATION_MAIN_FILE.value: "organization.xml",
-    # IATIFileTypes.ACTIVITY_MAIN_FILE.value: "activities.xml",
-    # if you later add more types, add them here
-}
-
-
-def _build_public_iati_links_for_package(package_id):
-    """
-    NOTE: Package-scoped.
-    Returns a list of dicts with:
-    - 'label'  (e.g., 'bcie – organization.xml')
-    - 'url'    (e.g., '/iati/bcie/organization.xml')
-    - 'status' (optional: 'valid' / 'error' for displaying badges)
-
-    WARNING (review TODO):
-    This assumes IATI files linked to resources of THIS dataset (package_id).
-    In future, we may need a namespace-scoped variant because IATI components
-    can live in resources across different packages.
-    """
-    Session = ckan_model.Session
-    Resource = ckan_model.Resource
-
-    q = (
-        Session.query(IATIFile, Resource)
-        .join(Resource, Resource.id == IATIFile.resource_id)
-        .filter(Resource.package_id == package_id, Resource.state == "active")
-    )
-
-    items = []
-    for f, res in q.all():
-        filename = _FILENAME_BY_TYPE.get(f.file_type)
-        if not filename:
-            continue
-        public_url = f"/iati/{f.namespace}/{filename}"
-
-        label = f"{f.namespace} – {filename}"
-        status = "valid" if f.is_valid else "error"
-
-        items.append({
-            "label": label,
-            "url": public_url,
-            "status": status,
-            "resource_id": f.resource_id,
-        })
-
-    # order alphabetically by label
-    items.sort(key=lambda x: x["label"])
-    return items
 
 
 @iati_blueprint.route("/<package_id>", methods=["GET"])
@@ -80,18 +28,18 @@ def iati_page(package_id):
         return toolkit.abort(404, toolkit._("Dataset not found"))
 
     namespace = toolkit.request.args.get("namespace", "").strip()
-    if namespace:
-        public_links = build_public_iati_links_by_namespace(namespace)
-    else:
-        public_links = _build_public_iati_links_for_package(package_id)
+    if not namespace:
+        namespace = pkg_dict.get("name") or pkg_dict.get("id")
+
+    public_links = build_public_iati_links_namespace(namespace)
 
     # Pass both pkg and pkg_dict to the template (CKAN templates use both)
     ctx = {
         "pkg": pkg_dict,
         "pkg_dict": pkg_dict,
         "public_iati_links": public_links,
-        "public_links_scope": "namespace" if namespace else "package",
-        "public_links_namespace": namespace or None,
+        "public_links_scope": "namespace",
+        "public_links_namespace": namespace,
     }
     return base.render("iati/iati_page.html", ctx)
 
@@ -146,7 +94,11 @@ def generate_test_iati(package_id):
         h.flash_success(toolkit._("XML file uploaded successfully."), "success")
 
     # rebuild the public IATI links
-    public_links = _build_public_iati_links_for_package(package_id)
+    pkg_dict = toolkit.get_action("package_show")(context, {"id": package_id})
+    namespace = toolkit.request.args.get("namespace", "").strip()
+    if not namespace:
+        namespace = pkg_dict.get("name") or pkg_dict.get("id")
+    public_links = build_public_iati_links_namespace(namespace)
 
     # Render the same page with the logs and the link to the XML
     ctx = {

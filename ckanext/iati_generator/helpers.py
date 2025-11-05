@@ -40,7 +40,7 @@ def iati_file_types(field=None):
     return options
 
 
-def build_public_iati_links_by_namespace(namespace):
+def build_public_iati_links_namespace(namespace):
     """
     Namespace-scoped variant (not wired yet).
     Builds the same structure as the package-scoped helper, but ignores package_id

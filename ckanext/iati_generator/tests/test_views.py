@@ -92,12 +92,26 @@ class TestServePublicIati:
         """Sin query param, debe comportarse igual que antes (modo package)."""
         sysadmin = factories.Sysadmin()
         pkg = factories.Dataset()
-        res = factories.Resource(package_id=pkg["id"], url="http://example.com/x.xml", format="XML", state="active")
-        create_iati_file(namespace="abc", resource_id=res["id"], file_type=IATIFileTypes.ORGANIZATION_MAIN_FILE)
+        ns = pkg["name"]
+
+        res = factories.Resource(
+            package_id=pkg["id"],
+            url="http://example.com/x.xml",
+            format="XML",
+            state="active",
+        )
+
+        create_iati_file(
+            namespace=ns,
+            resource_id=res["id"],
+            file_type=IATIFileTypes.ORGANIZATION_MAIN_FILE,
+        )
 
         resp = app.get(
             f"/iati-dataset/{pkg['id']}",
             extra_environ={"REMOTE_USER": sysadmin["name"]},
         )
         assert resp.status_code == 200
-        assert "organization.xml" in resp.body
+
+        body = resp.body if isinstance(resp.body, str) else resp.body.decode("utf-8")
+        assert "organization.xml" in body
