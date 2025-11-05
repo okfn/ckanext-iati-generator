@@ -67,7 +67,7 @@ class TestServePublicIati:
         app.get("/iati/bcie/organization.xml", status=404)
 
     def test_page_returns_links_by_namespace(self, app):
-        """Cuando se pasa ?namespace=, muestra links de ese namespace (sin importar el package)."""
+        """When ?namespace= is provided, show links for that namespace (regardless of the package)."""
         sysadmin = factories.Sysadmin()
         pkg1 = factories.Dataset()
         pkg2 = factories.Dataset()
@@ -78,7 +78,7 @@ class TestServePublicIati:
         create_iati_file(namespace="bcie", resource_id=res1["id"], file_type=IATIFileTypes.ORGANIZATION_MAIN_FILE)
         create_iati_file(namespace="bcie", resource_id=res2["id"], file_type=IATIFileTypes.ORGANIZATION_MAIN_FILE)
 
-        # mismo endpoint pero con ?namespace=bcie
+        # same endpoint but with ?namespace=bcie
         resp = app.get(
             f"/iati-dataset/{pkg1['id']}?namespace=bcie",
             extra_environ={"REMOTE_USER": sysadmin["name"]},
@@ -89,7 +89,7 @@ class TestServePublicIati:
         assert "namespace" in resp.body.lower()
 
     def test_page_defaults_to_package_mode(self, app):
-        """Sin query param, debe comportarse igual que antes (modo package)."""
+        """Without query param, should behave the same as before (package mode)."""
         sysadmin = factories.Sysadmin()
         pkg = factories.Dataset()
         ns = pkg["name"]
