@@ -68,7 +68,7 @@ class TestServePublicIati:
 
     def test_page_returns_links_by_namespace(self, app):
         """Cuando se pasa ?namespace=, muestra links de ese namespace (sin importar el package)."""
-        sysadmin = factories.Sysadmin()  # ✅ usuario real con permisos
+        sysadmin = factories.Sysadmin()
         pkg1 = factories.Dataset()
         pkg2 = factories.Dataset()
 
@@ -81,24 +81,23 @@ class TestServePublicIati:
         # mismo endpoint pero con ?namespace=bcie
         resp = app.get(
             f"/iati-dataset/{pkg1['id']}?namespace=bcie",
-            extra_environ={"REMOTE_USER": sysadmin["name"]},  # ✅ usuario creado
+            extra_environ={"REMOTE_USER": sysadmin["name"]},
         )
 
         assert resp.status_code == 200
-        body = resp.text
-        assert "organization.xml" in body
-        assert "namespace" in body.lower()
+        assert "organization.xml" in resp.body
+        assert "namespace" in resp.body.lower()
 
     def test_page_defaults_to_package_mode(self, app):
         """Sin query param, debe comportarse igual que antes (modo package)."""
-        sysadmin = factories.Sysadmin()  # ✅ usuario real con permisos
+        sysadmin = factories.Sysadmin()
         pkg = factories.Dataset()
         res = factories.Resource(package_id=pkg["id"], url="http://example.com/x.xml", format="XML", state="active")
         create_iati_file(namespace="abc", resource_id=res["id"], file_type=IATIFileTypes.ORGANIZATION_MAIN_FILE)
 
         resp = app.get(
             f"/iati-dataset/{pkg['id']}",
-            extra_environ={"REMOTE_USER": sysadmin["name"]},  # ✅ usuario creado
+            extra_environ={"REMOTE_USER": sysadmin["name"]},
         )
         assert resp.status_code == 200
-        assert "organization.xml" in resp.text
+        assert "organization.xml" in resp.body
