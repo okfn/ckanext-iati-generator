@@ -58,7 +58,7 @@ class TestServePublicIati:
         pkg = factories.Dataset()
         res = factories.Resource(
             package_id=pkg["id"],
-            url="",      # sin URL
+            url="",      # no URL
             format="XML",
             state="active",
         )

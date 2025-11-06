@@ -42,9 +42,9 @@ def iati_file_types(field=None):
 
 def build_public_iati_links_namespace(namespace):
     """
-    Namespace-scoped variant (not wired yet).
-    Builds the same structure as the package-scoped helper, but ignores package_id
-    and collects all active resources for a given namespace across the instance.
+    Builds a list of public IATI file links for a given namespace.
+    This function is actively used to collect all active resources for a given namespace across the instance,
+    ignoring package_id, and returns the same structure as the package-scoped helper.
 
     Returns:
       List[dict] like:
