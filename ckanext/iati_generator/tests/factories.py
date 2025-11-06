@@ -1,6 +1,6 @@
 import factory
 from ckan import model
-from ckantoolkit.tests import factories
+from ckan.tests import factories
 from ckanext.iati_generator.models.iati_files import IATIFile
 from ckanext.iati_generator.models.enums import IATIFileTypes
 
@@ -26,6 +26,10 @@ class IATIFileFactory(factory.Factory):
 
     @classmethod
     def _create(cls, target_class, *args, **kwargs):
+        ft = kwargs.get("file_type")
+        if hasattr(ft, "value"):
+            kwargs["file_type"] = ft.value
+
         obj = target_class(**kwargs)
         model.Session.add(obj)
         model.Session.commit()

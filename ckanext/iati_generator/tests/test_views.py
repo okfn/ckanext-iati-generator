@@ -1,7 +1,7 @@
 import pytest
 from ckan.tests import factories
 
-from ckanext.iati_generator.tests.factories import create_iati_file
+from ckanext.iati_generator.tests.factories import IATIFileFactory
 from ckanext.iati_generator.models.enums import IATIFileTypes
 
 
@@ -9,22 +9,19 @@ from ckanext.iati_generator.models.enums import IATIFileTypes
 @pytest.mark.usefixtures("clean_db")
 class TestServePublicIati:
 
-    def _create_dataset_with_resource(self, url="http://example.com/iati/organization.xml"):
-        """Helper to create a dataset with one resource."""
+    def test_redirects_to_resource_url_when_file_exists(self, app):
+        """When the IATIFile exists, redirect to the resource URL."""
+        # Create a dataset and resource
         pkg = factories.Dataset()
         res = factories.Resource(
             package_id=pkg["id"],
-            url=url,
+            url="http://example.com/iati/organization.xml",
             format="XML",
             state="active",
         )
-        return pkg, res
 
-    def test_redirects_to_resource_url_when_file_exists(self, app):
-        """When the IATIFile exists, redirect to the resource URL."""
-        _, res = self._create_dataset_with_resource()
         # Create an IATIFile entry that matches namespace + file_type + resource_id
-        create_iati_file(
+        IATIFileFactory(
             namespace="bcie",
             resource_id=res["id"],
             file_type=IATIFileTypes.ORGANIZATION_MAIN_FILE,
@@ -42,8 +39,14 @@ class TestServePublicIati:
     def test_returns_404_when_no_file_for_namespace(self, app):
         """When the IATIFile does not exist for the given namespace, respond 404."""
         # Resource exists, but the IATIFile is for a different namespace
-        _, res = self._create_dataset_with_resource()
-        create_iati_file(
+        pkg = factories.Dataset()
+        res = factories.Resource(
+            package_id=pkg["id"],
+            url="http://example.com/iati/organization.xml",
+            format="XML",
+            state="active",
+        )
+        IATIFileFactory(
             namespace="otro",
             resource_id=res["id"],
             file_type=IATIFileTypes.ORGANIZATION_MAIN_FILE,
@@ -59,7 +62,7 @@ class TestServePublicIati:
             format="XML",
             state="active",
         )
-        create_iati_file(
+        IATIFileFactory(
             namespace="bcie",
             resource_id=res["id"],
             file_type=IATIFileTypes.ORGANIZATION_MAIN_FILE,
@@ -75,8 +78,8 @@ class TestServePublicIati:
         res1 = factories.Resource(package_id=pkg1["id"], url="http://example.com/a.xml", format="XML", state="active")
         res2 = factories.Resource(package_id=pkg2["id"], url="http://example.com/b.xml", format="XML", state="active")
 
-        create_iati_file(namespace="bcie", resource_id=res1["id"], file_type=IATIFileTypes.ORGANIZATION_MAIN_FILE)
-        create_iati_file(namespace="bcie", resource_id=res2["id"], file_type=IATIFileTypes.ORGANIZATION_MAIN_FILE)
+        IATIFileFactory(namespace="bcie", resource_id=res1["id"], file_type=IATIFileTypes.ORGANIZATION_MAIN_FILE)
+        IATIFileFactory(namespace="bcie", resource_id=res2["id"], file_type=IATIFileTypes.ORGANIZATION_MAIN_FILE)
 
         # same endpoint but with ?namespace=bcie
         resp = app.get(
@@ -101,7 +104,7 @@ class TestServePublicIati:
             state="active",
         )
 
-        create_iati_file(
+        IATIFileFactory(
             namespace=ns,
             resource_id=res["id"],
             file_type=IATIFileTypes.ORGANIZATION_MAIN_FILE,
