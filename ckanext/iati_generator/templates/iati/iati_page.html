@@ -51,6 +51,11 @@
 
 {% block secondary_content %}
   {% if public_iati_links and public_iati_links|length %}
+    {% if public_links_scope == "namespace" %}
+      <div class="alert alert-info">
+        {{ _("Showing IATI files for namespace") }} <strong>{{ public_links_namespace }}</strong>
+      </div>
+    {% endif %}
     <section class="module module-narrow">
       <h2 class="module-heading">{{ _("IATI public links") }}</h2>
       <div class="module-content">

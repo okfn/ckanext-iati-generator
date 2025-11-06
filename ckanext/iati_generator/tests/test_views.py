@@ -65,3 +65,53 @@ class TestServePublicIati:
             file_type=IATIFileTypes.ORGANIZATION_MAIN_FILE,
         )
         app.get("/iati/bcie/organization.xml", status=404)
+
+    def test_page_returns_links_by_namespace(self, app):
+        """When ?namespace= is provided, show links for that namespace (regardless of the package)."""
+        sysadmin = factories.Sysadmin()
+        pkg1 = factories.Dataset()
+        pkg2 = factories.Dataset()
+
+        res1 = factories.Resource(package_id=pkg1["id"], url="http://example.com/a.xml", format="XML", state="active")
+        res2 = factories.Resource(package_id=pkg2["id"], url="http://example.com/b.xml", format="XML", state="active")
+
+        create_iati_file(namespace="bcie", resource_id=res1["id"], file_type=IATIFileTypes.ORGANIZATION_MAIN_FILE)
+        create_iati_file(namespace="bcie", resource_id=res2["id"], file_type=IATIFileTypes.ORGANIZATION_MAIN_FILE)
+
+        # same endpoint but with ?namespace=bcie
+        resp = app.get(
+            f"/iati-dataset/{pkg1['id']}?namespace=bcie",
+            extra_environ={"REMOTE_USER": sysadmin["name"]},
+        )
+
+        assert resp.status_code == 200
+        assert "organization.xml" in resp.body
+        assert "namespace" in resp.body.lower()
+
+    def test_page_defaults_to_package_mode(self, app):
+        """Without query param, should behave the same as before (package mode)."""
+        sysadmin = factories.Sysadmin()
+        pkg = factories.Dataset()
+        ns = pkg["name"]
+
+        res = factories.Resource(
+            package_id=pkg["id"],
+            url="http://example.com/x.xml",
+            format="XML",
+            state="active",
+        )
+
+        create_iati_file(
+            namespace=ns,
+            resource_id=res["id"],
+            file_type=IATIFileTypes.ORGANIZATION_MAIN_FILE,
+        )
+
+        resp = app.get(
+            f"/iati-dataset/{pkg['id']}",
+            extra_environ={"REMOTE_USER": sysadmin["name"]},
+        )
+        assert resp.status_code == 200
+
+        body = resp.body if isinstance(resp.body, str) else resp.body.decode("utf-8")
+        assert "organization.xml" in body
