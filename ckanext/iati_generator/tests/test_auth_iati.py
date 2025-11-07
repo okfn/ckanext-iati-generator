@@ -220,7 +220,11 @@ class TestIatiAuth:
         other_org = factories.Organization()
         other_pkg = factories.Dataset(owner_org=other_org["id"])
         other_res = factories.Resource(
-            package_id=other_pkg["id"], format="CSV", url_type="upload", url="other.csv", name="other.csv"
+            package_id=other_pkg["id"],
+            format="CSV",
+            url_type="upload",
+            url="other.csv",
+            name="other.csv"
         )
 
         # Create IATIFile in that dataset as sysadmin
