@@ -35,7 +35,7 @@ def _resolve_package_id(data_dict):
     pkg_id = _resolve_package_id_from_iati_file_id(data_dict.get("id"))
     if pkg_id:
         return pkg_id
-    # 2) Fallback: resource_id (create o update/delete con solo resource_id)
+    # 2) Fallback: resource_id (create or update/delete con solo resource_id)
     return _resolve_package_id_from_resource_id(data_dict.get("resource_id"))
 
 
