@@ -31,19 +31,27 @@ Compatibility with core CKAN versions:
 
 1. Activate your CKAN virtual environment, for example:
 
-     pip install git+https://github.com/okfn/ckanext-iati-generator.git
+```
+pip install git+https://github.com/okfn/ckanext-iati-generator.git
+```
 
 2. Install the extension requirements:
 
-     pip install -r https://raw.githubusercontent.com/okfn/ckanext-iati-generator/refs/heads/main/requirements.txt
+```
+pip install -r https://raw.githubusercontent.com/okfn/ckanext-iati-generator/refs/heads/main/requirements.txt
+```
 
 3. Add `iati_generator` to the `ckan.plugins` setting in your CKAN configuration file.
 
-     ckan.plugins = ... iati_generator
+```
+ckan.plugins = ... iati_generator
+```
 
 4. Run the database migration:
 
-     ckan db upgrade -p iati_generator
+```
+ckan db upgrade -p iati_generator
+```
 
 ## Config settings
 
