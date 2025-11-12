@@ -142,12 +142,16 @@ def iati_file_create(context, data_dict):
     if 'file_type' not in data_dict:
         raise toolkit.ValidationError({'file_type': 'Missing required field file_type'})
     try:
-        # acepta int o nombre del enum
+        # accepts int, numeric string ("100"), or enum name ("ORGANIZATION_MAIN_FILE")
         ft = data_dict['file_type']
         if isinstance(ft, str):
-            data_dict['file_type'] = IATIFileTypes[ft].value
+            if ft.isdigit():
+                data_dict['file_type'] = int(ft)
+                _ = IATIFileTypes(data_dict['file_type'])  # value
+            else:
+                data_dict['file_type'] = IATIFileTypes[ft].value
         else:
-            _ = IATIFileTypes(ft)  # valida que exista
+            _ = IATIFileTypes(ft)  # validates existence
     except Exception:
         raise toolkit.ValidationError({'file_type': 'Invalid IATIFileTypes value'})
 
