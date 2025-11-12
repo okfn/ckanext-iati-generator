@@ -24,7 +24,7 @@ def setup_data():
         url="file.csv", name="file.csv",
     )
 
-    # headers listos
+    # prepare headers
     sysadmin["headers"] = {"Authorization": sysadmin["token"]}
     org_admin["headers"] = {"Authorization": org_admin["token"]}
     editor["headers"] = {"Authorization": editor["token"]}
@@ -43,6 +43,7 @@ class TestIatiFileCreateAction:
     def _api(self, action): return f"/api/3/action/{action}"
 
     def test_create_persists_row_and_defaults(self, app, setup_data):
+        """test successful creation persists row with default values"""
         resp = app.post(
             self._api("iati_file_create"),
             params={
@@ -53,15 +54,16 @@ class TestIatiFileCreateAction:
             status=200,
         ).json["result"]
 
-        # Verificamos en DB
+        # Verify in DB
         obj = model.Session.query(IATIFile).get(resp["id"])
         assert obj is not None
         assert obj.resource_id == setup_data["res"]["id"]
         assert obj.file_type == IATIFileTypes.ORGANIZATION_MAIN_FILE.value
-        assert obj.namespace == DEFAULT_NAMESPACE  # por defecto
+        assert obj.namespace == DEFAULT_NAMESPACE  # default value
 
     def test_create_accepts_enum_name_and_int(self, app, setup_data):
-        # por nombre
+        """test file_type can be provided as enum name or int value"""
+        # by name
         app.post(
             self._api("iati_file_create"),
             params={
@@ -71,7 +73,7 @@ class TestIatiFileCreateAction:
             headers=setup_data["sysadmin"]["headers"],
             status=200,
         )
-        # por int -> usar OTRO resource para evitar duplicado/constraint
+        # by int -> use ANOTHER resource to avoid duplicate/constraint
         res2 = factories.Resource(
             package_id=setup_data["pkg"]["id"], format="CSV", url_type="upload",
             url="file2.csv", name="file2.csv",
@@ -87,6 +89,7 @@ class TestIatiFileCreateAction:
         )
 
     def test_create_namespace_override(self, app, setup_data):
+        """test namespace can be overridden"""
         resp = app.post(
             self._api("iati_file_create"),
             params={
@@ -100,7 +103,8 @@ class TestIatiFileCreateAction:
         assert resp["namespace"] == "custom-ns"
 
     def test_create_validation_error_missing_resource_id(self, app, setup_data):
-        # con sysadmin pasa el auth, debe fallar validación (CKAN => 409)
+        """test missing resource_id raises validation error"""
+        # with sysadmin passes auth, should fail validation (CKAN => 409)
         app.post(
             self._api("iati_file_create"),
             params={"file_type": IATIFileTypes.ORGANIZATION_MAIN_FILE.name},
@@ -109,6 +113,7 @@ class TestIatiFileCreateAction:
         )
 
     def test_permission_matrix(self, app, setup_data):
+        """Test permission matrix for IATI file creation."""
         payload = {
             "resource_id": setup_data["res"]["id"],
             "file_type": IATIFileTypes.ORGANIZATION_MAIN_FILE.name,
@@ -116,7 +121,7 @@ class TestIatiFileCreateAction:
         # sysadmin OK
         app.post(self._api("iati_file_create"), params=payload,
                  headers=setup_data["sysadmin"]["headers"], status=200)
-        # admin org OK -> usar OTRO resource para evitar constraint
+        # org admin OK -> use ANOTHER resource to avoid constraint
         res_admin = factories.Resource(
             package_id=setup_data["pkg"]["id"], format="CSV", url_type="upload",
             url="file_admin.csv", name="file_admin.csv",
