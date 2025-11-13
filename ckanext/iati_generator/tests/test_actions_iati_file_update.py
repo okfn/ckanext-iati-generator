@@ -5,6 +5,7 @@ from ckan import model
 
 from ckanext.iati_generator.models.enums import IATIFileTypes
 from ckanext.iati_generator.models.iati_files import IATIFile
+from ckanext.iati_generator.tests.factories import create_iati_file
 
 
 @pytest.fixture
@@ -48,25 +49,16 @@ class TestIatiFileUpdateAction:
     def _api(self, action):  # helper
         return f"/api/3/action/{action}"
 
-    def _create_file(self, app, headers, res_id, file_type=IATIFileTypes.ORGANIZATION_MAIN_FILE.name):
-        """Creates an IATIFile via API and returns the result dict."""
-        return app.post(
-            self._api("iati_file_create"),
-            params={"resource_id": res_id, "file_type": file_type},
-            headers=headers,
-            status=200,
-        ).json["result"]
-
     # --- PERMISSIONS ----------------------------------------------------------
 
     def test_update_allowed_for_sysadmin_and_org_admin(self, app, setup_data):
         """Test that sysadmin and organization admin users can update IATI files."""
-        created = self._create_file(app, setup_data.sysadmin["headers"], setup_data.res["id"])
+        created = create_iati_file(resource_id=setup_data.res["id"])
 
         # sysadmin can update
         resp = app.post(
             self._api("iati_file_update"),
-            params={"id": created["id"], "namespace": "ns-sys"},
+            params={"id": created.id, "namespace": "ns-sys"},
             headers=setup_data.sysadmin["headers"],
             status=200,
         ).json["result"]
@@ -75,7 +67,7 @@ class TestIatiFileUpdateAction:
         # organization owner admin can update
         resp2 = app.post(
             self._api("iati_file_update"),
-            params={"id": created["id"], "namespace": "ns-admin"},
+            params={"id": created.id, "namespace": "ns-admin"},
             headers=setup_data.user_admin["headers"],
             status=200,
         ).json["result"]
@@ -83,12 +75,12 @@ class TestIatiFileUpdateAction:
 
     def test_update_denied_for_editor_and_member(self, app, setup_data):
         """Test that editor and member users are denied access to update IATI files."""
-        created = self._create_file(app, setup_data.sysadmin["headers"], setup_data.res["id"])
+        created = create_iati_file(resource_id=setup_data.res["id"])
 
         # editor -> 403
         app.post(
             self._api("iati_file_update"),
-            params={"id": created["id"], "namespace": "x"},
+            params={"id": created.id, "namespace": "x"},
             headers=setup_data.user_editor["headers"],
             status=403,
         )
@@ -96,7 +88,7 @@ class TestIatiFileUpdateAction:
         # member -> 403
         app.post(
             self._api("iati_file_update"),
-            params={"id": created["id"], "namespace": "y"},
+            params={"id": created.id, "namespace": "y"},
             headers=setup_data.user_member["headers"],
             status=403,
         )
@@ -110,11 +102,11 @@ class TestIatiFileUpdateAction:
             url="other.csv", name="other.csv",
         )
 
-        created = self._create_file(app, setup_data.sysadmin["headers"], other_res["id"])
+        created = create_iati_file(resource_id=other_res["id"])
 
         app.post(
             self._api("iati_file_update"),
-            params={"id": created["id"], "namespace": "nope"},
+            params={"id": created.id, "namespace": "nope"},
             headers=setup_data.user_admin["headers"],
             status=403,
         )
@@ -132,12 +124,12 @@ class TestIatiFileUpdateAction:
 
     def test_update_accepts_file_type_by_name_and_int(self, app, setup_data):
         """Test that file_type can be updated using both enum name and integer value."""
-        created = self._create_file(app, setup_data.sysadmin["headers"], setup_data.res["id"])
+        created = create_iati_file(resource_id=setup_data.res["id"])
 
         # Change by name
         resp = app.post(
             self._api("iati_file_update"),
-            params={"id": created["id"], "file_type": IATIFileTypes.ORGANIZATION_NAMES_FILE.name},
+            params={"id": created.id, "file_type": IATIFileTypes.ORGANIZATION_NAMES_FILE.name},
             headers=setup_data.sysadmin["headers"],
             status=200,
         ).json["result"]
@@ -146,7 +138,7 @@ class TestIatiFileUpdateAction:
         # Change by int (enum value)
         resp2 = app.post(
             self._api("iati_file_update"),
-            params={"id": created["id"], "file_type": IATIFileTypes.ORGANIZATION_MAIN_FILE.value},
+            params={"id": created.id, "file_type": IATIFileTypes.ORGANIZATION_MAIN_FILE.value},
             headers=setup_data.sysadmin["headers"],
             status=200,
         ).json["result"]
@@ -154,12 +146,12 @@ class TestIatiFileUpdateAction:
 
     def test_update_toggle_is_valid_and_last_error(self, app, setup_data):
         """Test that is_valid flag and last_error field can be updated and toggled correctly."""
-        created = self._create_file(app, setup_data.sysadmin["headers"], setup_data.res["id"])
+        created = create_iati_file(resource_id=setup_data.res["id"])
 
         # Mark as invalid with error
         resp = app.post(
             self._api("iati_file_update"),
-            params={"id": created["id"], "is_valid": False, "last_error": "boom"},
+            params={"id": created.id, "is_valid": False, "last_error": "boom"},
             headers=setup_data.sysadmin["headers"],
             status=200,
         ).json["result"]
@@ -169,7 +161,7 @@ class TestIatiFileUpdateAction:
         # Mark as valid and clear error
         resp2 = app.post(
             self._api("iati_file_update"),
-            params={"id": created["id"], "is_valid": True, "last_error": None},
+            params={"id": created.id, "is_valid": True, "last_error": None},
             headers=setup_data.sysadmin["headers"],
             status=200,
         ).json["result"]
@@ -177,7 +169,7 @@ class TestIatiFileUpdateAction:
         assert resp2["last_error"] is None
 
         # Confirm in DB
-        obj = model.Session.query(IATIFile).get(created["id"])
+        obj = model.Session.query(IATIFile).get(created.id)
         assert obj.is_valid is True
         assert obj.last_error is None
 
@@ -185,11 +177,11 @@ class TestIatiFileUpdateAction:
 
     def test_update_invalid_boolean_message(self, app, setup_data):
         """If is_valid is not a valid boolean => 409 + 'Invalid boolean' message."""
-        created = self._create_file(app, setup_data.sysadmin["headers"], setup_data.res["id"])
+        created = create_iati_file(resource_id=setup_data.res["id"])
 
         res = app.post(
             self._api("iati_file_update"),
-            params={"id": created["id"], "is_valid": "maybe"},
+            params={"id": created.id, "is_valid": "maybe"},
             headers=setup_data.sysadmin["headers"],
             status=409,  # ValidationError -> 409
         )
@@ -200,11 +192,11 @@ class TestIatiFileUpdateAction:
 
     def test_update_invalid_file_type_name_message(self, app, setup_data):
         """If file_type is an invalid enum name => 409 + 'Invalid IATIFileTypes value' message."""
-        created = self._create_file(app, setup_data.sysadmin["headers"], setup_data.res["id"])
+        created = create_iati_file(resource_id=setup_data.res["id"])
 
         res = app.post(
             self._api("iati_file_update"),
-            params={"id": created["id"], "file_type": "NOT_A_REAL_TYPE"},
+            params={"id": created.id, "file_type": "NOT_A_REAL_TYPE"},
             headers=setup_data.sysadmin["headers"],
             status=409,
         )
@@ -214,11 +206,11 @@ class TestIatiFileUpdateAction:
 
     def test_update_invalid_file_type_int_message(self, app, setup_data):
         """If file_type is a non-existent integer => 409 + 'Invalid IATIFileTypes value' message."""
-        created = self._create_file(app, setup_data.sysadmin["headers"], setup_data.res["id"])
+        created = create_iati_file(resource_id=setup_data.res["id"])
 
         res = app.post(
             self._api("iati_file_update"),
-            params={"id": created["id"], "file_type": 999},
+            params={"id": created.id, "file_type": 999},
             headers=setup_data.sysadmin["headers"],
             status=409,
         )
