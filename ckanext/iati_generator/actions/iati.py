@@ -155,6 +155,8 @@ def iati_file_create(context, data_dict):
     except Exception:
         raise toolkit.ValidationError({'file_type': 'Invalid IATIFileTypes value'})
 
+    data_dict['file_type'] = _normalize_file_type(data_dict['file_type'])
+
     file = IATIFile(
         namespace=data_dict.get('namespace', DEFAULT_NAMESPACE),
         file_type=data_dict['file_type'],
@@ -183,7 +185,7 @@ def _normalize_file_type(value):
         else:
             _ = IATIFileTypes(ft)
         return int(ft)
-    except Exception:
+    except (KeyError, ValueError, TypeError):
         raise toolkit.ValidationError({'file_type': 'Invalid IATIFileTypes value'})
 
 
@@ -217,7 +219,7 @@ def iati_file_update(context, data_dict):
         else:
             try:
                 updates['is_valid'] = toolkit.asbool(v)
-            except Exception:
+            except (ValueError, TypeError):
                 # invalid boolean
                 raise toolkit.ValidationError({'is_valid': 'Invalid boolean'})
 
