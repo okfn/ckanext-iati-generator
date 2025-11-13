@@ -165,21 +165,6 @@ def iati_file_create(context, data_dict):
 
 
 # --- normalize inputs ---
-def _to_bool(v):
-    """
-    Normalize input to boolean.
-    Accepts various string representations.
-    Raises ValidationError if invalid.
-    """
-    if isinstance(v, bool) or v is None:
-        return v
-    s = str(v).strip().lower()
-    if s in ('true', '1', 'yes', 'y', 'on'):
-        return True
-    if s in ('false', '0', 'no', 'n', 'off'):
-        return False
-    raise toolkit.ValidationError({'is_valid': 'Invalid boolean'})
-
 
 def _normalize_file_type(value):
     """
@@ -226,7 +211,15 @@ def iati_file_update(context, data_dict):
     # is_valid
     is_valid_present = 'is_valid' in data_dict
     if is_valid_present:
-        updates['is_valid'] = _to_bool(data_dict['is_valid'])
+        v = data_dict['is_valid']
+        if v is None:
+            updates['is_valid'] = None
+        else:
+            try:
+                updates['is_valid'] = toolkit.asbool(v)
+            except Exception:
+                # invalid boolean
+                raise toolkit.ValidationError({'is_valid': 'Invalid boolean'})
 
     # last_error (only if provided)
     if 'last_error' in data_dict:
