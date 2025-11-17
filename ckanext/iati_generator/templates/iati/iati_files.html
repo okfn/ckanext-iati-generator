@@ -25,9 +25,15 @@
             </td>
             <td class="text-center" style="width: 90px;">
               {% if row.valid %}
-                <i class="fa fa-check" aria-label="valid" title="{{ _('Valid') }}"></i>
+                <i class="fa fa-check" title="{{ _('Valid') }}"></i>
               {% else %}
-                <i class="fa fa-times" aria-label="invalid" title="{{ _('Invalid') }}"></i>
+                <i class="fa fa-times" title="{{ _('Invalid') }}"></i>
+                {% if row.error_details %}
+                  <details style="margin-top:.5rem">
+                    <summary>{{ _('Show error details') }}</summary>
+                    <pre style="white-space: pre-wrap">{{ row.error_details }}</pre>
+                  </details>
+                {% endif %}
               {% endif %}
             </td>
             <td>{{ row.notes }}</td>

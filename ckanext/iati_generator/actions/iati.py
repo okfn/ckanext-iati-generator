@@ -24,9 +24,81 @@ def get_validated_csv_data(context, resource_id):
     resource = toolkit.get_action("resource_show")(context, {"id": resource_id})
     resource_name = resource.get("name", "resource")
 
+    # --- Determine IATI file type from IATIFile record
+    session = model.Session
+    iati_file = (
+        session.query(IATIFile)
+        .filter(IATIFile.resource_id == resource_id)
+        .first()
+    )
+    if not iati_file:
+        raise toolkit.ValidationError(
+            {"resource_id": f"No IATIFile record found for resource {resource_id}"}
+        )
+
+    try:
+        file_type_enum = IATIFileTypes(iati_file.file_type)
+        logs.append(f"Detected file type: {file_type_enum.name}")
+    except Exception:
+        raise toolkit.ValidationError(
+            {"file_type": f"Unknown IATIFile type for resource {resource_id}"}
+        )
+
     # Validate file type and get path
     path = get_resource_file_path(context, resource_id)
     logs.append(f"Reading CSV at: {path}")
+
+    # --- Select required fields by file type
+    if file_type_enum == IATIFileTypes.ORGANIZATION_MAIN_FILE:
+        required_fields = [
+            "organisation_identifier",
+            "name",
+            "reporting_org_ref",
+            "reporting_org_type",
+            "reporting_org_name",
+            "reporting_org_lang",
+            "default_currency",
+            "xml_lang",
+        ]
+    elif file_type_enum == IATIFileTypes.ORGANIZATION_NAMES_FILE:
+        required_fields = [
+            "organisation_identifier",
+            "language", 
+            "name",
+        ]
+    elif file_type_enum == IATIFileTypes.ORGANIZATION_BUDGET_FILE:
+        required_fields = [
+            "organisation_identifier",
+            "budget_kind",
+            "budget_status",
+            "period_start",
+            "period_end",
+            "value",
+            "currency",
+        ]
+    elif file_type_enum == IATIFileTypes.ORGANIZATION_EXPENDITURE_FILE:
+        required_fields = [
+            "organisation_identifier",
+            "period_start",
+            "period_end",
+            "value",
+            "currency",
+            "value_date",
+        ]
+    elif file_type_enum == IATIFileTypes.ORGANIZATION_DOCUMENT_FILE:
+        required_fields = [
+            "organisation_identifier",
+            "url",
+            "format",
+            "title",
+            "category_code",
+            "language",
+            "document_date",
+        ]
+    else:
+        raise toolkit.ValidationError(
+            {"file_type": f"Unsupported validation for {file_type_enum.name}"}
+        )
 
     # Read CSV and validate headers
     with open(path, newline="", encoding="utf-8") as f:
@@ -35,7 +107,6 @@ def get_validated_csv_data(context, resource_id):
         log.info(f"CSV headers: {fieldnames}")
         logs.append(f"CSV headers: {fieldnames}")
 
-        required_fields = ["iati_identifier", "reporting_org_ref", "reporting_org_type", "reporting_org_name", "title"]
         missing = [field for field in required_fields if field not in fieldnames]
 
         if missing:
@@ -49,8 +120,9 @@ def get_validated_csv_data(context, resource_id):
                 logs.append(f"Row limit reached ({ROWS_LIMIT}); stopping")
                 break
             try:
-                activity = row_to_iati_activity(row)
-                activities.append(activity)
+                if file_type_enum == IATIFileTypes.ORGANIZATION_MAIN_FILE:
+                    activity = row_to_iati_activity(row)
+                    activities.append(activity)
             except Exception as e:
                 msg = f"Row {i+1}: error ({e}); skipping."
                 logs.append(msg)
