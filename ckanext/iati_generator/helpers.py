@@ -29,3 +29,59 @@ def iati_file_types(field=None):
             "label": label,
         })
     return options
+
+
+def get_required_fields_by_file_type(file_type_enum):
+    """
+    Returns a list of required CSV fields based on the IATI file type.
+    """
+    if file_type_enum == IATIFileTypes.ORGANIZATION_MAIN_FILE:
+        return [
+            "organisation_identifier",
+            "name",
+            "reporting_org_ref",
+            "reporting_org_type",
+            "reporting_org_name",
+            "reporting_org_lang",
+            "default_currency",
+            "xml_lang",
+        ]
+    elif file_type_enum == IATIFileTypes.ORGANIZATION_NAMES_FILE:
+        return [
+            "organisation_identifier",
+            "language",
+            "name",
+        ]
+    elif file_type_enum == IATIFileTypes.ORGANIZATION_BUDGET_FILE:
+        return [
+            "organisation_identifier",
+            "budget_kind",
+            "budget_status",
+            "period_start",
+            "period_end",
+            "value",
+            "currency",
+        ]
+    elif file_type_enum == IATIFileTypes.ORGANIZATION_EXPENDITURE_FILE:
+        return [
+            "organisation_identifier",
+            "period_start",
+            "period_end",
+            "value",
+            "currency",
+            "value_date",
+        ]
+    elif file_type_enum == IATIFileTypes.ORGANIZATION_DOCUMENT_FILE:
+        return [
+            "organisation_identifier",
+            "url",
+            "format",
+            "title",
+            "category_code",
+            "language",
+            "document_date",
+        ]
+    else:
+        raise toolkit.ValidationError(
+            {"file_type": f"Unsupported validation for {file_type_enum.name}"}
+        )

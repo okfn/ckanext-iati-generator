@@ -9,6 +9,7 @@ from ckanext.iati_generator.csv import row_to_iati_activity
 from ckanext.iati_generator.utils import generate_final_iati_xml, get_resource_file_path
 from ckanext.iati_generator.models.iati_files import DEFAULT_NAMESPACE, IATIFile
 from ckanext.iati_generator.models.enums import IATIFileTypes
+from ckanext.iati_generator.helpers import get_required_fields_by_file_type
 
 
 log = logging.getLogger(__name__)
@@ -31,74 +32,24 @@ def get_validated_csv_data(context, resource_id):
         .filter(IATIFile.resource_id == resource_id)
         .first()
     )
-    if not iati_file:
-        raise toolkit.ValidationError(
-            {"resource_id": f"No IATIFile record found for resource {resource_id}"}
-        )
-
-    try:
-        file_type_enum = IATIFileTypes(iati_file.file_type)
-        logs.append(f"Detected file type: {file_type_enum.name}")
-    except Exception:
-        raise toolkit.ValidationError(
-            {"file_type": f"Unknown IATIFile type for resource {resource_id}"}
-        )
+    file_type_enum = None
+    if iati_file:
+        try:
+            file_type_enum = IATIFileTypes(iati_file.file_type)
+            logs.append(f"Detected file type: {file_type_enum.name}")
+        except Exception:
+            raise toolkit.ValidationError(
+                {"file_type": f"Unknown IATIFile type for resource {resource_id}"}
+            )
+    else:
+        logs.append("No IATIFile record found; defaulting to ACTIVITY_MAIN-style validation.")
 
     # Validate file type and get path
     path = get_resource_file_path(context, resource_id)
     logs.append(f"Reading CSV at: {path}")
 
     # --- Select required fields by file type
-    if file_type_enum == IATIFileTypes.ORGANIZATION_MAIN_FILE:
-        required_fields = [
-            "organisation_identifier",
-            "name",
-            "reporting_org_ref",
-            "reporting_org_type",
-            "reporting_org_name",
-            "reporting_org_lang",
-            "default_currency",
-            "xml_lang",
-        ]
-    elif file_type_enum == IATIFileTypes.ORGANIZATION_NAMES_FILE:
-        required_fields = [
-            "organisation_identifier",
-            "language", 
-            "name",
-        ]
-    elif file_type_enum == IATIFileTypes.ORGANIZATION_BUDGET_FILE:
-        required_fields = [
-            "organisation_identifier",
-            "budget_kind",
-            "budget_status",
-            "period_start",
-            "period_end",
-            "value",
-            "currency",
-        ]
-    elif file_type_enum == IATIFileTypes.ORGANIZATION_EXPENDITURE_FILE:
-        required_fields = [
-            "organisation_identifier",
-            "period_start",
-            "period_end",
-            "value",
-            "currency",
-            "value_date",
-        ]
-    elif file_type_enum == IATIFileTypes.ORGANIZATION_DOCUMENT_FILE:
-        required_fields = [
-            "organisation_identifier",
-            "url",
-            "format",
-            "title",
-            "category_code",
-            "language",
-            "document_date",
-        ]
-    else:
-        raise toolkit.ValidationError(
-            {"file_type": f"Unsupported validation for {file_type_enum.name}"}
-        )
+    required_fields = get_required_fields_by_file_type(file_type_enum)
 
     # Read CSV and validate headers
     with open(path, newline="", encoding="utf-8") as f:
