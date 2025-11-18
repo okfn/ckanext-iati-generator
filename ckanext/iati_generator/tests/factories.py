@@ -34,12 +34,17 @@ class IATIFileFactory(factory.Factory):
         return obj
 
 
-def create_iati_file(**kwargs) -> IATIFile:
+def create_iati_file(resource_id=None, **kwargs) -> IATIFile:
     """
     Helper to create an IATIFile with optional overrides.
-    E.g.: create_iati_file(file_type=IATIFileTypes.ORGANIZATION_NAMES_FILE.value, is_valid=False)
+    E.g.: create_iati_file(resource_id=res_id,
+    file_type=IATIFileTypes.ORGANIZATION_NAMES_FILE.value, is_valid=False)
     """
+    if resource_id is not None:
+        kwargs["resource_id"] = resource_id
+
     # Allow passing the Enum directly
     if "file_type" in kwargs and hasattr(kwargs["file_type"], "value"):
         kwargs["file_type"] = kwargs["file_type"].value
+
     return IATIFileFactory(**kwargs)
