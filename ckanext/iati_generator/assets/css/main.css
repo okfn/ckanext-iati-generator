@@ -1,0 +1,23 @@
+/* Badge styles for validation status */
+.badge {
+    color: white;
+    padding: 5px 10px;
+    border-radius: 4px;
+    font-size: 0.875rem;
+    font-weight: 500;
+    display: inline-block;
+}
+
+.badge-valid {
+    background-color: #28a745;
+}
+
+.badge-invalid {
+    background-color: #dc3545;
+}
+
+/* Table cell styling for status column */
+.status-cell {
+    text-align: center;
+    width: 120px;
+}

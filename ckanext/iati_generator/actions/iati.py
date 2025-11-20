@@ -390,3 +390,79 @@ def iati_file_list(context, data_dict=None):
         })
 
     return {"count": total, "results": results}
+
+
+@toolkit.side_effect_free
+def iati_resource_candidates(context, data_dict=None):
+    """
+    Lista recursos que tienen el extra 'iati_file_type'.
+
+    Por ahora NO usamos resource_search para evitar problemas de validación,
+    simplemente usamos package_search (q='*:*') y filtramos los resources
+    en Python.
+    """
+    data_dict = data_dict or {}
+    toolkit.check_access("iati_file_list", context, data_dict)
+
+    start = int(data_dict.get("start", 0) or 0)
+    rows = int(data_dict.get("rows", 100) or 100)
+
+    # Traemos datasets (paquetes); q='*:*' es válido para package_search
+    search_data = {
+        "q": "*:*",
+        "start": start,
+        "rows": rows,
+        # si querés ver también privados para sysadmin:
+        "include_private": True,
+    }
+
+    pkg_search = toolkit.get_action("package_search")(context, search_data)
+
+    output = []
+    for pkg in pkg_search["results"]:
+        resources = pkg.get("resources", [])  # normalmente ya viene poblado
+
+        for res in resources:
+            # 1) Campo directo (si scheming lo pone como atributo)
+            file_type = res.get("iati_file_type")
+
+            # 2) O bien dentro de extras
+            if not file_type:
+                for extra in res.get("extras", []):
+                    if extra.get("key") == "iati_file_type":
+                        file_type = extra.get("value")
+                        break
+
+            # Si el recurso no tiene el extra, lo ignoramos
+            if not file_type:
+                continue
+
+            # Mapear el valor al Enum si es numérico
+            label = file_type
+            try:
+                label = IATIFileTypes(int(file_type)).name
+            except Exception:
+                # si no es un int, dejamos el valor crudo
+                pass
+
+            output.append({
+                "file_type": label,
+                "resource": {
+                    "id": res["id"],
+                    "name": res.get("name") or res["id"],
+                    "format": res.get("format"),
+                    "url": res.get("url"),
+                    "description": res.get("description"),
+                },
+                "dataset": {
+                    "id": pkg["id"],
+                    "name": pkg["name"],
+                    "title": pkg["title"],
+                    "owner_org": pkg["owner_org"],
+                },
+            })
+
+    return {
+        "count": len(output),
+        "results": output,
+    }
