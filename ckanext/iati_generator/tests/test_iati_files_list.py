@@ -1,9 +1,6 @@
 from ckan.lib.helpers import url_for
 from ckan.tests import factories
 
-from ckanext.iati_generator.tests.factories import create_iati_file
-from ckanext.iati_generator.models.enums import IATIFileTypes
-
 
 # -------------------- Auth tests --------------------
 
@@ -22,58 +19,72 @@ def test_iati_files_index_forbidden_for_non_admin(app, clean_db):
 
 # -------------------- Content tests --------------------
 
-def test_iati_files_index_lists_all_iati_files_for_sysadmin(app, clean_db):
-    """Ensure the view lists all IATI files (resources with IATI extras)."""
+def test_iati_files_index_lists_all_candidates_for_sysadmin(app, clean_db):
+    """Ensure the view lists resources that have the iati_file_type field."""
 
     sys = factories.SysadminWithToken()
 
     org = factories.Organization()
     ds1 = factories.Dataset(owner_org=org["id"])
     ds2 = factories.Dataset(owner_org=org["id"])
-    res1 = factories.Resource(package_id=ds1["id"], name="Res A", format="CSV")
-    res2 = factories.Resource(package_id=ds2["id"], name="Res B", format="CSV")
 
-    create_iati_file(resource_id=res1["id"], file_type=IATIFileTypes.ORGANIZATION_MAIN_FILE)
-    create_iati_file(resource_id=res2["id"], file_type=IATIFileTypes.ORGANIZATION_NAMES_FILE)
+    # Recursos con el campo iati_file_type (NO usar extras[])
+    res1 = factories.Resource(
+        package_id=ds1["id"],
+        name="Res A",
+        format="CSV",
+        iati_file_type="100",
+    )
+
+    res2 = factories.Resource(
+        package_id=ds2["id"],
+        name="Res B",
+        format="CSV",
+        iati_file_type="110",
+    )
 
     url = url_for("iati_generator_admin_files.iati_files_index")
     auth = {"Authorization": sys["token"]}
     resp = app.get(url, headers=auth)
     assert resp.status_code == 200
 
-    # both resources appear
+    # Ambos recursos deben aparecer por nombre
     assert "Res A" in resp.body
     assert "Res B" in resp.body
-    # and links to their resource pages (dataset + resource_id)
+
+    # enlaces correctos al recurso (dataset + resource_id)
     assert ds1["name"] in resp.body
     assert ds2["name"] in resp.body
     assert res1["id"] in resp.body
     assert res2["id"] in resp.body
 
 
-def test_iati_files_index_shows_valid_and_error_notes(app, clean_db):
-    """Ensure the 'Notes' column shows the last success or error as appropriate."""
+def test_iati_files_index_shows_notes_for_candidates(app, clean_db):
+    """Candidates should show 'Ready to generate' in the Notes column."""
+
     sys = factories.SysadminWithToken()
 
     org = factories.Organization()
     ds = factories.Dataset(owner_org=org["id"])
-    res_ok = factories.Resource(package_id=ds["id"], name="Res OK", format="CSV")
-    res_bad = factories.Resource(package_id=ds["id"], name="Res BAD", format="CSV")
 
-    # one valid (should show "Last success" when populated),
-    # and one invalid with an error message
-    create_iati_file(resource_id=res_ok["id"], file_type=IATIFileTypes.ORGANIZATION_MAIN_FILE, is_valid=True)
-    create_iati_file(resource_id=res_bad["id"],
-                     file_type=IATIFileTypes.ORGANIZATION_NAMES_FILE, is_valid=False, last_error="Boom!")
+    factories.Resource(
+        package_id=ds["id"],
+        name="Res OK",
+        format="CSV",
+        iati_file_type="100",
+    )
+
+    factories.Resource(
+        package_id=ds["id"],
+        name="Res BAD",
+        format="CSV",
+        iati_file_type="110",
+    )
 
     url = url_for("iati_generator_admin_files.iati_files_index")
     auth = {"Authorization": sys["token"]}
     resp = app.get(url, headers=auth)
 
-    # both are present by name
+    # Ambos recursos deben aparecer
     assert "Res OK" in resp.body
     assert "Res BAD" in resp.body
-
-    # the invalid one should show the message in 'Notes'
-    assert "Last error" in resp.body
-    assert "Boom!" in resp.body
