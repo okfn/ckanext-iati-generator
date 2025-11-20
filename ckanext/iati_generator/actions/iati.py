@@ -395,11 +395,11 @@ def iati_file_list(context, data_dict=None):
 @toolkit.side_effect_free
 def iati_resource_candidates(context, data_dict=None):
     """
-    Lista recursos que tienen el extra 'iati_file_type'.
+    Lists resources that have the 'iati_file_type' extra field.
 
-    Por ahora NO usamos resource_search para evitar problemas de validación,
-    simplemente usamos package_search (q='*:*') y filtramos los resources
-    en Python.
+    For now we DON'T use resource_search to avoid validation issues,
+    instead we use package_search (q='*:*') and filter resources
+    in Python.
     """
     data_dict = data_dict or {}
     toolkit.check_access("iati_file_list", context, data_dict)
@@ -407,12 +407,12 @@ def iati_resource_candidates(context, data_dict=None):
     start = int(data_dict.get("start", 0) or 0)
     rows = int(data_dict.get("rows", 100) or 100)
 
-    # Traemos datasets (paquetes); q='*:*' es válido para package_search
+    # Fetch datasets (packages); q='*:*' is valid for package_search
     search_data = {
         "q": "*:*",
         "start": start,
         "rows": rows,
-        # si querés ver también privados para sysadmin:
+        # if you want to see private datasets for sysadmin:
         "include_private": True,
     }
 
@@ -420,29 +420,29 @@ def iati_resource_candidates(context, data_dict=None):
 
     output = []
     for pkg in pkg_search["results"]:
-        resources = pkg.get("resources", [])  # normalmente ya viene poblado
+        resources = pkg.get("resources", [])  # normally already populated
 
         for res in resources:
-            # 1) Campo directo (si scheming lo pone como atributo)
+            # 1) Direct field (if scheming puts it as an attribute)
             file_type = res.get("iati_file_type")
 
-            # 2) O bien dentro de extras
+            # 2) Or within extras
             if not file_type:
                 for extra in res.get("extras", []):
                     if extra.get("key") == "iati_file_type":
                         file_type = extra.get("value")
                         break
 
-            # Si el recurso no tiene el extra, lo ignoramos
+            # If the resource doesn't have the extra, ignore it
             if not file_type:
                 continue
 
-            # Mapear el valor al Enum si es numérico
+            # Map the value to Enum if it's numeric
             label = file_type
             try:
                 label = IATIFileTypes(int(file_type)).name
             except Exception:
-                # si no es un int, dejamos el valor crudo
+                # if it's not an int, leave the raw value
                 pass
 
             output.append({

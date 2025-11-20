@@ -37,7 +37,7 @@ def iati_files_index():
         res_id = resource.get("id")
         pkg_name = dataset.get("name", "")
 
-        # Generar URL directa al recurso
+        # Generate direct URL to the resource
         res_url = f"/dataset/{pkg_name}/resource/{res_id}" if pkg_name and res_id else "#"
 
         is_valid = bool(item.get("is_valid"))
