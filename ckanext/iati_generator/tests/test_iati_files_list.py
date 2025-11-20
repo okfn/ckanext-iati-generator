@@ -28,7 +28,7 @@ def test_iati_files_index_lists_all_candidates_for_sysadmin(app, clean_db):
     ds1 = factories.Dataset(owner_org=org["id"])
     ds2 = factories.Dataset(owner_org=org["id"])
 
-    # Recursos con el campo iati_file_type (NO usar extras[])
+    # Resources with iati_file_type field (do NOT use extras[])
     res1 = factories.Resource(
         package_id=ds1["id"],
         name="Res A",
@@ -48,11 +48,11 @@ def test_iati_files_index_lists_all_candidates_for_sysadmin(app, clean_db):
     resp = app.get(url, headers=auth)
     assert resp.status_code == 200
 
-    # Ambos recursos deben aparecer por nombre
+    # Both resources should appear by name
     assert "Res A" in resp.body
     assert "Res B" in resp.body
 
-    # enlaces correctos al recurso (dataset + resource_id)
+    # correct links to resource (dataset + resource_id)
     assert ds1["name"] in resp.body
     assert ds2["name"] in resp.body
     assert res1["id"] in resp.body
@@ -85,6 +85,6 @@ def test_iati_files_index_shows_notes_for_candidates(app, clean_db):
     auth = {"Authorization": sys["token"]}
     resp = app.get(url, headers=auth)
 
-    # Ambos recursos deben aparecer
+    # Both resources should appear
     assert "Res OK" in resp.body
     assert "Res BAD" in resp.body
