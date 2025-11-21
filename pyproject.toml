@@ -30,7 +30,7 @@ classifiers = [
 ]
 
 dependencies = [
-    "okfn-iati==0.3.2"
+    "okfn-iati==0.4.0"
 ]
 
 [project.urls]
