@@ -9,7 +9,7 @@ from ckanext.iati_generator.csv import row_to_iati_activity
 from ckanext.iati_generator.utils import generate_final_iati_xml, get_resource_file_path
 from ckanext.iati_generator.models.iati_files import DEFAULT_NAMESPACE, IATIFile
 from ckanext.iati_generator.models.enums import IATIFileTypes
-from ckanext.iati_generator.helpers import get_required_fields_by_file_type, get_namespace_extra
+from ckanext.iati_generator import helpers as h
 
 
 log = logging.getLogger(__name__)
@@ -49,7 +49,7 @@ def get_validated_csv_data(context, resource_id):
     logs.append(f"Reading CSV at: {path}")
 
     # --- Select required fields by file type
-    required_fields = get_required_fields_by_file_type(file_type_enum)
+    required_fields = h.get_required_fields_by_file_type(file_type_enum)
 
     # Read CSV and validate headers
     with open(path, newline="", encoding="utf-8") as f:
@@ -408,12 +408,7 @@ def iati_resource_candidates(context, data_dict=None):
     rows = int(data_dict.get("rows", 100) or 100)
 
     # --------- cargar IATIFile en un índice en memoria
-    Session = model.Session
-    files = Session.query(IATIFile).all()
-    iati_index = {}
-    for f in files:
-        key = (f.resource_id, f.namespace, f.file_type)
-        iati_index[key] = f
+    iati_index = h.build_iati_index()
 
     # Fetch datasets (packages); q='*:*' is valid for package_search
     search_data = {
@@ -428,50 +423,16 @@ def iati_resource_candidates(context, data_dict=None):
 
     output = []
     for pkg in pkg_search["results"]:
-        resources = pkg.get("resources", [])  # normally already populated
-
-        for res in resources:
-            # 1) Direct field (if scheming puts it as an attribute)
-            file_type = res.get("iati_file_type")
-
-            # 2) Or within extras
-            if not file_type:
-                for extra in res.get("extras", []):
-                    if extra.get("key") == "iati_file_type":
-                        file_type = extra.get("value")
-                        break
-
-            # If the resource doesn't have the extra, ignore it
+        for res in pkg.get("resources", []):
+            file_type = h.extract_file_type(res)
             if not file_type:
                 continue
 
-            # Map the value to Enum if it's numeric
-            label = file_type
-            try:
-                label = IATIFileTypes(int(file_type)).name
-            except Exception:
-                # if it's not an int, leave the raw value
-                pass
+            label, ft_int = h.normalize_file_type(file_type)
+            ns = h.get_namespace(res)
 
-            ns = get_namespace_extra(res.get("extras", []))
-
-            output.append({
-                "namespace": ns or "",
-                "file_type": label,
-                "resource": {
-                    "id": res["id"],
-                    "name": res.get("name") or res["id"],
-                    "format": res.get("format"),
-                    "url": res.get("url"),
-                    "description": res.get("description"),
-                },
-                "dataset": {
-                    "id": pkg["id"],
-                    "name": pkg["name"],
-                    "title": pkg["title"],
-                    "owner_org": pkg["owner_org"],
-                },
-            })
+            row = h.build_candidate_row(pkg, res, label, ns, ft_int, iati_index)
+            output.append(row)
 
     return {
         "count": len(output),
