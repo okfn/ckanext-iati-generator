@@ -1,10 +1,10 @@
 [![Tests CKAN 2.10](https://github.com/okfn/ckanext-iati-generator/workflows/CKAN%202.10%20Tests/badge.svg)](https://github.com/okfn/ckanext-iati-generator/actions)
-[![Tests CKAN 2.11](https://github.com/okfn/ckanext-iati-generator/workflows/CKAN%202.11%20Tests/badge.svg)](https://github.com/okfn/ckanext-iati-generator/actions)  
+[![Tests CKAN 2.11](https://github.com/okfn/ckanext-iati-generator/workflows/CKAN%202.11%20Tests/badge.svg)](https://github.com/okfn/ckanext-iati-generator/actions)
 
 # IATI generator
 
 CKAN extension for generating data in IATI format. It was developed by BCIE (Banco Centroamericano de Integración Económica)
-and the Open Knowledge Foundation (OKFN).  
+and the Open Knowledge Foundation (OKFN).
 
 ## Use-cases
 
@@ -26,6 +26,32 @@ Compatibility with core CKAN versions:
 | 2.10            | Yes           |
 | 2.11            | Yes           |
 
+
+## Installation
+
+1. Activate your CKAN virtual environment, for example:
+
+```
+pip install git+https://github.com/okfn/ckanext-iati-generator.git
+```
+
+2. Install the extension requirements:
+
+```
+pip install -r https://raw.githubusercontent.com/okfn/ckanext-iati-generator/refs/heads/main/requirements.txt
+```
+
+3. Add `iati_generator` to the `ckan.plugins` setting in your CKAN configuration file.
+
+```
+ckan.plugins = ... iati_generator
+```
+
+4. Run the database migration:
+
+```
+ckan db upgrade -p iati_generator
+```
 
 ## Config settings
 
