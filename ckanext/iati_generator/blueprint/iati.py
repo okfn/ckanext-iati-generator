@@ -3,8 +3,11 @@ import os
 from ckan.lib import base
 from ckan.lib.helpers import helper_functions as h
 from ckan.plugins import toolkit
+
+
 from ckanext.iati_generator.decorators import require_sysadmin_user
 from ckanext.iati_generator.utils import create_or_update_iati_resource
+from ckanext.iati_generator.helpers import build_public_iati_links_namespace
 
 iati_blueprint = Blueprint("iati_generator", __name__, url_prefix="/iati-dataset")
 
@@ -24,10 +27,19 @@ def iati_page(package_id):
     except toolkit.ObjectNotFound:
         return toolkit.abort(404, toolkit._("Dataset not found"))
 
+    namespace = toolkit.request.args.get("namespace", "").strip()
+    if not namespace:
+        namespace = pkg_dict.get("name") or pkg_dict.get("id")
+
+    public_links = build_public_iati_links_namespace(namespace)
+
     # Pass both pkg and pkg_dict to the template (CKAN templates use both)
     ctx = {
         "pkg": pkg_dict,
         "pkg_dict": pkg_dict,
+        "public_iati_links": public_links,
+        "public_links_scope": "namespace",
+        "public_links_namespace": namespace,
     }
     return base.render("iati/iati_page.html", ctx)
 
@@ -81,12 +93,20 @@ def generate_test_iati(package_id):
         xml_url = f"/dataset/{package_id}/resource/{created['id']}/download/{created['name']}"
         h.flash_success(toolkit._("XML file uploaded successfully."), "success")
 
+    # rebuild the public IATI links
+    pkg_dict = toolkit.get_action("package_show")(context, {"id": package_id})
+    namespace = toolkit.request.args.get("namespace", "").strip()
+    if not namespace:
+        namespace = pkg_dict.get("name") or pkg_dict.get("id")
+    public_links = build_public_iati_links_namespace(namespace)
+
     # Render the same page with the logs and the link to the XML
     ctx = {
         "pkg": pkg,
         "pkg_dict": pkg,
         "logs": logs,
         "xml_url": xml_url,
+        "public_iati_links": public_links,
     }
     return base.render("iati/iati_page.html", ctx)
 
