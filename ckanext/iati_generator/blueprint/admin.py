@@ -28,10 +28,18 @@ def iati_files_index():
     page_size = int(request.args.get("rows", 100) or 100)
 
     params = {"start": start, "rows": page_size}
-    data = toolkit.get_action("iati_file_list")(context, params)
+    data = toolkit.get_action("iati_resource_candidates")(context, params)
 
     rows_out = []
     for item in data.get("results", []):
+        resource = (item.get("resource") or {})
+        dataset = (item.get("dataset") or {})
+        res_id = resource.get("id")
+        pkg_name = dataset.get("name", "")
+
+        # Generate direct URL to the resource
+        res_url = f"/dataset/{pkg_name}/resource/{res_id}" if pkg_name and res_id else "#"
+
         is_valid = bool(item.get("is_valid"))
         last_success = item.get("last_success")
         last_error = item.get("last_error") or ""
@@ -50,6 +58,7 @@ def iati_files_index():
             "dataset_name": (item.get("dataset", {}) or {}).get("name", ""),
             "valid": is_valid,
             "notes": notes,
+            "resource_url": res_url,
         })
 
     return toolkit.render(

@@ -9,6 +9,7 @@ from ckanext.iati_generator.csv import row_to_iati_activity
 from ckanext.iati_generator.utils import generate_final_iati_xml, get_resource_file_path
 from ckanext.iati_generator.models.iati_files import DEFAULT_NAMESPACE, IATIFile
 from ckanext.iati_generator.models.enums import IATIFileTypes
+from ckanext.iati_generator.helpers import get_required_fields_by_file_type
 
 
 log = logging.getLogger(__name__)
@@ -24,9 +25,31 @@ def get_validated_csv_data(context, resource_id):
     resource = toolkit.get_action("resource_show")(context, {"id": resource_id})
     resource_name = resource.get("name", "resource")
 
+    # --- Determine IATI file type from IATIFile record
+    session = model.Session
+    iati_file = (
+        session.query(IATIFile)
+        .filter(IATIFile.resource_id == resource_id)
+        .first()
+    )
+    file_type_enum = None
+    if iati_file:
+        try:
+            file_type_enum = IATIFileTypes(iati_file.file_type)
+            logs.append(f"Detected file type: {file_type_enum.name}")
+        except Exception:
+            raise toolkit.ValidationError(
+                {"file_type": f"Unknown IATIFile type for resource {resource_id}"}
+            )
+    else:
+        logs.append("No IATIFile record found; defaulting to ACTIVITY_MAIN-style validation.")
+
     # Validate file type and get path
     path = get_resource_file_path(context, resource_id)
     logs.append(f"Reading CSV at: {path}")
+
+    # --- Select required fields by file type
+    required_fields = get_required_fields_by_file_type(file_type_enum)
 
     # Read CSV and validate headers
     with open(path, newline="", encoding="utf-8") as f:
@@ -35,7 +58,6 @@ def get_validated_csv_data(context, resource_id):
         log.info(f"CSV headers: {fieldnames}")
         logs.append(f"CSV headers: {fieldnames}")
 
-        required_fields = ["iati_identifier", "reporting_org_ref", "reporting_org_type", "reporting_org_name", "title"]
         missing = [field for field in required_fields if field not in fieldnames]
 
         if missing:
@@ -49,8 +71,9 @@ def get_validated_csv_data(context, resource_id):
                 logs.append(f"Row limit reached ({ROWS_LIMIT}); stopping")
                 break
             try:
-                activity = row_to_iati_activity(row)
-                activities.append(activity)
+                if file_type_enum == IATIFileTypes.ORGANIZATION_MAIN_FILE:
+                    activity = row_to_iati_activity(row)
+                    activities.append(activity)
             except Exception as e:
                 msg = f"Row {i+1}: error ({e}); skipping."
                 logs.append(msg)
@@ -430,3 +453,79 @@ def iati_file_list(context, data_dict=None):
         })
 
     return {"count": total, "results": results}
+
+
+@toolkit.side_effect_free
+def iati_resource_candidates(context, data_dict=None):
+    """
+    Lists resources that have the 'iati_file_type' extra field.
+
+    For now we DON'T use resource_search to avoid validation issues,
+    instead we use package_search (q='*:*') and filter resources
+    in Python.
+    """
+    data_dict = data_dict or {}
+    toolkit.check_access("iati_file_list", context, data_dict)
+
+    start = int(data_dict.get("start", 0) or 0)
+    rows = int(data_dict.get("rows", 100) or 100)
+
+    # Fetch datasets (packages); q='*:*' is valid for package_search
+    search_data = {
+        "q": "*:*",
+        "start": start,
+        "rows": rows,
+        # if you want to see private datasets for sysadmin:
+        "include_private": True,
+    }
+
+    pkg_search = toolkit.get_action("package_search")(context, search_data)
+
+    output = []
+    for pkg in pkg_search["results"]:
+        resources = pkg.get("resources", [])  # normally already populated
+
+        for res in resources:
+            # 1) Direct field (if scheming puts it as an attribute)
+            file_type = res.get("iati_file_type")
+
+            # 2) Or within extras
+            if not file_type:
+                for extra in res.get("extras", []):
+                    if extra.get("key") == "iati_file_type":
+                        file_type = extra.get("value")
+                        break
+
+            # If the resource doesn't have the extra, ignore it
+            if not file_type:
+                continue
+
+            # Map the value to Enum if it's numeric
+            label = file_type
+            try:
+                label = IATIFileTypes(int(file_type)).name
+            except Exception:
+                # if it's not an int, leave the raw value
+                pass
+
+            output.append({
+                "file_type": label,
+                "resource": {
+                    "id": res["id"],
+                    "name": res.get("name") or res["id"],
+                    "format": res.get("format"),
+                    "url": res.get("url"),
+                    "description": res.get("description"),
+                },
+                "dataset": {
+                    "id": pkg["id"],
+                    "name": pkg["name"],
+                    "title": pkg["title"],
+                    "owner_org": pkg["owner_org"],
+                },
+            })
+
+    return {
+        "count": len(output),
+        "results": output,
+    }
