@@ -52,6 +52,7 @@ def iati_files_index():
             notes = ""
 
         rows_out.append({
+            "namespace": item.get("namespace", ""),
             "file_type": item.get("file_type", ""),
             "resource_name": (item.get("resource", {}) or {}).get("name") or (item.get("resource", {}) or {}).get("id"),
             "resource_id": (item.get("resource", {}) or {}).get("id"),

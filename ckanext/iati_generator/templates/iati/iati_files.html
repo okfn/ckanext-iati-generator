@@ -7,6 +7,7 @@
     <table class="table table-striped table-bordered">
       <thead>
         <tr>
+          <th>{{ _("Namespace") }}</th>
           <th>{{ _("File type") }}</th>
           <th>{{ _("Resource") }}</th>
           <th>{{ _("Validation") }}</th>
@@ -16,6 +17,7 @@
       <tbody>
         {% for row in iati_files %}
           <tr>
+            <td>{{ row.namespace }}</td>
             <td>{{ row.file_type }}</td>
             <td>
               {# link text = resource name; link goes to the resource page #}
