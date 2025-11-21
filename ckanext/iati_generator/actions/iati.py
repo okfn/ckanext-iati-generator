@@ -9,7 +9,7 @@ from ckanext.iati_generator.csv import row_to_iati_activity
 from ckanext.iati_generator.utils import generate_final_iati_xml, get_resource_file_path
 from ckanext.iati_generator.models.iati_files import DEFAULT_NAMESPACE, IATIFile
 from ckanext.iati_generator.models.enums import IATIFileTypes
-from ckanext.iati_generator.helpers import get_required_fields_by_file_type
+from ckanext.iati_generator.helpers import get_required_fields_by_file_type, get_namespace_extra
 
 
 log = logging.getLogger(__name__)
@@ -407,6 +407,14 @@ def iati_resource_candidates(context, data_dict=None):
     start = int(data_dict.get("start", 0) or 0)
     rows = int(data_dict.get("rows", 100) or 100)
 
+    # --------- cargar IATIFile en un índice en memoria
+    Session = model.Session
+    files = Session.query(IATIFile).all()
+    iati_index = {}
+    for f in files:
+        key = (f.resource_id, f.namespace, f.file_type)
+        iati_index[key] = f
+
     # Fetch datasets (packages); q='*:*' is valid for package_search
     search_data = {
         "q": "*:*",
@@ -445,7 +453,10 @@ def iati_resource_candidates(context, data_dict=None):
                 # if it's not an int, leave the raw value
                 pass
 
+            ns = get_namespace_extra(res.get("extras", []))
+
             output.append({
+                "namespace": ns or "",
                 "file_type": label,
                 "resource": {
                     "id": res["id"],

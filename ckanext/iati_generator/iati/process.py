@@ -5,8 +5,11 @@ Go through all IATIFile entries by type and process the related CKAN resource
 from pathlib import Path
 import logging
 
+from ckan import model
+
+
 from ckanext.iati_generator.iati.org import process_org_files
-from ckanext.iati_generator.models.iati_files import DEFAULT_NAMESPACE
+from ckanext.iati_generator.models.iati_files import DEFAULT_NAMESPACE, IATIFile
 
 
 log = logging.getLogger(__name__)
@@ -30,3 +33,11 @@ def process_iati_files(namespace=DEFAULT_NAMESPACE):
     log.info(f"Processed {processed_files} organization IATI files.")
     # ============ ACTIVITIES FILEs ================================
     # TODO implement process_activities_files()
+
+
+def process_iati_files_all_namespaces():
+    session = model.Session
+    namespaces = session.query(IATIFile.namespace).distinct().all()
+
+    for (ns,) in namespaces:
+        process_iati_files(namespace=ns)

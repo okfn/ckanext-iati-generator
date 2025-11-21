@@ -85,3 +85,14 @@ def get_required_fields_by_file_type(file_type_enum):
         raise toolkit.ValidationError(
             {"file_type": f"Unsupported validation for {file_type_enum.name}"}
         )
+
+
+def get_namespace_extra(extras):
+    """
+    Given a list of extras (dicts with 'key' and 'value'), return the value
+    of the 'iati_namespace' extra, or None if not found.
+    """
+    for extra in extras:
+        if extra.get("key") == "iati_namespace":
+            return extra.get("value")
+    return None
