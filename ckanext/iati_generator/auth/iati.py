@@ -124,3 +124,11 @@ def iati_file_list(context, data_dict):
         "success": False,
         "msg": toolkit._("Only sysadmins can list IATI files.")
     }
+
+
+def iati_csv_to_activities(context, data_dict):
+    return {"success": True}
+
+
+def iati_activities_to_xml(context, data_dict):
+    return {"success": True}
