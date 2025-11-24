@@ -28,7 +28,7 @@ def iati_files_index():
     page_size = int(request.args.get("rows", 100) or 100)
 
     params = {"start": start, "rows": page_size}
-    data = toolkit.get_action("iati_resource_candidates")(context, params)
+    data = toolkit.get_action("iati_resources_list")(context, params)
 
     rows_out = []
     for item in data.get("results", []):
