@@ -1,5 +1,6 @@
 from ckan.lib.helpers import url_for
 from ckan.tests import factories
+from ckanext.iati_generator.models.enums import IATIFileTypes
 
 
 # -------------------- Auth tests --------------------
@@ -33,14 +34,14 @@ def test_iati_files_index_lists_all_candidates_for_sysadmin(app, clean_db):
         package_id=ds1["id"],
         name="Res A",
         format="CSV",
-        iati_file_type="100",
+        iati_file_type=IATIFileTypes.ORGANIZATION_MAIN_FILE.value,
     )
 
     res2 = factories.Resource(
         package_id=ds2["id"],
         name="Res B",
         format="CSV",
-        iati_file_type="110",
+        iati_file_type=IATIFileTypes.ORGANIZATION_NAMES_FILE.value,
     )
 
     url = url_for("iati_generator_admin_files.iati_files_index")
@@ -71,14 +72,14 @@ def test_iati_files_index_shows_notes_for_candidates(app, clean_db):
         package_id=ds["id"],
         name="Res OK",
         format="CSV",
-        iati_file_type="100",
+        iati_file_type=IATIFileTypes.ORGANIZATION_MAIN_FILE.value,
     )
 
     factories.Resource(
         package_id=ds["id"],
         name="Res BAD",
         format="CSV",
-        iati_file_type="110",
+        iati_file_type=IATIFileTypes.ORGANIZATION_NAMES_FILE.value,
     )
 
     url = url_for("iati_generator_admin_files.iati_files_index")
