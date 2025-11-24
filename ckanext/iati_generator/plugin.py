@@ -41,7 +41,7 @@ class IatiGeneratorPlugin(p.SingletonPlugin, DefaultTranslation):
             'iati_file_delete': iati_actions.iati_file_delete,
             'iati_file_show': iati_actions.iati_file_show,
             'iati_file_list': iati_actions.iati_file_list,
-            'iati_resource_candidates': iati_actions.iati_resource_candidates,
+            'iati_resources_list': iati_actions.iati_resources_list,
         }
 
     def get_auth_functions(self):
