@@ -1,34 +1,10 @@
 from flask import Blueprint, send_from_directory
 import os
-from ckan.lib import base
 from ckan.plugins import toolkit
 from ckanext.iati_generator.decorators import require_sysadmin_user
 
 
 iati_blueprint = Blueprint("iati_generator", __name__, url_prefix="/iati-dataset")
-
-
-@iati_blueprint.route("/<package_id>", methods=["GET"])
-@require_sysadmin_user
-def iati_page(package_id):
-    # Check configuration flag
-    hide_tab = toolkit.asbool(toolkit.config.get("ckanext.iati_generator.hide_tab", False))
-    if hide_tab:
-        return toolkit.abort(404, toolkit._("Page disabled by configuration"))
-
-    context = {"user": toolkit.c.user}
-    # Fetch the package using package_show
-    try:
-        pkg_dict = toolkit.get_action("package_show")(context, {"id": package_id})
-    except toolkit.ObjectNotFound:
-        return toolkit.abort(404, toolkit._("Dataset not found"))
-
-    # Pass both pkg and pkg_dict to the template (CKAN templates use both)
-    ctx = {
-        "pkg": pkg_dict,
-        "pkg_dict": pkg_dict,
-    }
-    return base.render("iati/iati_page.html", ctx)
 
 
 @iati_blueprint.route("/static-iati/<resource_id>/<filename>")
