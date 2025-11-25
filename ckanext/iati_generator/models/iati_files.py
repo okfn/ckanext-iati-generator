@@ -64,3 +64,20 @@ class IATIFile(toolkit.BaseModel, ActiveRecordMixin):
 
         # The base class ActiveRecordMixin include save and other methods
         self.save()
+
+    def as_dict(self):
+        """
+        Returns a dictionary representation of the IATIFile instance.
+        """
+        return {
+            "id": self.id,
+            "namespace": self.namespace,
+            "file_type": IATIFileTypes(self.file_type).name,
+            "resource_id": self.resource_id,
+            "metadata_created": self.metadata_created.isoformat() if self.metadata_created else None,
+            "metadata_updated": self.metadata_updated.isoformat() if self.metadata_updated else None,
+            "is_valid": self.is_valid,
+            "last_processed": self.last_processed.isoformat() if self.last_processed else None,
+            "last_processed_success": self.last_processed_success.isoformat() if self.last_processed_success else None,
+            "last_error": self.last_error,
+        }
