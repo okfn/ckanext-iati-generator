@@ -397,8 +397,9 @@ def iati_resources_list(context, data_dict=None):
     Thin wrapper around CKAN core ``resource_search`` to list resources
     that have an ``iati_file_type`` field.
 
-    Además enriquece cada recurso con namespace e información de
-    validación (si existe un IATIFile asociado).
+    Additionally enriches each resource with namespace and validation
+    information (if an associated IATIFile exists).
+    Authorization: This action uses the same authorization as ``iati_file_list``.
     """
     data_dict = data_dict or {}
     toolkit.check_access("iati_file_list", context, data_dict)
