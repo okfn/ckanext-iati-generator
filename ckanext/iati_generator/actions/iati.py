@@ -36,10 +36,10 @@ def get_validated_csv_data(context, resource_id):
     if not iati_file:
         msg = f"No IATIFile record found for resource {resource_id}"
         logs.append(msg)
-        # Dejamos que generate_iati_xml capture este error
+        # Let generate_iati_xml handle this error
         raise toolkit.ObjectNotFound(msg)
 
-    # Confiamos en que el valor de file_type es correcto. Si no, rompe.
+    # We trust that the value of file_type is correct. If not, it will break.
     file_type_enum = IATIFileTypes(iati_file.file_type)
     logs.append(f"Detected file type: {file_type_enum.name}")
 
