@@ -1,5 +1,5 @@
-/* Badge styles for validation status */
-.badge {
+/* bg styles for validation status */
+.bg {
     color: white;
     padding: 5px 10px;
     border-radius: 4px;
@@ -8,11 +8,11 @@
     display: inline-block;
 }
 
-.badge-valid {
+.bg-valid {
     background-color: #28a745;
 }
 
-.badge-invalid {
+.bg-invalid {
     background-color: #dc3545;
 }
 
