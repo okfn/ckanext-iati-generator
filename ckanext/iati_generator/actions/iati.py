@@ -394,66 +394,31 @@ def iati_file_list(context, data_dict=None):
 @toolkit.side_effect_free
 def iati_resources_list(context, data_dict=None):
     """
-    Thin wrapper around CKAN core ``resource_search`` to list resources
-    that have an ``iati_file_type`` field.
-
-    Additionally enriches each resource with namespace and validation
-    information (if an associated IATIFile exists).
-    Authorization: This action uses the same authorization as ``iati_file_list``.
+    Return a list of resources with IATIFile records, including dataset info.
+    This fn returns ALL resources with IATIFile, no pagination.
     """
     data_dict = data_dict or {}
     toolkit.check_access("iati_file_list", context, data_dict)
 
-    start = int(data_dict.get("start", 0) or 0)
-    rows = int(data_dict.get("rows", 100) or 100)
-
-    search_data = {
-        "q": "*:*",
-        "start": start,
-        "rows": rows,
-        "include_private": True,
-    }
-
-    pkg_search = toolkit.get_action("package_search")(context, search_data)
-
     files_by_resource = h.iati_files_by_resource()
 
     results = []
-    for pkg in pkg_search["results"]:
-        for res in pkg.get("resources", []):
-            ft_int, file_type_label = h.extract_file_type_from_resource(res)
-            if not file_type_label:
-                continue
+    # Keep datasets data but request it only once
+    datasets = {}
+    for resource_id, iati_file in files_by_resource.items():
+        res = toolkit.get_action("resource_show")(context, {"id": resource_id})
+        package_id = res["package_id"]
+        if package_id not in datasets:
+            pkg = toolkit.get_action("package_show")(context, {"id": package_id})
+            datasets[package_id] = pkg
+        else:
+            pkg = datasets[package_id]
 
-            namespace = h.extract_namespace_from_resource(res)
-
-            iati_file = files_by_resource.get(res["id"])
-            if iati_file:
-                is_valid = bool(iati_file.is_valid)
-                last_success = (
-                    iati_file.last_processed_success.isoformat()
-                    if iati_file.last_processed_success else None
-                )
-                last_error = iati_file.last_error
-            else:
-                is_valid = False
-                last_success = None
-                last_error = None
-
-            results.append({
-                "namespace": namespace,
-                "file_type": file_type_label,
-                "is_valid": is_valid,
-                "last_success": last_success,
-                "last_error": last_error,
-                "resource": res,
-                "dataset": {
-                    "id": pkg["id"],
-                    "name": pkg["name"],
-                    "title": pkg["title"],
-                    "owner_org": pkg["owner_org"],
-                },
-            })
+        results.append({
+            "resource": res,
+            "dataset": pkg,
+            "iati_file": iati_file.as_dict(),
+        })
 
     return {
         "count": len(results),
