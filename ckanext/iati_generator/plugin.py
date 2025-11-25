@@ -35,7 +35,6 @@ class IatiGeneratorPlugin(p.SingletonPlugin, DefaultTranslation):
 
     def get_actions(self):
         return {
-            "generate_iati_xml": iati_actions.generate_iati_xml,
             'iati_file_create': iati_actions.iati_file_create,
             'iati_file_update': iati_actions.iati_file_update,
             'iati_file_delete': iati_actions.iati_file_delete,
