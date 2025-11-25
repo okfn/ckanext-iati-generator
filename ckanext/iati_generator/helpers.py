@@ -112,13 +112,13 @@ def get_required_fields_by_file_type(file_type_enum):
     """
     if file_type_enum == IATIFileTypes.ORGANIZATION_MAIN_FILE:
         return _required_fields_org_main()
-    if file_type_enum == IATIFileTypes.ORGANIZATION_NAMES_FILE:
+    elif file_type_enum == IATIFileTypes.ORGANIZATION_NAMES_FILE:
         return _required_fields_org_names()
-    if file_type_enum == IATIFileTypes.ORGANIZATION_BUDGET_FILE:
+    elif file_type_enum == IATIFileTypes.ORGANIZATION_BUDGET_FILE:
         return _required_fields_org_budget()
-    if file_type_enum == IATIFileTypes.ORGANIZATION_EXPENDITURE_FILE:
+    elif file_type_enum == IATIFileTypes.ORGANIZATION_EXPENDITURE_FILE:
         return _required_fields_org_expenditure()
-    if file_type_enum == IATIFileTypes.ORGANIZATION_DOCUMENT_FILE:
+    elif file_type_enum == IATIFileTypes.ORGANIZATION_DOCUMENT_FILE:
         return _required_fields_org_document()
 
     # If we reach here, it's a type we don't support yet
