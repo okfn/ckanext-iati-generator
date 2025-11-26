@@ -6,8 +6,6 @@ handle IATI file extras.
 import logging
 
 from ckan.plugins import toolkit
-from ckan.logic.action.create import resource_create as core_resource_create
-from ckan.logic.action.update import resource_update as core_resource_update
 from ckan import model
 
 from ckanext.iati_generator import helpers as h
@@ -76,15 +74,17 @@ def _sync_iati_file_for_resource(context, resource_dict):
         log.exception("Unexpected error syncing IATIFile for resource %s", res_id)
 
 
-def resource_create(context, data_dict):
+@toolkit.chained_action
+def resource_create(up_function, context, data_dict):
     # Call the core CKAN resource_create action
-    resource = core_resource_create(context, data_dict)
+    resource = up_function(context, data_dict)
     # Then synchronize the IATIFile
     _sync_iati_file_for_resource(context, resource)
     return resource
 
 
-def resource_update(context, data_dict):
-    resource = core_resource_update(context, data_dict)
+@toolkit.chained_action
+def resource_update(up_function, context, data_dict):
+    resource = up_function(context, data_dict)
     _sync_iati_file_for_resource(context, resource)
     return resource
