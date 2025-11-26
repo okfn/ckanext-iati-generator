@@ -198,7 +198,6 @@ def get_namespace_extra(extras):
     """
     for extra in extras:
         if extra.get("key") == "iati_namespace":
-            print(f"Found namespace extra: {extra.get('value')}")
             log.debug(f"Found namespace extra: {extra.get('value')}")
             return extra.get("value")
     return None
