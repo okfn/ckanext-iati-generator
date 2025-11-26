@@ -35,7 +35,6 @@ class IatiGeneratorPlugin(p.SingletonPlugin, DefaultTranslation):
         ]
 
     def get_actions(self):
-
         actions = {
             'iati_file_create': iati_actions.iati_file_create,
             'iati_file_update': iati_actions.iati_file_update,
@@ -43,13 +42,10 @@ class IatiGeneratorPlugin(p.SingletonPlugin, DefaultTranslation):
             'iati_file_show': iati_actions.iati_file_show,
             'iati_file_list': iati_actions.iati_file_list,
             'iati_resources_list': iati_actions.iati_resources_list,
-        }
-
-        # Overrides de CKAN para enganchar la lógica IATI en recursos
-        actions.update({
+            # Override CKAN core actions
             'resource_create': resources_actions.resource_create,
             'resource_update': resources_actions.resource_update,
-        })
+        }
 
         return actions
 
