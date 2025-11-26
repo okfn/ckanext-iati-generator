@@ -2,6 +2,8 @@ from types import SimpleNamespace
 import pytest
 from ckan.tests import helpers, factories
 from ckan.plugins import toolkit
+from ckan import model
+from ckanext.iati_generator.models.iati_files import IATIFile
 from ckanext.iati_generator.models.enums import IATIFileTypes
 from ckanext.iati_generator.tests.factories import create_iati_file
 
@@ -136,3 +138,60 @@ class TestIatiFileListAction:
         assert result1["count"] == 3
         assert len(result1["results"]) == 2
         assert len(result2["results"]) == 1
+
+    def test_resource_create_with_iati_file_type_creates_iati_file(self, setup_data):
+        """
+        When a resource is created with an iati_file_type, an IATIFile
+        row should be created automatically for that resource.
+        """
+        # Org admin creates a resource with iati_file_type in extras
+        res = self._call_action_as_user(
+            "resource_create",
+            setup_data.user_admin["name"],
+            package_id=setup_data.pkg["id"],
+            name="Res A",
+            format="CSV",
+            url_type="upload",
+            url="file.csv",
+            iati_file_type=str(IATIFileTypes.ORGANIZATION_MAIN_FILE.value),
+        )
+
+        # Check that the IATIFile was created
+        session = model.Session
+        iati_files = session.query(IATIFile).filter_by(resource_id=res["id"]).all()
+        assert len(iati_files) == 1
+        assert iati_files[0].file_type == IATIFileTypes.ORGANIZATION_MAIN_FILE.value
+
+    def test_resource_update_adding_iati_file_type_creates_iati_file(self, setup_data):
+        """
+        If a resource is created without iati_file_type and later updated
+        to add it, an IATIFile row should be created at update time.
+        """
+        # Create resource WITHOUT iati_file_type
+        res = self._call_action_as_user(
+            "resource_create",
+            setup_data.user_admin["name"],
+            package_id=setup_data.pkg["id"],
+            name="Res B",
+            format="CSV",
+            url_type="upload",
+            url="file2.csv",
+        )
+
+        # Check that NO IATIFile was created
+        session = model.Session
+        assert session.query(IATIFile).filter_by(resource_id=res["id"]).count() == 0
+
+        # Now update the resource to ADD iati_file_type
+        updated = self._call_action_as_user(
+            "resource_update",
+            setup_data.user_admin["name"],
+            id=res["id"],
+            iati_file_type=str(IATIFileTypes.ORGANIZATION_MAIN_FILE.value),
+        )
+
+        # Check that the IATIFile was created
+        assert updated["id"] == res["id"]
+        iati_files = session.query(IATIFile).filter_by(resource_id=res["id"]).all()
+        assert len(iati_files) == 1
+        assert iati_files[0].file_type == IATIFileTypes.ORGANIZATION_MAIN_FILE.value
