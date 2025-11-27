@@ -29,7 +29,7 @@ from io import BytesIO
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 try:
-    from paste.deploy import appconfig
+    from ckan.cli import load_config as ckan_load_config
     from ckan.config.environment import load_environment
     import ckan.plugins.toolkit as toolkit
     from ckanext.iati_generator.models.enums import IATIFileTypes
@@ -38,7 +38,6 @@ except ImportError as e:
     print("Import error:", e)
     print("Try: source /path/to/ckan/bin/activate")
     sys.exit(1)
-
 
 # Configure logging
 logging.basicConfig(
@@ -57,11 +56,7 @@ def _init_ckan():
         print("Please set CKAN_INI, e.g.: export CKAN_INI=/app/ckan.ini")
         sys.exit(1)
 
-    # Build PasteDeploy config URI and load it
-    config_uri = f"config:{ini_path}"
-    conf = appconfig(config_uri)
-
-    # Now load CKAN environment with the config dict
+    conf = ckan_load_config(ini_path)
     load_environment(conf)
 
 
