@@ -85,3 +85,79 @@ def extract_namespace_from_resource(res):
             return extra.get("value")
 
     return DEFAULT_NAMESPACE
+
+
+# Candidates
+
+def build_iati_index():
+    """
+    Build an in-memory index of IATIFile by (resource_id, namespace, file_type).
+    """
+    Session = model.Session
+    files = Session.query(IATIFile).all()
+    index = {}
+    for f in files:
+        key = (f.resource_id, f.namespace, f.file_type)
+        index[key] = f
+    return index
+
+
+def normalize_file_type(file_type):
+    """
+    Return (label, ft_int) for a raw file_type value.
+    label: human readable (enum name or original value)
+    ft_int: integer enum value (or None if unknown)
+    """
+    if file_type is None:
+        return None, None
+
+    label = file_type
+    ft_int = None
+    try:
+        ft_int = int(file_type)
+        label = IATIFileTypes(ft_int).name
+    except Exception:
+        # tal vez venga como nombre del enum
+        try:
+            ft_int = IATIFileTypes[file_type].value
+        except Exception:
+            pass
+    return label, ft_int
+
+
+def build_candidate_row(pkg, res, label, ns, ft_int, iati_index):
+    """
+    Build the output dict for a single candidate resource, including validation.
+    """
+    iati_file = None
+    if ft_int is not None:
+        iati_file = iati_index.get((res["id"], ns, ft_int))
+
+    is_valid = bool(iati_file.is_valid) if iati_file else False
+    last_success = (
+        iati_file.last_processed_success.isoformat()
+        if iati_file and iati_file.last_processed_success
+        else None
+    )
+    last_error = iati_file.last_error if iati_file else None
+
+    return {
+        "namespace": ns,
+        "file_type": label,
+        "is_valid": is_valid,
+        "last_success": last_success,
+        "last_error": last_error,
+        "resource": {
+            "id": res["id"],
+            "name": res.get("name") or res["id"],
+            "format": res.get("format"),
+            "url": res.get("url"),
+            "description": res.get("description"),
+        },
+        "dataset": {
+            "id": pkg["id"],
+            "name": pkg["name"],
+            "title": pkg["title"],
+            "owner_org": pkg["owner_org"],
+        },
+    }
