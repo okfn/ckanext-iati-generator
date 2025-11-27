@@ -70,8 +70,6 @@ def _sync_iati_file_for_resource(context, resource_dict):
             "Validation error syncing IATIFile for resource %s: %r",
             res_id, getattr(e, "error_dict", e)
         )
-    except Exception:
-        log.exception("Unexpected error syncing IATIFile for resource %s", res_id)
 
 
 @toolkit.chained_action
