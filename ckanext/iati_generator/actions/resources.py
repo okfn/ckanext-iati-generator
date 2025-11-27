@@ -40,10 +40,6 @@ def _sync_iati_file_for_resource(context, resource_dict):
                     "User %s not allowed to delete IATIFile %s",
                     context.get("user"), existing.id
                 )
-            except Exception:
-                log.exception(
-                    "Unexpected error deleting IATIFile for resource %s", res_id
-                )
         return
 
     # If there's IATI type => create or update IATIFile using our actions
