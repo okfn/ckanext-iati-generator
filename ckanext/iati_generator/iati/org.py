@@ -2,6 +2,7 @@ import logging
 
 from okfn_iati.organisation_xml_generator import IatiOrganisationMultiCsvConverter
 
+from ckan import model
 from ckanext.iati_generator.iati.resource import save_resource_data
 from ckanext.iati_generator.models.enums import IATIFileTypes
 from ckanext.iati_generator.models.iati_files import DEFAULT_NAMESPACE, IATIFile
@@ -18,8 +19,22 @@ def process_org_files(namespace, tmp_folder):
     org_folder = tmp_folder / f"org-{namespace}"
     org_folder.mkdir(parents=True, exist_ok=True)
 
-    _process_org_file(org_folder, "organization.csv", IATIFileTypes.ORGANIZATION_MAIN_FILE, required=True, max_files=1)
-    _process_org_file(org_folder, "names.csv", IATIFileTypes.ORGANIZATION_NAMES_FILE, required=False, max_files=1)
+    _process_org_file(
+        org_folder,
+        "organization.csv",
+        IATIFileTypes.ORGANIZATION_MAIN_FILE,
+        required=True,
+        max_files=1,
+        namespace=namespace,
+    )
+    _process_org_file(
+        org_folder,
+        "names.csv",
+        IATIFileTypes.ORGANIZATION_NAMES_FILE,
+        required=False,
+        max_files=1,
+        namespace=namespace,
+    )
     # TODO implement other organization files when needed
 
     # We are ready to generate the Organization IATI XML file
@@ -36,11 +51,18 @@ def process_org_files(namespace, tmp_folder):
     # local files won't work for multiple CKAN instances.
 
 
-def _process_org_file(output_folder, filename, iati_file_type, required=True, max_files=1):
+def _process_org_file(output_folder, filename, iati_file_type, required=True, max_files=1, namespace=DEFAULT_NAMESPACE):
     """ Generic org file process
     """
     log.info(f"Processing organization file: {iati_file_type}::{filename}")
-    org_files = IATIFile.query.filter(IATIFile.file_type == iati_file_type.value).all()
+
+    session = model.Session
+    org_files = (
+        session.query(IATIFile)
+        .filter(IATIFile.file_type == iati_file_type.value)
+        .filter(IATIFile.namespace == namespace)
+        .all()
+    )
     # We expect only one organization main file, fail if not
     if len(org_files) == 0:
         if required:
@@ -62,6 +84,7 @@ def _process_org_file(output_folder, filename, iati_file_type, required=True, ma
             error_message = "Failed to save resource data"
             iati_file.track_processing(success=False, error_message=error_message)
             continue
+        iati_file.track_processing(success=True)
         c += 1
         log.info(f"Saved organization CSV data to {final_path}")
 
