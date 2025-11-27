@@ -28,13 +28,24 @@ def iati_files_index():
     page_size = int(request.args.get("rows", 100) or 100)
 
     params = {"start": start, "rows": page_size}
-    data = toolkit.get_action("iati_file_list")(context, params)
+    data = toolkit.get_action("iati_resources_list")(context, params)
 
     rows_out = []
     for item in data.get("results", []):
-        is_valid = bool(item.get("is_valid"))
-        last_success = item.get("last_success")
-        last_error = item.get("last_error") or ""
+        resource = item.get("resource") or {}
+        dataset = item.get("dataset") or {}
+        iati_file = item.get("iati_file") or {}
+
+        res_id = resource.get("id")
+        pkg_name = dataset.get("name", "")
+
+        # generate resource URL
+        res_url = f"/dataset/{pkg_name}/resource/{res_id}" if pkg_name and res_id else "#"
+
+        # Validation info
+        is_valid = bool(iati_file.get("is_valid"))
+        last_success = iati_file.get("last_processed_success")
+        last_error = iati_file.get("last_error") or ""
 
         if is_valid and last_success:
             notes = f"Last success: {last_success}"
@@ -43,13 +54,15 @@ def iati_files_index():
         else:
             notes = ""
 
+        # Append row
         rows_out.append({
-            "file_type": item.get("file_type", ""),
-            "resource_name": (item.get("resource", {}) or {}).get("name") or (item.get("resource", {}) or {}).get("id"),
-            "resource_id": (item.get("resource", {}) or {}).get("id"),
-            "dataset_name": (item.get("dataset", {}) or {}).get("name", ""),
+            "file_type": iati_file.get("file_type", ""),
+            "resource_name": resource.get("name") or res_id,
+            "resource_id": res_id,
+            "dataset_name": pkg_name,
             "valid": is_valid,
             "notes": notes,
+            "resource_url": res_url,
         })
 
     return toolkit.render(

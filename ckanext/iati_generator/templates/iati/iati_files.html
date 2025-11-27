@@ -9,7 +9,7 @@
         <tr>
           <th>{{ _("File type") }}</th>
           <th>{{ _("Resource") }}</th>
-          <th>{{ _("Valid") }}</th>
+          <th>{{ _("Validation") }}</th>
           <th>{{ _("Notes") }}</th>
         </tr>
       </thead>
@@ -23,11 +23,15 @@
                 {{ row.resource_name }}
               </a>
             </td>
-            <td class="text-center" style="width: 90px;">
+            <td class="status-cell">
               {% if row.valid %}
-                <i class="fa fa-check" aria-label="valid" title="{{ _('Valid') }}"></i>
+              <span class="bg bg-valid">
+                {{ _('Valid') }}
+              </span>
               {% else %}
-                <i class="fa fa-times" aria-label="invalid" title="{{ _('Invalid') }}"></i>
+              <span class="bg bg-invalid">
+                {{ _('Invalid') }}
+              </span>
               {% endif %}
             </td>
             <td>{{ row.notes }}</td>
