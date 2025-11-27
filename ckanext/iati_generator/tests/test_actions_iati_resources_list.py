@@ -12,10 +12,10 @@ from ckanext.iati_generator.models.enums import IATIFileTypes
 def setup_data():
     obj = SimpleNamespace()
 
-    # usuarios
+    # users
     obj.sysadmin = factories.Sysadmin()
 
-    # organización + dataset + recurso
+    # organization + dataset + resource
     obj.org = factories.Organization()
     obj.pkg = factories.Dataset(owner_org=obj.org["id"])
     obj.res = factories.Resource(
@@ -34,14 +34,14 @@ class TestIatiResourcesList:
 
     def test_iati_resources_list_returns_expected_row(self, setup_data):
         """
-        iati_resources_list debe devolver una fila con:
-            - namespace correcto
-            - resource/dataset correctos
-            - info de iati_file (file_type, is_valid, last_error) mapeada bien
+        iati_resources_list should return a row with:
+            - correct namespace
+            - correct resource/dataset
+            - iati_file info (file_type, is_valid, last_error) properly mapped
         """
         session = model.Session
 
-        # Crear un IATIFile vinculado al recurso
+        # Create an IATIFile linked to the resource
         iati_file = IATIFile(
             namespace=DEFAULT_NAMESPACE,
             file_type=IATIFileTypes.ORGANIZATION_EXPENDITURE_FILE.value,
@@ -52,7 +52,7 @@ class TestIatiResourcesList:
         session.add(iati_file)
         session.commit()
 
-        # Contexto como sysadmin (para pasar el check_access)
+        # Context as sysadmin (to pass the check_access)
         context = {"user": setup_data.sysadmin["name"]}
 
         result = helpers.call_action(
@@ -60,16 +60,16 @@ class TestIatiResourcesList:
             context=context,
         )
 
-        # Sólo hay un IATIFile, así que count = 1 y una sola fila
+        # Only one IATIFile, so count = 1 and a single row
         assert result["count"] == 1
         row = result["results"][0]
 
-        # Namespace y enlaces resource/dataset
+        # Namespace and resource/dataset links
         assert row["namespace"] == DEFAULT_NAMESPACE
         assert row["resource"]["id"] == setup_data.res["id"]
         assert row["dataset"]["id"] == setup_data.pkg["id"]
 
-        # Datos de iati_file
+        # iati_file data
         iati_info = row["iati_file"]
         assert iati_info["file_type"] == IATIFileTypes.ORGANIZATION_EXPENDITURE_FILE.name
         assert iati_info["is_valid"] is False
@@ -77,10 +77,10 @@ class TestIatiResourcesList:
 
     def test_iati_resources_list_no_iati_file_info(self, setup_data):
         """
-        Si no hay IATIFile vinculado al recurso, la fila devuelta
-        debe tener is_valid = False y last_error = None
+        If there is no IATIFile linked to the resource, the returned row
+        should have is_valid = False and last_error = None
         """
-        # Contexto como sysadmin (para pasar el check_access)
+        # Context as sysadmin (to pass the check_access)
         context = {"user": setup_data.sysadmin["name"]}
 
         result = helpers.call_action(
@@ -88,14 +88,14 @@ class TestIatiResourcesList:
             context=context,
         )
 
-        # Sin IATIFiles, debería devolver 0 resultados
+        # Without IATIFiles, should return 0 results
         assert result["count"] == 0
         assert result["results"] == []
 
     def test_iati_resources_list_valid_file_with_success_date(self, setup_data):
         """
-        Verificar que last_processed_success se devuelve correctamente
-        cuando is_valid=True
+        Verify that last_processed_success is returned correctly
+        when is_valid=True
         """
         from datetime import datetime
         session = model.Session
@@ -124,12 +124,12 @@ class TestIatiResourcesList:
 
     def test_iati_resources_list_multiple_files(self, setup_data):
         """
-        Verificar que se devuelven múltiples IATIFiles correctamente
-        y que están ordenados
+        Verify that multiple IATIFiles are returned correctly
+        and that they are ordered
         """
         session = model.Session
 
-        # Crear segundo recurso y dataset
+        # Create second resource and dataset
         pkg2 = factories.Dataset(owner_org=setup_data.org["id"], name="dataset-b")
         res2 = factories.Resource(
             package_id=pkg2["id"],
@@ -137,7 +137,7 @@ class TestIatiResourcesList:
             name="aaa-file.csv",
         )
 
-        # Primer IATIFile
+        # First IATIFile
         iati1 = IATIFile(
             namespace=DEFAULT_NAMESPACE,
             file_type=IATIFileTypes.ORGANIZATION_MAIN_FILE.value,
@@ -145,7 +145,7 @@ class TestIatiResourcesList:
         )
         iati1.is_valid = True
 
-        # Segundo IATIFile (debería aparecer primero por ordenamiento)
+        # Second IATIFile (should appear first due to ordering)
         iati2 = IATIFile(
             namespace=DEFAULT_NAMESPACE,
             file_type=IATIFileTypes.ORGANIZATION_EXPENDITURE_FILE.value,
@@ -162,19 +162,19 @@ class TestIatiResourcesList:
 
         assert result["count"] == 2
 
-        # Verificar ordenamiento: por dataset name, luego resource name, luego file_type
-        # dataset-b viene antes alfabéticamente
+        # Verify ordering: by dataset name, then resource name, then file_type
+        # dataset-b comes first alphabetically
         first = result["results"][0]
         assert first["dataset"]["name"] == "dataset-b"
         assert first["resource"]["id"] == res2["id"]
 
     def test_iati_resources_list_different_namespaces(self, setup_data):
         """
-        Verificar que se manejan correctamente múltiples namespaces
+        Verify that multiple namespaces are handled correctly
         """
         session = model.Session
 
-        # IATIFile con namespace personalizado
+        # IATIFile with custom namespace
         iati_file = IATIFile(
             namespace="custom-ns",
             file_type=IATIFileTypes.ORGANIZATION_MAIN_FILE.value,
@@ -192,7 +192,7 @@ class TestIatiResourcesList:
 
     def test_iati_resources_list_resource_fields(self, setup_data):
         """
-        Verificar que todos los campos del recurso se devuelven correctamente
+        Verify that all resource fields are returned correctly
         """
         session = model.Session
 
@@ -218,7 +218,7 @@ class TestIatiResourcesList:
 
     def test_iati_resources_list_dataset_fields(self, setup_data):
         """
-        Verificar que todos los campos del dataset se devuelven correctamente
+        Verify that all dataset fields are returned correctly
         """
         session = model.Session
 
