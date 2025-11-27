@@ -1,0 +1,127 @@
+# Sample data configuration for IATI Generator testing
+# This file defines the organizations, datasets, and resources to load
+
+organizations:
+  world-bank:
+    title: "World Bank IATI Data 2024"
+    namespace: "iati-xml"  # Default namespace
+    
+    dataset:
+      name: "world-bank-iati-2024"
+      title: "World Bank IATI Organization Data 2024"
+      notes: |
+        Sample IATI organization data from the World Bank for testing the IATI Generator extension.
+        This dataset contains CSV files that will be converted to IATI XML format.
+      private: false
+      # owner_org: "your-org-id"  # Uncomment and set if needed
+    
+    resources:
+      - name: "organization.csv"
+        url: "https://raw.githubusercontent.com/okfn/okfn_iati/main/data-samples/csv_folders_org/world-bank-2024/organization.csv"
+        description: "Main organization information"
+        format: "CSV"
+        file_type: "ORGANIZATION_MAIN_FILE"
+      
+      - name: "names.csv"
+        url: "https://raw.githubusercontent.com/okfn/okfn_iati/main/data-samples/csv_folders_org/world-bank-2024/names.csv"
+        description: "Organization names in different languages"
+        format: "CSV"
+        file_type: "ORGANIZATION_NAMES_FILE"
+      
+      - name: "total-budget.csv"
+        url: "https://raw.githubusercontent.com/okfn/okfn_iati/main/data-samples/csv_folders_org/world-bank-2024/total-budget.csv"
+        description: "Total budget information"
+        format: "CSV"
+        file_type: "ORGANIZATION_TOTAL_BUDGET_FILE"
+      
+      - name: "total-expenditure.csv"
+        url: "https://raw.githubusercontent.com/okfn/okfn_iati/main/data-samples/csv_folders_org/world-bank-2024/total-expenditure.csv"
+        description: "Total expenditure information"
+        format: "CSV"
+        file_type: "ORGANIZATION_EXPENDITURE_FILE"
+      
+      - name: "recipient-org-budget.csv"
+        url: "https://raw.githubusercontent.com/okfn/okfn_iati/main/data-samples/csv_folders_org/world-bank-2024/recipient-org-budget.csv"
+        description: "Recipient organization budget"
+        format: "CSV"
+        file_type: "ORGANIZATION_RECIPIENT_ORG_BUDGET_FILE"
+      
+      - name: "recipient-region-budget.csv"
+        url: "https://raw.githubusercontent.com/okfn/okfn_iati/main/data-samples/csv_folders_org/world-bank-2024/recipient-region-budget.csv"
+        description: "Recipient region budget"
+        format: "CSV"
+        file_type: "ORGANIZATION_RECIPIENT_REGION_BUDGET_FILE"
+      
+      - name: "recipient-country-budget.csv"
+        url: "https://raw.githubusercontent.com/okfn/okfn_iati/main/data-samples/csv_folders_org/world-bank-2024/recipient-country-budget.csv"
+        description: "Recipient country budget"
+        format: "CSV"
+        file_type: "ORGANIZATION_RECIPIENT_COUNTRY_BUDGET_FILE"
+      
+      - name: "document-link.csv"
+        url: "https://raw.githubusercontent.com/okfn/okfn_iati/main/data-samples/csv_folders_org/world-bank-2024/document-link.csv"
+        description: "Document links"
+        format: "CSV"
+        file_type: "ORGANIZATION_DOCUMENT_LINK_FILE"
+
+  asian-bank:
+    title: "Asian Development Bank IATI Data"
+    namespace: "asian-bank"  # Custom namespace to avoid mixing
+    
+    dataset:
+      name: "asian-dev-bank-iati"
+      title: "Asian Development Bank IATI Organization Data"
+      notes: |
+        Sample IATI organization data from the Asian Development Bank for testing 
+        the IATI Generator extension with multiple namespaces.
+      private: false
+      # owner_org: "your-org-id"  # Uncomment and set if needed
+    
+    resources:
+      - name: "organization.csv"
+        url: "https://raw.githubusercontent.com/okfn/okfn_iati/main/data-samples/csv_folders_org/asian-dev-bank-org/organization.csv"
+        description: "Main organization information"
+        format: "CSV"
+        file_type: "ORGANIZATION_MAIN_FILE"
+      
+      - name: "names.csv"
+        url: "https://raw.githubusercontent.com/okfn/okfn_iati/main/data-samples/csv_folders_org/asian-dev-bank-org/names.csv"
+        description: "Organization names in different languages"
+        format: "CSV"
+        file_type: "ORGANIZATION_NAMES_FILE"
+      
+      - name: "total-budget.csv"
+        url: "https://raw.githubusercontent.com/okfn/okfn_iati/main/data-samples/csv_folders_org/asian-dev-bank-org/total-budget.csv"
+        description: "Total budget information"
+        format: "CSV"
+        file_type: "ORGANIZATION_TOTAL_BUDGET_FILE"
+      
+      - name: "total-expenditure.csv"
+        url: "https://raw.githubusercontent.com/okfn/okfn_iati/main/data-samples/csv_folders_org/asian-dev-bank-org/total-expenditure.csv"
+        description: "Total expenditure information"
+        format: "CSV"
+        file_type: "ORGANIZATION_EXPENDITURE_FILE"
+      
+      - name: "recipient-org-budget.csv"
+        url: "https://raw.githubusercontent.com/okfn/okfn_iati/main/data-samples/csv_folders_org/asian-dev-bank-org/recipient-org-budget.csv"
+        description: "Recipient organization budget"
+        format: "CSV"
+        file_type: "ORGANIZATION_RECIPIENT_ORG_BUDGET_FILE"
+      
+      - name: "recipient-region-budget.csv"
+        url: "https://raw.githubusercontent.com/okfn/okfn_iati/main/data-samples/csv_folders_org/asian-dev-bank-org/recipient-region-budget.csv"
+        description: "Recipient region budget"
+        format: "CSV"
+        file_type: "ORGANIZATION_RECIPIENT_REGION_BUDGET_FILE"
+      
+      - name: "recipient-country-budget.csv"
+        url: "https://raw.githubusercontent.com/okfn/okfn_iati/main/data-samples/csv_folders_org/asian-dev-bank-org/recipient-country-budget.csv"
+        description: "Recipient country budget"
+        format: "CSV"
+        file_type: "ORGANIZATION_RECIPIENT_COUNTRY_BUDGET_FILE"
+      
+      - name: "document-link.csv"
+        url: "https://raw.githubusercontent.com/okfn/okfn_iati/main/data-samples/csv_folders_org/asian-dev-bank-org/document-link.csv"
+        description: "Document links"
+        format: "CSV"
+        file_type: "ORGANIZATION_DOCUMENT_LINK_FILE"
