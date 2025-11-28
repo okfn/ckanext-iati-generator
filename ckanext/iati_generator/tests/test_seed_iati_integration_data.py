@@ -90,3 +90,108 @@ def test_seed_loader_unknown_org_returns_false(make_loader):
     assert loader.stats["iati_files_created"] == 0
     assert len(loader.stats["errors"]) == 1
     assert "Organization 'non-existing-org' not found" in loader.stats["errors"][0]
+
+
+def test_create_or_update_dataset_dry_run_increments_stats(make_loader):
+    loader = make_loader(dry_run=True)
+    assert loader.stats["datasets_created"] == 0
+
+    dataset_config = {"name": "test-dataset"}
+    dataset_id = loader.create_or_update_dataset(dataset_config)
+
+    assert dataset_id == "dummy-id-test-dataset"
+    assert loader.stats["datasets_created"] == 1
+
+
+def test_create_resource_with_csv_dry_run_increments_stats(make_loader):
+    from io import BytesIO
+
+    loader = make_loader(dry_run=True)
+    assert loader.stats["resources_created"] == 0
+
+    csv_file = BytesIO(b"col1,col2\n1,2")
+    resource_config = {"name": "test-resource"}
+
+    res_id = loader.create_resource_with_csv("dummy-package-id", csv_file, resource_config)
+
+    assert res_id == "dummy-resource-test-resource"
+    assert loader.stats["resources_created"] == 1
+
+
+def test_create_iati_file_record_dry_run_increments_stats(make_loader):
+    loader = make_loader(dry_run=True)
+    assert loader.stats["iati_files_created"] == 0
+
+    ok = loader.create_iati_file_record(
+        resource_id="dummy-resource-id",
+        file_type="ORGANIZATION_MAIN_FILE",
+        namespace="iati-xml",
+    )
+
+    assert ok is True
+    assert loader.stats["iati_files_created"] == 1
+
+
+def test_download_csv_failure_records_error(make_loader, monkeypatch):
+    loader = make_loader(dry_run=False)
+
+    # Simulamos que requests.get lanza excepción
+    import requests
+
+    def fake_get(url, timeout=30):
+        raise requests.exceptions.RequestException("boom")
+
+    monkeypatch.setattr("requests.get", fake_get)
+
+    csv = loader.download_csv_from_url("http://example.com/fail.csv")
+    assert csv is None
+    assert len(loader.stats["errors"]) == 1
+    assert "Download failed" in loader.stats["errors"][0]
+
+
+def test_load_organization_fails_if_download_fails(make_loader, monkeypatch):
+    loader = make_loader(dry_run=False)
+
+    # Forzamos que siempre falle la descarga
+    monkeypatch.setattr(
+        loader, "download_csv_from_url",
+        lambda url: None,
+    )
+
+    success = loader.load_organization("world-bank")
+    assert success is False
+    # No se crean resources ni iati_files
+    assert loader.stats["resources_created"] == 0
+    assert loader.stats["iati_files_created"] == 0
+
+
+def test_create_iati_file_record_uses_enum_and_calls_action(make_loader, monkeypatch):
+    loader = make_loader(dry_run=False)
+
+    # Evitamos pegarle a CKAN de verdad
+    called = {}
+
+    def fake_get_action(name):
+        def _action(context, data_dict):
+            called["name"] = name
+            called["context"] = context
+            called["data_dict"] = data_dict
+            return {}
+        return _action
+
+    # Evitar depender de get_site_user real
+    monkeypatch.setattr(loader, "_get_site_user", lambda: "test-sysadmin")
+    monkeypatch.setattr("ckan.plugins.toolkit.get_action", fake_get_action)
+
+    ok = loader.create_iati_file_record(
+        resource_id="res-123",
+        file_type="ORGANIZATION_MAIN_FILE",  # string → enum
+        namespace="iati-xml",
+    )
+
+    assert ok is True
+    assert called["name"] == "iati_file_create"
+    assert called["data_dict"]["resource_id"] == "res-123"
+    # Chequeo de que se haya transformado a valor numérico
+    assert isinstance(called["data_dict"]["file_type"], int)
+    assert called["data_dict"]["namespace"] == "iati-xml"

@@ -269,8 +269,9 @@ class IATIDataLoader:
             True if successful, False otherwise
         """
         if org_name not in self.config.get('organizations', {}):
-            logger.error(f"Organization '{org_name}' not found in configuration")
-            self.stats['errors'].append(f"Organization '{org_name}' not found in configuration")
+            msg = f"Organization '{org_name}' not found in configuration"
+            logger.error(msg)
+            self.stats["errors"].append(msg)
             return False
 
         org_config = self.config['organizations'][org_name]
