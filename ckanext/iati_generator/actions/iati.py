@@ -342,97 +342,30 @@ def iati_file_list(context, data_dict=None):
 def iati_resources_list(context, data_dict=None):
     """
     Return a list of resources with IATIFile records, including dataset info.
-
-    Returns items with the following structure:
-      {
-        "namespace": ...,
-        "resource": {...},
-        "dataset": {...},
-        "iati_file": {
-            "file_type": ...,
-            "is_valid": ...,
-            "last_processed_success": ...,
-            "last_error": ...,
-        },
-      }
-
-    The admin blueprint then flattens this for the template.
+    This fn returns ALL resources with IATIFile, no pagination.
     """
     data_dict = data_dict or {}
     toolkit.check_access("iati_file_list", context, data_dict)
 
-    # Índice: (resource_id, namespace, file_type_int) -> IATIFile
-    iati_index = h.build_iati_index()
-    files = list(iati_index.values())
+    files_by_resource = h.iati_files_by_resource()
 
     results = []
-
-    resources_cache = {}
-    datasets_cache = {}
-
-    for f in files:
-        resource_id = f.resource_id
-
-        # ---- resource
-        res = resources_cache.get(resource_id)
-        if not res:
-            try:
-                res = toolkit.get_action("resource_show")(context, {"id": resource_id})
-            except toolkit.ObjectNotFound:
-                log.warning(
-                    "IATIFile %s references missing resource %s", f.id, resource_id
-                )
-                continue
-            resources_cache[resource_id] = res
-
-        # ---- dataset
+    # Keep datasets data but request it only once
+    datasets = {}
+    for resource_id, iati_file in files_by_resource.items():
+        res = toolkit.get_action("resource_show")(context, {"id": resource_id})
         package_id = res["package_id"]
-        pkg = datasets_cache.get(package_id)
-        if not pkg:
-            try:
-                pkg = toolkit.get_action("package_show")(context, {"id": package_id})
-            except toolkit.ObjectNotFound:
-                log.warning(
-                    "IATIFile %s references missing package %s", f.id, package_id
-                )
-                continue
-            datasets_cache[package_id] = pkg
+        if package_id not in datasets:
+            pkg = toolkit.get_action("package_show")(context, {"id": package_id})
+            datasets[package_id] = pkg
+        else:
+            pkg = datasets[package_id]
 
-        # ---- file_type + namespace
-        ft_int = f.file_type
-        label, ft_int_norm = h.normalize_file_type(ft_int)
-        if ft_int_norm is not None:
-            ft_int = ft_int_norm
-
-        ns = f.namespace or DEFAULT_NAMESPACE
-
-        # ---- fila “candidate” con info de validación
-        candidate = h.build_candidate_row(pkg, res, label, ns, ft_int, iati_index)
-
-        # Adapt to the format expected by the blueprint
-        iati_file_info = {
-            "file_type": candidate["file_type"],
-            "is_valid": candidate["is_valid"],
-            "last_processed_success": candidate["last_success"],
-            "last_error": candidate["last_error"],
-        }
-
-        item = {
-            "namespace": candidate["namespace"],
-            "resource": candidate["resource"],
-            "dataset": candidate["dataset"],
-            "iati_file": iati_file_info,
-        }
-        results.append(item)
-
-    # sort similar to iati_file_list
-    results.sort(
-        key=lambda item: (
-            item["dataset"]["name"],
-            item["resource"]["name"],
-            item["iati_file"]["file_type"],
-        )
-    )
+        results.append({
+            "resource": res,
+            "dataset": pkg,
+            "iati_file": iati_file.as_dict(),
+        })
 
     return {
         "count": len(results),
