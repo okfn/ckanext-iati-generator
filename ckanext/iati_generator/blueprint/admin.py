@@ -56,7 +56,7 @@ def iati_files_index():
 
         # Append row
         rows_out.append({
-            "namespace": item.get("namespace", ""),
+            "namespace": iati_file.get("namespace", ""),
             "file_type": iati_file.get("file_type", ""),
             "resource_name": resource.get("name") or res_id,
             "resource_id": res_id,
