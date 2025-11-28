@@ -93,6 +93,10 @@ def test_seed_loader_unknown_org_returns_false(make_loader):
 
 
 def test_create_or_update_dataset_dry_run_increments_stats(make_loader):
+    """
+    Tests that creating or updating a dataset in dry-run mode
+    properly increments the datasets_created counter.
+    """
     loader = make_loader(dry_run=True)
     assert loader.stats["datasets_created"] == 0
 
@@ -104,6 +108,10 @@ def test_create_or_update_dataset_dry_run_increments_stats(make_loader):
 
 
 def test_create_resource_with_csv_dry_run_increments_stats(make_loader):
+    """
+    Tests that creating a resource with CSV data in dry-run mode
+    properly increments the resources_created counter.
+    """
     from io import BytesIO
 
     loader = make_loader(dry_run=True)
@@ -119,6 +127,10 @@ def test_create_resource_with_csv_dry_run_increments_stats(make_loader):
 
 
 def test_create_iati_file_record_dry_run_increments_stats(make_loader):
+    """
+    Tests that creating an IATI file record in dry-run mode
+    properly increments the iati_files_created counter.
+    """
     loader = make_loader(dry_run=True)
     assert loader.stats["iati_files_created"] == 0
 
@@ -133,9 +145,13 @@ def test_create_iati_file_record_dry_run_increments_stats(make_loader):
 
 
 def test_download_csv_failure_records_error(make_loader, monkeypatch):
+    """
+    Tests that when CSV download fails with an exception,
+    the error is properly recorded in the stats.
+    """
     loader = make_loader(dry_run=False)
 
-    # Simulamos que requests.get lanza excepción
+    # Mock requests.get to raise an exception
     import requests
 
     def fake_get(url, timeout=30):
@@ -150,9 +166,13 @@ def test_download_csv_failure_records_error(make_loader, monkeypatch):
 
 
 def test_load_organization_fails_if_download_fails(make_loader, monkeypatch):
+    """
+    Tests that loading an organization fails gracefully when
+    CSV download fails, without creating resources or IATI files.
+    """
     loader = make_loader(dry_run=False)
 
-    # Forzamos que siempre falle la descarga
+    # Force download to always fail
     monkeypatch.setattr(
         loader, "download_csv_from_url",
         lambda url: None,
@@ -160,15 +180,19 @@ def test_load_organization_fails_if_download_fails(make_loader, monkeypatch):
 
     success = loader.load_organization("world-bank")
     assert success is False
-    # No se crean resources ni iati_files
+    # No resources or iati_files should be created
     assert loader.stats["resources_created"] == 0
     assert loader.stats["iati_files_created"] == 0
 
 
 def test_create_iati_file_record_uses_enum_and_calls_action(make_loader, monkeypatch):
+    """
+    Tests that creating an IATI file record properly converts string file_type
+    to enum value and calls the correct CKAN action with proper parameters.
+    """
     loader = make_loader(dry_run=False)
 
-    # Evitamos pegarle a CKAN de verdad
+    # Avoid hitting CKAN for real
     called = {}
 
     def fake_get_action(name):
@@ -179,7 +203,7 @@ def test_create_iati_file_record_uses_enum_and_calls_action(make_loader, monkeyp
             return {}
         return _action
 
-    # Evitar depender de get_site_user real
+    # Avoid depending on real get_site_user
     monkeypatch.setattr(loader, "_get_site_user", lambda: "test-sysadmin")
     monkeypatch.setattr("ckan.plugins.toolkit.get_action", fake_get_action)
 
@@ -192,6 +216,6 @@ def test_create_iati_file_record_uses_enum_and_calls_action(make_loader, monkeyp
     assert ok is True
     assert called["name"] == "iati_file_create"
     assert called["data_dict"]["resource_id"] == "res-123"
-    # Chequeo de que se haya transformado a valor numérico
+    # Check that it was transformed to numeric value
     assert isinstance(called["data_dict"]["file_type"], int)
     assert called["data_dict"]["namespace"] == "iati-xml"
