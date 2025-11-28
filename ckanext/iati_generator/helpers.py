@@ -85,3 +85,35 @@ def extract_namespace_from_resource(res):
             return extra.get("value")
 
     return DEFAULT_NAMESPACE
+
+
+# Candidates
+
+def normalize_file_type(file_type):
+    """
+    UI-friendly parser for file_type values.
+
+    Returns:
+        (label, ft_int):
+          - label: human-readable label (enum name or original value)
+          - ft_int: integer enum value (or None if unknown)
+
+    Unlike actions._normalize_file_type, this helper:
+      - never raises ValidationError
+      - accepts unknown values and just returns (original_value, None)
+    """
+    if file_type is None:
+        return None, None
+
+    label = file_type
+    ft_int = None
+    try:
+        ft_int = int(file_type)
+        label = IATIFileTypes(ft_int).name
+    except Exception:
+        # tal vez venga como nombre del enum
+        try:
+            ft_int = IATIFileTypes[file_type].value
+        except Exception:
+            pass
+    return label, ft_int

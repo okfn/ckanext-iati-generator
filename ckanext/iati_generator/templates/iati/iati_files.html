@@ -7,31 +7,33 @@
     <table class="table table-striped table-bordered">
       <thead>
         <tr>
+          <th>{{ _("Namespace") }}</th>
           <th>{{ _("File type") }}</th>
           <th>{{ _("Resource") }}</th>
           <th>{{ _("Validation") }}</th>
           <th>{{ _("Notes") }}</th>
         </tr>
       </thead>
-      <tbody>
+       <tbody>
         {% for row in iati_files %}
           <tr>
+            <td>{{ row.namespace }}</td>
             <td>{{ row.file_type }}</td>
             <td>
-              {# link text = resource name; link goes to the resource page #}
-              <a href="{{ h.url_for('resource.read', id=row.dataset_name, resource_id=row.resource_id) }}">
+                {# the blueprint already provides us with the resource URL #}
+              <a href="{{ row.resource_url }}">
                 {{ row.resource_name }}
               </a>
             </td>
             <td class="status-cell">
               {% if row.valid %}
-              <span class="bg bg-valid">
-                {{ _('Valid') }}
-              </span>
+                <span class="bg bg-valid">
+                  {{ _('Valid') }}
+                </span>
               {% else %}
-              <span class="bg bg-invalid">
-                {{ _('Invalid') }}
-              </span>
+                <span class="bg bg-invalid">
+                  {{ _('Invalid') }}
+                </span>
               {% endif %}
             </td>
             <td>{{ row.notes }}</td>

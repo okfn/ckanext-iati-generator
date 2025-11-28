@@ -343,6 +343,12 @@ def iati_resources_list(context, data_dict=None):
     """
     Return a list of resources with IATIFile records, including dataset info.
     This fn returns ALL resources with IATIFile, no pagination.
+
+    Each row contains:
+      - namespace
+      - resource: {...}
+      - dataset: {...}
+      - iati_file: IATIFile.as_dict()
     """
     data_dict = data_dict or {}
     toolkit.check_access("iati_file_list", context, data_dict)
@@ -350,22 +356,37 @@ def iati_resources_list(context, data_dict=None):
     files_by_resource = h.iati_files_by_resource()
 
     results = []
-    # Keep datasets data but request it only once
     datasets = {}
+
     for resource_id, iati_file in files_by_resource.items():
+        # resource
         res = toolkit.get_action("resource_show")(context, {"id": resource_id})
         package_id = res["package_id"]
+
+        # dataset (cache to avoid multiple calls)
         if package_id not in datasets:
             pkg = toolkit.get_action("package_show")(context, {"id": package_id})
             datasets[package_id] = pkg
         else:
             pkg = datasets[package_id]
 
+        iati_dict = iati_file.as_dict()
+
         results.append({
+            "namespace": iati_dict.get("namespace"),
             "resource": res,
             "dataset": pkg,
-            "iati_file": iati_file.as_dict(),
+            "iati_file": iati_dict,
         })
+
+    # Sort by dataset.name, then resource.name, then file_type
+    results.sort(
+        key=lambda r: (
+            (r["dataset"]["name"] or "").lower(),
+            (r["resource"]["name"] or "").lower(),
+            (r["iati_file"]["file_type"] or ""),
+        )
+    )
 
     return {
         "count": len(results),
