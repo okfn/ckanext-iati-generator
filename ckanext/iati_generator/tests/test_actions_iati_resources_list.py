@@ -4,8 +4,9 @@ import pytest
 from ckan.tests import helpers, factories
 from ckan import model
 
-from ckanext.iati_generator.models.iati_files import IATIFile, DEFAULT_NAMESPACE
+from ckanext.iati_generator.models.iati_files import DEFAULT_NAMESPACE
 from ckanext.iati_generator.models.enums import IATIFileTypes
+from ckanext.iati_generator.tests.factories import IATIFileFactory
 
 
 @pytest.fixture
@@ -39,19 +40,13 @@ class TestIatiResourcesList:
             - correct resource/dataset
             - iati_file info (file_type, is_valid, last_error) properly mapped
         """
-        session = model.Session
 
         # Create an IATIFile linked to the resource
-        iati_file = IATIFile(
-            namespace=DEFAULT_NAMESPACE,
+        IATIFileFactory(
             file_type=IATIFileTypes.ORGANIZATION_EXPENDITURE_FILE.value,
-            resource_id=setup_data.res["id"],
+            is_valid=False,
+            last_error="boom!",
         )
-        iati_file.is_valid = False
-        iati_file.last_error = "boom!"
-        session.add(iati_file)
-        session.commit()
-
         # Context as sysadmin (to pass the check_access)
         context = {"user": setup_data.sysadmin["name"]}
 
@@ -98,17 +93,14 @@ class TestIatiResourcesList:
         when is_valid=True
         """
         from datetime import datetime
-        session = model.Session
 
-        iati_file = IATIFile(
-            namespace=DEFAULT_NAMESPACE,
+        # Create an IATIFile with success date using the factory
+        IATIFileFactory(
             file_type=IATIFileTypes.ORGANIZATION_MAIN_FILE.value,
-            resource_id=setup_data.res["id"],
+            is_valid=True,
+            last_processed_success=datetime(2025, 11, 27, 10, 30),
+            resource_id=setup_data.res["id"]
         )
-        iati_file.is_valid = True
-        iati_file.last_processed_success = datetime(2025, 11, 27, 10, 30)
-        session.add(iati_file)
-        session.commit()
 
         context = {"user": setup_data.sysadmin["name"]}
         result = helpers.call_action("iati_resources_list", context=context)
@@ -138,21 +130,21 @@ class TestIatiResourcesList:
         )
 
         # First IATIFile
-        iati1 = IATIFile(
+        iati1 = IATIFileFactory(
             namespace=DEFAULT_NAMESPACE,
             file_type=IATIFileTypes.ORGANIZATION_MAIN_FILE.value,
             resource_id=setup_data.res["id"],
+            is_valid=True,
         )
-        iati1.is_valid = True
 
         # Second IATIFile (should appear first due to ordering)
-        iati2 = IATIFile(
+        iati2 = IATIFileFactory(
             namespace=DEFAULT_NAMESPACE,
             file_type=IATIFileTypes.ORGANIZATION_EXPENDITURE_FILE.value,
             resource_id=res2["id"],
+            is_valid=False,
+            last_error="Error en el segundo",
         )
-        iati2.is_valid = False
-        iati2.last_error = "Error en el segundo"
 
         session.add_all([iati1, iati2])
         session.commit()
@@ -172,16 +164,13 @@ class TestIatiResourcesList:
         """
         Verify that multiple namespaces are handled correctly
         """
-        session = model.Session
 
-        # IATIFile with custom namespace
-        iati_file = IATIFile(
+        # IATIFile with custom namespace using factory
+        IATIFileFactory(
             namespace="custom-ns",
             file_type=IATIFileTypes.ORGANIZATION_MAIN_FILE.value,
             resource_id=setup_data.res["id"],
         )
-        session.add(iati_file)
-        session.commit()
 
         context = {"user": setup_data.sysadmin["name"]}
         result = helpers.call_action("iati_resources_list", context=context)
@@ -194,15 +183,12 @@ class TestIatiResourcesList:
         """
         Verify that all resource fields are returned correctly
         """
-        session = model.Session
 
-        iati_file = IATIFile(
+        IATIFileFactory(
             namespace=DEFAULT_NAMESPACE,
             file_type=IATIFileTypes.ORGANIZATION_MAIN_FILE.value,
             resource_id=setup_data.res["id"],
         )
-        session.add(iati_file)
-        session.commit()
 
         context = {"user": setup_data.sysadmin["name"]}
         result = helpers.call_action("iati_resources_list", context=context)
@@ -220,15 +206,12 @@ class TestIatiResourcesList:
         """
         Verify that all dataset fields are returned correctly
         """
-        session = model.Session
 
-        iati_file = IATIFile(
+        IATIFileFactory(
             namespace=DEFAULT_NAMESPACE,
             file_type=IATIFileTypes.ORGANIZATION_MAIN_FILE.value,
             resource_id=setup_data.res["id"],
         )
-        session.add(iati_file)
-        session.commit()
 
         context = {"user": setup_data.sysadmin["name"]}
         result = helpers.call_action("iati_resources_list", context=context)
