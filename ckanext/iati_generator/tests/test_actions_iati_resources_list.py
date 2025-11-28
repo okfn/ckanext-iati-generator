@@ -46,6 +46,7 @@ class TestIatiResourcesList:
             file_type=IATIFileTypes.ORGANIZATION_EXPENDITURE_FILE.value,
             is_valid=False,
             last_error="boom!",
+            resource_id=setup_data.res["id"],
         )
         # Context as sysadmin (to pass the check_access)
         context = {"user": setup_data.sysadmin["name"]}
