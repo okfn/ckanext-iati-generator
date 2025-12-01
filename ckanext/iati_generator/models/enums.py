@@ -4,7 +4,7 @@ from enum import Enum
 class IATIFileTypes(Enum):
     """ IATI elements are contained in files for each type of data """
     # ------------------------------------------------------------------
-    # ORGANISATION FILE TYPES
+    # ORGANIZATION FILE TYPES
     # ------------------------------------------------------------------
     ORGANIZATION_MAIN_FILE = 100
     ORGANIZATION_NAMES_FILE = 110
