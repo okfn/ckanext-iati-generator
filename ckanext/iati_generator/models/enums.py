@@ -14,6 +14,8 @@ class IATIFileTypes(Enum):
 
     # ------------------------------------------------------------------
     # ACTIVITY FILE TYPES
+    # Always sync IatiMultiCsvConverter.csv_files
+    # https://github.com/okfn/okfn_iati/blob/main/src/okfn_iati/multi_csv_converter.py#L56
     # ------------------------------------------------------------------
     ACTIVITY_MAIN_FILE = 200
     ACTIVITY_BUDGET_FILE = 210
