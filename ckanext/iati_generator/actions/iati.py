@@ -61,7 +61,7 @@ def iati_file_create(context, data_dict):
     except Exception:
         raise toolkit.ValidationError({'file_type': 'Invalid IATIFileTypes value'})
 
-    data_dict['file_type'] = _normalize_file_type(data_dict['file_type'])
+    data_dict['file_type'] = h.normalize_file_type_strict(data_dict['file_type'])
 
     file = IATIFile(
         namespace=data_dict.get('namespace', DEFAULT_NAMESPACE),
@@ -70,29 +70,6 @@ def iati_file_create(context, data_dict):
     )
     file.save()
     return toolkit.get_action('iati_file_show')(context, {'id': file.id})
-
-
-# --- normalize inputs ---
-
-def _normalize_file_type(value):
-    """
-    Normalize file_type input to its integer value.
-    Accepts Enum name (str) or integer value.
-    Raises ValidationError if invalid.
-    """
-    try:
-        ft = value
-        if isinstance(ft, str):
-            if ft.isdigit():
-                ft = int(ft)
-                _ = IATIFileTypes(ft)
-            else:
-                ft = IATIFileTypes[ft].value
-        else:
-            _ = IATIFileTypes(ft)
-        return int(ft)
-    except (KeyError, ValueError, TypeError):
-        raise toolkit.ValidationError({'file_type': 'Invalid IATIFileTypes value'})
 
 
 def iati_file_update(context, data_dict):
@@ -114,7 +91,7 @@ def iati_file_update(context, data_dict):
 
     # file_type
     if 'file_type' in data_dict:
-        updates['file_type'] = _normalize_file_type(data_dict['file_type'])
+        updates['file_type'] = h.normalize_file_type_strict(data_dict['file_type'])
 
     # is_valid
     is_valid_present = 'is_valid' in data_dict

@@ -1,4 +1,5 @@
 import logging
+from ckan.plugins import toolkit
 from ckan import model
 from ckanext.iati_generator.models.enums import IATIFileTypes
 from ckanext.iati_generator.models.iati_files import DEFAULT_NAMESPACE, IATIFile
@@ -22,11 +23,6 @@ def iati_file_types(field=None):
             "label": label,
         })
     return options
-
-
-# ===========================================================================
-# Helpers para mapear recursos <-> IATIFile y extras
-# ===========================================================================
 
 
 def iati_files_by_resource():
@@ -87,33 +83,37 @@ def extract_namespace_from_resource(res):
     return DEFAULT_NAMESPACE
 
 
-# Candidates
-
-def normalize_file_type(file_type):
+def normalize_file_type_strict(value):
     """
-    UI-friendly parser for file_type values.
+    Normaliza file_type a entero.
+    Acepta:
+        - int
+        - string numérica ("100")
+        - nombre del enum ("ORGANIZATION_MAIN_FILE")
 
-    Returns:
-        (label, ft_int):
-          - label: human-readable label (enum name or original value)
-          - ft_int: integer enum value (or None if unknown)
+    Retorna:
+        int file_type
 
-    Unlike actions._normalize_file_type, this helper:
-      - never raises ValidationError
-      - accepts unknown values and just returns (original_value, None)
+    Lanza ValidationError si no es válido.
     """
-    if file_type is None:
-        return None, None
-
-    label = file_type
-    ft_int = None
     try:
-        ft_int = int(file_type)
-        label = IATIFileTypes(ft_int).name
+        ft = value
+        # string?
+        if isinstance(ft, str):
+            # ¿es número?
+            if ft.isdigit():
+                ft = int(ft)
+                IATIFileTypes(ft)  # validar que exista
+            else:
+                # es nombre del enum
+                ft = IATIFileTypes[ft].value
+        else:
+            # debe ser int (o algo casteable a int)
+            IATIFileTypes(ft)  # valida que exista
+
+        return int(ft)
+
     except Exception:
-        # tal vez venga como nombre del enum
-        try:
-            ft_int = IATIFileTypes[file_type].value
-        except Exception:
-            pass
-    return label, ft_int
+        raise toolkit.ValidationError(
+            {"file_type": "Invalid IATIFileTypes value"}
+        )
