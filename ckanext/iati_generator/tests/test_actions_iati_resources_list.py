@@ -2,7 +2,6 @@ from types import SimpleNamespace
 import pytest
 
 from ckan.tests import helpers, factories
-from ckan import model
 
 from ckanext.iati_generator.models.iati_files import DEFAULT_NAMESPACE
 from ckanext.iati_generator.models.enums import IATIFileTypes
@@ -120,7 +119,6 @@ class TestIatiResourcesList:
         Verify that multiple IATIFiles are returned correctly
         and that they are ordered
         """
-        session = model.Session
 
         # Create second resource and dataset
         pkg2 = factories.Dataset(owner_org=setup_data.org["id"], name="dataset-b")
@@ -131,7 +129,7 @@ class TestIatiResourcesList:
         )
 
         # First IATIFile
-        iati1 = IATIFileFactory(
+        IATIFileFactory(
             namespace=DEFAULT_NAMESPACE,
             file_type=IATIFileTypes.ORGANIZATION_MAIN_FILE.value,
             resource_id=setup_data.res["id"],
@@ -139,7 +137,7 @@ class TestIatiResourcesList:
         )
 
         # Second IATIFile (should appear first due to ordering)
-        iati2 = IATIFileFactory(
+        IATIFileFactory(
             namespace=DEFAULT_NAMESPACE,
             file_type=IATIFileTypes.ORGANIZATION_EXPENDITURE_FILE.value,
             resource_id=res2["id"],
