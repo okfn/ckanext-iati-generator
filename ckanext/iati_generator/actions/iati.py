@@ -382,8 +382,7 @@ def iati_resources_list(context, data_dict=None):
     # Sort by dataset.name, then resource.name, then file_type
     results.sort(
         key=lambda r: (
-            (r["dataset"]["name"] or "").lower(),
-            (r["resource"]["name"] or "").lower(),
+            (r["namespace"] or "").lower(),
             (r["iati_file"]["file_type"] or ""),
         )
     )
