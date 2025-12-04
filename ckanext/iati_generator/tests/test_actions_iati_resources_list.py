@@ -147,9 +147,6 @@ class TestIatiResourcesList:
             last_error="Error en el segundo",
         )
 
-        session.add_all([iati1, iati2])
-        session.commit()
-
         context = {"user": setup_data.sysadmin["name"]}
         result = helpers.call_action("iati_resources_list", context=context)
 
