@@ -51,23 +51,9 @@ def extract_file_type_from_resource(res):
     if not file_type:
         return None, None
 
-    # 1) If it's a number (e.g. "100")
-    if isinstance(file_type, int) or (isinstance(file_type, str) and file_type.isdigit()):
-        ft_int = int(file_type)
-
-        # validate that it exists in the enum
-        if ft_int in [e.value for e in IATIFileTypes]:
-            return ft_int, IATIFileTypes(ft_int).name
-
-        return None, str(file_type)  # invalid value → return raw
-
-    # 2) If it's an enum name (e.g. "ORGANIZATION_MAIN_FILE")
-    if isinstance(file_type, str) and file_type in IATIFileTypes.__members__:
-        enum_member = IATIFileTypes[file_type]
-        return enum_member.value, enum_member.name
-
-    # 3) Last resort → unknown value
-    return None, str(file_type)
+    int_filetype = normalize_file_type_strict(file_type)
+    label = IATIFileTypes(int_filetype).name
+    return int_filetype, label
 
 
 def extract_namespace_from_resource(res):
