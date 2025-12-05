@@ -1,4 +1,5 @@
 import logging
+from ckan.plugins import toolkit
 from ckan import model
 from ckanext.iati_generator.models.enums import IATIFileTypes
 from ckanext.iati_generator.models.iati_files import DEFAULT_NAMESPACE, IATIFile
@@ -22,11 +23,6 @@ def iati_file_types(field=None):
             "label": label,
         })
     return options
-
-
-# ===========================================================================
-# Helpers para mapear recursos <-> IATIFile y extras
-# ===========================================================================
 
 
 def iati_files_by_resource():
@@ -55,20 +51,9 @@ def extract_file_type_from_resource(res):
     if not file_type:
         return None, None
 
-    # Try as integer
-    try:
-        ft_int = int(file_type)
-        return ft_int, IATIFileTypes(ft_int).name
-    except Exception:
-        pass
-
-    # Try as Enum name
-    try:
-        enum_member = IATIFileTypes[file_type]
-        return enum_member.value, enum_member.name
-    except Exception:
-        # Last resort: leave the label as is (without enum mapping)
-        return None, file_type
+    int_filetype = normalize_file_type_strict(file_type)
+    label = IATIFileTypes(int_filetype).name
+    return int_filetype, label
 
 
 def extract_namespace_from_resource(res):
@@ -85,3 +70,39 @@ def extract_namespace_from_resource(res):
             return extra.get("value")
 
     return DEFAULT_NAMESPACE
+
+
+def normalize_file_type_strict(value):
+    """
+    Normalizes file_type to integer.
+    Accepts:
+        - int
+        - numeric string ("100")
+        - enum name ("ORGANIZATION_MAIN_FILE")
+
+    Returns:
+        int file_type
+
+    Raises ValidationError if not valid.
+    """
+    try:
+        ft = value
+        # string?
+        if isinstance(ft, str):
+            # is it a number?
+            if ft.isdigit():
+                ft = int(ft)
+                IATIFileTypes(ft)  # validate it exists
+            else:
+                # it's an enum name
+                ft = IATIFileTypes[ft].value
+        else:
+            # must be int (or castable to int)
+            IATIFileTypes(ft)  # validate it exists
+
+        return int(ft)
+
+    except Exception:
+        raise toolkit.ValidationError(
+            {"file_type": "Invalid IATIFileTypes value"}
+        )

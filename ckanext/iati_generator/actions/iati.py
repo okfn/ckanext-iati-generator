@@ -47,21 +47,10 @@ def iati_file_create(context, data_dict):
         raise toolkit.ValidationError({'resource_id': 'Missing required field resource_id'})
     if 'file_type' not in data_dict:
         raise toolkit.ValidationError({'file_type': 'Missing required field file_type'})
-    try:
-        # accepts int, numeric string ("100"), or enum name ("ORGANIZATION_MAIN_FILE")
-        ft = data_dict['file_type']
-        if isinstance(ft, str):
-            if ft.isdigit():
-                data_dict['file_type'] = int(ft)
-                _ = IATIFileTypes(data_dict['file_type'])  # value
-            else:
-                data_dict['file_type'] = IATIFileTypes[ft].value
-        else:
-            _ = IATIFileTypes(ft)  # validates existence
-    except Exception:
-        raise toolkit.ValidationError({'file_type': 'Invalid IATIFileTypes value'})
 
-    data_dict['file_type'] = _normalize_file_type(data_dict['file_type'])
+    data_dict['file_type'] = h.normalize_file_type_strict(
+        data_dict['file_type']
+    )
 
     file = IATIFile(
         namespace=data_dict.get('namespace', DEFAULT_NAMESPACE),
@@ -70,29 +59,6 @@ def iati_file_create(context, data_dict):
     )
     file.save()
     return toolkit.get_action('iati_file_show')(context, {'id': file.id})
-
-
-# --- normalize inputs ---
-
-def _normalize_file_type(value):
-    """
-    Normalize file_type input to its integer value.
-    Accepts Enum name (str) or integer value.
-    Raises ValidationError if invalid.
-    """
-    try:
-        ft = value
-        if isinstance(ft, str):
-            if ft.isdigit():
-                ft = int(ft)
-                _ = IATIFileTypes(ft)
-            else:
-                ft = IATIFileTypes[ft].value
-        else:
-            _ = IATIFileTypes(ft)
-        return int(ft)
-    except (KeyError, ValueError, TypeError):
-        raise toolkit.ValidationError({'file_type': 'Invalid IATIFileTypes value'})
 
 
 def iati_file_update(context, data_dict):
@@ -114,7 +80,7 @@ def iati_file_update(context, data_dict):
 
     # file_type
     if 'file_type' in data_dict:
-        updates['file_type'] = _normalize_file_type(data_dict['file_type'])
+        updates['file_type'] = h.normalize_file_type_strict(data_dict['file_type'])
 
     # is_valid
     is_valid_present = 'is_valid' in data_dict
@@ -285,18 +251,10 @@ def iati_file_list(context, data_dict=None):
         val = str(data_dict["valid"]).lower() in ("true", "1", "yes")
         q_base = q_base.filter(IATIFile.is_valid == val)
 
+    # --- file_type filter
     if data_dict.get("file_type") is not None:
-        ft = data_dict["file_type"]
-        try:
-            # accepts enum name or int
-            if isinstance(ft, str) and not ft.isdigit():
-                ft = IATIFileTypes[ft].value
-            else:
-                ft = int(ft)
-            _ = IATIFileTypes(ft)  # validates existence
-            q_base = q_base.filter(IATIFile.file_type == ft)
-        except Exception:
-            raise toolkit.ValidationError({"file_type": "Invalid IATIFileTypes value"})
+        ft = h.normalize_file_type_strict(data_dict["file_type"])
+        q_base = q_base.filter(IATIFile.file_type == ft)
 
     # -------- total count without pagination
     count_q = Session.query(func.count()).select_from(q_base.subquery())
@@ -305,12 +263,15 @@ def iati_file_list(context, data_dict=None):
     # -------- ordering + pagination
     q = q_base.order_by(Package.name.asc(), Resource.name.asc()).offset(start).limit(rows)
 
+    file_type_map = {e.value: e.name for e in IATIFileTypes}
+
     results = []
     for r in q.all():
-        try:
-            file_type_label = IATIFileTypes(r.file_type).name
-        except Exception:
-            file_type_label = str(r.file_type or "")
+        # map file_type int to enum name
+        file_type_label = file_type_map.get(
+            r.file_type,
+            str(r.file_type or "")
+        )
 
         results.append({
             "id": r.iati_id,
@@ -343,6 +304,12 @@ def iati_resources_list(context, data_dict=None):
     """
     Return a list of resources with IATIFile records, including dataset info.
     This fn returns ALL resources with IATIFile, no pagination.
+
+    Each row contains:
+      - namespace
+      - resource: {...}
+      - dataset: {...}
+      - iati_file: IATIFile.as_dict()
     """
     data_dict = data_dict or {}
     toolkit.check_access("iati_file_list", context, data_dict)
@@ -350,22 +317,36 @@ def iati_resources_list(context, data_dict=None):
     files_by_resource = h.iati_files_by_resource()
 
     results = []
-    # Keep datasets data but request it only once
     datasets = {}
+
     for resource_id, iati_file in files_by_resource.items():
+        # resource
         res = toolkit.get_action("resource_show")(context, {"id": resource_id})
         package_id = res["package_id"]
+
+        # dataset (cache to avoid multiple calls)
         if package_id not in datasets:
             pkg = toolkit.get_action("package_show")(context, {"id": package_id})
             datasets[package_id] = pkg
         else:
             pkg = datasets[package_id]
 
+        iati_dict = iati_file.as_dict()
+
         results.append({
+            "namespace": iati_dict.get("namespace"),
             "resource": res,
             "dataset": pkg,
-            "iati_file": iati_file.as_dict(),
+            "iati_file": iati_dict,
         })
+
+    # Sort by dataset.name, then resource.name, then file_type
+    results.sort(
+        key=lambda r: (
+            (r["namespace"] or "").lower(),
+            (r["iati_file"]["file_type"] or ""),
+        )
+    )
 
     return {
         "count": len(results),
