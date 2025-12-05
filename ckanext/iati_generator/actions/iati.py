@@ -47,21 +47,10 @@ def iati_file_create(context, data_dict):
         raise toolkit.ValidationError({'resource_id': 'Missing required field resource_id'})
     if 'file_type' not in data_dict:
         raise toolkit.ValidationError({'file_type': 'Missing required field file_type'})
-    try:
-        # accepts int, numeric string ("100"), or enum name ("ORGANIZATION_MAIN_FILE")
-        ft = data_dict['file_type']
-        if isinstance(ft, str):
-            if ft.isdigit():
-                data_dict['file_type'] = int(ft)
-                _ = IATIFileTypes(data_dict['file_type'])  # value
-            else:
-                data_dict['file_type'] = IATIFileTypes[ft].value
-        else:
-            _ = IATIFileTypes(ft)  # validates existence
-    except Exception:
-        raise toolkit.ValidationError({'file_type': 'Invalid IATIFileTypes value'})
 
-    data_dict['file_type'] = h.normalize_file_type_strict(data_dict['file_type'])
+    data_dict['file_type'] = h.normalize_file_type_strict(
+        data_dict['file_type']
+    )
 
     file = IATIFile(
         namespace=data_dict.get('namespace', DEFAULT_NAMESPACE),
@@ -262,18 +251,10 @@ def iati_file_list(context, data_dict=None):
         val = str(data_dict["valid"]).lower() in ("true", "1", "yes")
         q_base = q_base.filter(IATIFile.is_valid == val)
 
+    # --- file_type filter
     if data_dict.get("file_type") is not None:
-        ft = data_dict["file_type"]
-        try:
-            # accepts enum name or int
-            if isinstance(ft, str) and not ft.isdigit():
-                ft = IATIFileTypes[ft].value
-            else:
-                ft = int(ft)
-            _ = IATIFileTypes(ft)  # validates existence
-            q_base = q_base.filter(IATIFile.file_type == ft)
-        except Exception:
-            raise toolkit.ValidationError({"file_type": "Invalid IATIFileTypes value"})
+        ft = h.normalize_file_type_strict(data_dict["file_type"])
+        q_base = q_base.filter(IATIFile.file_type == ft)
 
     # -------- total count without pagination
     count_q = Session.query(func.count()).select_from(q_base.subquery())
@@ -282,12 +263,15 @@ def iati_file_list(context, data_dict=None):
     # -------- ordering + pagination
     q = q_base.order_by(Package.name.asc(), Resource.name.asc()).offset(start).limit(rows)
 
+    file_type_map = {e.value: e.name for e in IATIFileTypes}
+
     results = []
     for r in q.all():
-        try:
-            file_type_label = IATIFileTypes(r.file_type).name
-        except Exception:
-            file_type_label = str(r.file_type or "")
+        # map file_type int to enum name
+        file_type_label = file_type_map.get(
+            r.file_type,
+            str(r.file_type or "")
+        )
 
         results.append({
             "id": r.iati_id,
