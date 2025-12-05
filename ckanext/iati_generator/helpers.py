@@ -51,20 +51,23 @@ def extract_file_type_from_resource(res):
     if not file_type:
         return None, None
 
-    # Try as integer
-    try:
+    # 1) If it's a number (e.g. "100")
+    if isinstance(file_type, int) or (isinstance(file_type, str) and file_type.isdigit()):
         ft_int = int(file_type)
-        return ft_int, IATIFileTypes(ft_int).name
-    except Exception:
-        pass
 
-    # Try as Enum name
-    try:
+        # validate that it exists in the enum
+        if ft_int in [e.value for e in IATIFileTypes]:
+            return ft_int, IATIFileTypes(ft_int).name
+
+        return None, str(file_type)  # invalid value → return raw
+
+    # 2) If it's an enum name (e.g. "ORGANIZATION_MAIN_FILE")
+    if isinstance(file_type, str) and file_type in IATIFileTypes.__members__:
         enum_member = IATIFileTypes[file_type]
         return enum_member.value, enum_member.name
-    except Exception:
-        # Last resort: leave the label as is (without enum mapping)
-        return None, file_type
+
+    # 3) Last resort → unknown value
+    return None, str(file_type)
 
 
 def extract_namespace_from_resource(res):
@@ -85,31 +88,31 @@ def extract_namespace_from_resource(res):
 
 def normalize_file_type_strict(value):
     """
-    Normaliza file_type a entero.
-    Acepta:
+    Normalizes file_type to integer.
+    Accepts:
         - int
-        - string numérica ("100")
-        - nombre del enum ("ORGANIZATION_MAIN_FILE")
+        - numeric string ("100")
+        - enum name ("ORGANIZATION_MAIN_FILE")
 
-    Retorna:
+    Returns:
         int file_type
 
-    Lanza ValidationError si no es válido.
+    Raises ValidationError if not valid.
     """
     try:
         ft = value
         # string?
         if isinstance(ft, str):
-            # ¿es número?
+            # is it a number?
             if ft.isdigit():
                 ft = int(ft)
-                IATIFileTypes(ft)  # validar que exista
+                IATIFileTypes(ft)  # validate it exists
             else:
-                # es nombre del enum
+                # it's an enum name
                 ft = IATIFileTypes[ft].value
         else:
-            # debe ser int (o algo casteable a int)
-            IATIFileTypes(ft)  # valida que exista
+            # must be int (or castable to int)
+            IATIFileTypes(ft)  # validate it exists
 
         return int(ft)
 
