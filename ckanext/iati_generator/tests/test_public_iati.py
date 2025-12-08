@@ -143,3 +143,42 @@ class TestPublicIatiEndpoints:
             status=404,
         )
         assert "No activities XML" in res.body
+
+    def test_activities_ignores_invalid_files(self, app):
+        """
+        Should ignore records with is_valid=False for activities endpoint.
+        """
+        namespace = "test-namespace-act-invalid"
+
+        invalid_res = factories.Resource(url="http://example.org/invalid_act.xml")
+        valid_res = factories.Resource(url="http://example.org/valid_act.xml")
+
+        base_time = datetime(2025, 1, 1)
+
+        # INVALID file with newer date
+        create_iati_file(
+            resource_id=invalid_res["id"],
+            namespace=namespace,
+            file_type=IATIFileTypes.ACTIVITY_MAIN_FILE,
+            is_valid=False,
+            last_processed_success=base_time + timedelta(days=2),
+        )
+
+        # VALID file with older date
+        create_iati_file(
+            resource_id=valid_res["id"],
+            namespace=namespace,
+            file_type=IATIFileTypes.ACTIVITY_MAIN_FILE,
+            is_valid=True,
+            last_processed_success=base_time,
+        )
+
+        res = app.get(
+            f"/iati/{namespace}/activities.xml",
+            status=302,
+            follow_redirects=False,
+        )
+
+        assert res.status_code == 302
+        # Should choose the valid one, even though the invalid is newer
+        assert res.headers["Location"] == valid_res["url"]
