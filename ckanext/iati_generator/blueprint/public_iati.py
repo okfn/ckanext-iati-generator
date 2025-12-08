@@ -10,11 +10,13 @@ iati_public = Blueprint("iati_public", __name__, url_prefix="/iati")
 
 def _find_latest_resource_url(namespace, file_type):
     """
-    Docstring for _find_latest_resource_url
+    Find the latest valid IATI file for a given namespace and file type.
 
-    :param namespace: Description
-    :param file_type: Description
+    :param namespace: The IATI namespace identifier.
+    :param file_type: The IATI file type (enum value).
+    :return: The resource URL, or None if no valid file is found.
     """
+
     Session = model.Session
     q = (
         Session.query(IATIFile)
@@ -23,6 +25,7 @@ def _find_latest_resource_url(namespace, file_type):
                 IATIFile.namespace == namespace,
                 IATIFile.file_type == file_type,
                 IATIFile.is_valid.is_(True),
+                IATIFile.last_processed_success.isnot(None),
             )
         )
         .order_by(IATIFile.last_processed_success.desc())
@@ -35,9 +38,12 @@ def _find_latest_resource_url(namespace, file_type):
 
     # get full CKAN resource dict
     context = {"ignore_auth": True}
-    res_dict = toolkit.get_action("resource_show")(context, {"id": q.resource_id})
-
-    return res_dict.get("url")
+    try:
+        res_dict = toolkit.get_action("resource_show")(context, {"id": q.resource_id})
+        return res_dict.get("url")
+    except toolkit.ObjectNotFound:
+        # Resource was deleted, but IATIFile record still exists
+        return None
 
 
 @iati_public.route("/<namespace>/organization.xml")
