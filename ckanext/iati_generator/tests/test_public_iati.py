@@ -11,18 +11,18 @@ from ckanext.iati_generator.tests.factories import create_iati_file
 class TestPublicIatiEndpoints:
     def test_org_redirects_to_latest_valid_file(self, app):
         """
-        /iati/<namespace>/organization.xml debe redirigir al recurso
-        más reciente (last_processed_success) y válido (is_valid=True).
+        /iati/<namespace>/organization.xml should redirect to the
+        most recent (last_processed_success) and valid (is_valid=True) resource.
         """
         namespace = "test-namespace-org"
 
-        # Creamos dos recursos con URLs distintas
+        # Create two resources with different URLs
         older_res = factories.Resource(url="http://example.org/old_org.xml")
         newer_res = factories.Resource(url="http://example.org/new_org.xml")
 
         base_time = datetime(2025, 1, 1)
 
-        # IATIFile más viejo
+        # Older IATIFile
         create_iati_file(
             resource_id=older_res["id"],
             namespace=namespace,
@@ -31,7 +31,7 @@ class TestPublicIatiEndpoints:
             last_processed_success=base_time,
         )
 
-        # IATIFile más nuevo
+        # Newer IATIFile
         create_iati_file(
             resource_id=newer_res["id"],
             namespace=namespace,
@@ -40,19 +40,19 @@ class TestPublicIatiEndpoints:
             last_processed_success=base_time + timedelta(days=1),
         )
 
-        # Llamamos al endpoint público (sin autenticación)
+        # Call the public endpoint (without authentication)
         res = app.get(
             f"/iati/{namespace}/organization.xml",
             status=302,
             follow_redirects=False,
         )
         assert res.status_code == 302
-        # Debe redirigir al recurso más nuevo
+        # Should redirect to the newest resource
         assert res.headers["Location"] == newer_res["url"]
 
     def test_org_ignores_invalid_files(self, app):
         """
-        Debe ignorar registros con is_valid=False.
+        Should ignore records with is_valid=False.
         """
         namespace = "test-namespace-org-invalid"
 
@@ -61,7 +61,7 @@ class TestPublicIatiEndpoints:
 
         base_time = datetime(2025, 1, 1)
 
-        # Archivo INVALIDO con fecha más nueva
+        # INVALID file with newer date
         create_iati_file(
             resource_id=invalid_res["id"],
             namespace=namespace,
@@ -70,7 +70,7 @@ class TestPublicIatiEndpoints:
             last_processed_success=base_time + timedelta(days=2),
         )
 
-        # Archivo VALIDO con fecha más vieja
+        # VALID file with older date
         create_iati_file(
             resource_id=valid_res["id"],
             namespace=namespace,
@@ -85,12 +85,12 @@ class TestPublicIatiEndpoints:
             follow_redirects=False,
         )
         assert res.status_code == 302
-        # Debe elegir el válido, aunque el inválido sea más nuevo
+        # Should choose the valid one, even though the invalid is newer
         assert res.headers["Location"] == valid_res["url"]
 
     def test_org_returns_404_when_no_files(self, app):
         """
-        Si no hay ningún IATIFile para ese namespace+tipo, debe dar 404.
+        If there is no IATIFile for that namespace+type, should return 404.
         """
         namespace = "no-such-namespace"
         res = app.get(f"/iati/{namespace}/organization.xml", status=404)
@@ -98,8 +98,8 @@ class TestPublicIatiEndpoints:
 
     def test_activities_redirects_to_latest_valid_file(self, app):
         """
-        /iati/<namespace>/activities.xml debe redirigir al último
-        IATIFile válido del tipo ACTIVITY_MAIN_FILE.
+        /iati/<namespace>/activities.xml should redirect to the last
+        valid IATIFile of type ACTIVITY_MAIN_FILE.
         """
         namespace = "test-namespace-act"
 
@@ -135,10 +135,7 @@ class TestPublicIatiEndpoints:
 
     def test_activities_returns_404_when_no_files(self, app):
         """
-        Docstring for test_activities_returns_404_when_no_files
-
-        :param self: Description
-        :param app: Description
+        Should return 404 when no activity files exist for the namespace.
         """
         namespace = "no-such-namespace-act"
         res = app.get(
