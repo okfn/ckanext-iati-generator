@@ -94,7 +94,7 @@ class TestPublicIatiEndpoints:
         """
         namespace = "no-such-namespace"
         res = app.get(f"/iati/{namespace}/organization.xml", status=404)
-        assert "No organization XML" in res.text
+        assert "No organization XML" in res.body
 
     def test_activities_redirects_to_latest_valid_file(self, app):
         """
@@ -142,4 +142,4 @@ class TestPublicIatiEndpoints:
             f"/iati/{namespace}/activities.xml",
             status=404,
         )
-        assert "No activities XML" in res.text
+        assert "No activities XML" in res.body
