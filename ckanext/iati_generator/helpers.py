@@ -1,8 +1,11 @@
 import logging
+from pathlib import Path
+
 from ckan.plugins import toolkit
 from ckan import model
 from ckanext.iati_generator.models.enums import IATIFileTypes
 from ckanext.iati_generator.models.iati_files import DEFAULT_NAMESPACE, IATIFile
+from ckanext.iati_generator.iati.resource import save_resource_data
 
 
 log = logging.getLogger(__name__)
@@ -125,3 +128,82 @@ def iati_namespaces():
         .all()
     )
     return [r[0] for r in rows if r[0]]
+
+def process_org_file_type(
+    context,
+    output_folder: Path,
+    filename: str,
+    file_type: IATIFileTypes,
+    namespace: str,
+    owner_org: str | None,
+    required: bool = True,
+    max_files: int | None = 1,
+) -> int:
+    """
+    Fetch all IATIFile records of a given organization file_type+namespace+owner_org,
+    download their CSV resource to `output_folder / filename` and track processing.
+
+    Returns:
+        int: number of successfully processed files.
+    """
+    log.info(f"Processing organization file type: {file_type.name} -> {filename}")
+
+    session = model.Session
+    query = (
+        session.query(IATIFile)
+        .filter(IATIFile.file_type == file_type.value)
+        .filter(IATIFile.namespace == namespace)
+    )
+
+    # Join with Resource and Package to filter by owner_org
+    if owner_org:
+        Resource = model.Resource
+        Package = model.Package
+        query = (
+            query
+            .join(Resource, IATIFile.resource_id == Resource.id)
+            .join(Package, Resource.package_id == Package.id)
+            .filter(Package.owner_org == owner_org)
+        )
+
+    org_files = query.all()
+
+    # Validate requirements
+    if len(org_files) == 0:
+        if required:
+            raise Exception(f"No organization IATI files of type {file_type.name} found.")
+        log.info(f"No files found for optional type {file_type.name}")
+        return 0
+
+    if max_files and len(org_files) > max_files:
+        raise Exception(
+            f"Expected no more than {max_files} organization IATI file(s) of type {file_type.name}, "
+            f"found {len(org_files)}."
+        )
+
+    processed_count = 0
+
+    for iati_file in org_files:
+        log.info(f"Processing IATI file: {iati_file}")
+        destination_path = output_folder / filename
+
+        try:
+            final_path = save_resource_data(iati_file.resource_id, str(destination_path))
+
+            if not final_path:
+                log.error(f"Failed to fetch data for resource ID: {iati_file.resource_id}")
+                error_message = "Failed to save resource data"
+                iati_file.track_processing(success=False, error_message=error_message)
+                continue
+
+            iati_file.track_processing(success=True)
+            processed_count += 1
+            log.info(f"Saved organization CSV data to {final_path}")
+
+        except Exception as e:
+            log.error(f"Error processing file {iati_file.resource_id}: {e}")
+            iati_file.track_processing(success=False, error_message=str(e))
+            if required:
+                raise
+
+    return processed_count
