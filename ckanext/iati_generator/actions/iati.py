@@ -371,122 +371,98 @@ def generate_organization_xml(context, data_dict):
     Generate IATI Organization XML for a given organization.
 
     Parameters (data_dict keys):
-      - owner_org (str, required): Organization ID to generate XML for.
       - namespace (str, optional): Namespace for the IATI file. Default: DEFAULT_NAMESPACE.
 
     Behavior:
       - Fetch all organization IATIFiles for the given owner_org+namespace.
       - Download the CSVs to a temporary folder org-<namespace>.
       - Run IatiOrganisationMultiCsvConverter.csv_folder_to_xml on that folder.
-      - Return the XML as a string and the local path of the generated file.
+      - Update the resource related to the FINAL_ORGANIZATION_FILE with the final XML.
     Returns:
       dict: {
         "success": <bool>,
         "message": <str>,
-        "xml_content": <str> (if successful),
-        "xml_file_path": <str> (path to generated XML file),
         "files_processed": <int> (number of CSV files processed)
       }
     """
     # Permissions: iati_auth.generate_organization_xml
     toolkit.check_access('generate_organization_xml', context, data_dict)
 
-    owner_org = data_dict.get('owner_org')
-    if not owner_org:
-        raise toolkit.ValidationError({'owner_org': 'Missing required field owner_org'})
-
     namespace = data_dict.get('namespace', DEFAULT_NAMESPACE)
 
-    try:
-        # Get organization details for logging
-        org = toolkit.get_action('organization_show')(context, {'id': owner_org})
-        org_name = org.get('name', owner_org)
+    log.info(f"Generating IATI Organization XML with namespace {namespace}")
 
-        log.info(f"Generating IATI Organization XML for {org_name} with namespace {namespace}")
+    # Create temporary folder for CSVs
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        org_folder = Path(tmp_dir) / f"org-{namespace}"
+        org_folder.mkdir(parents=True, exist_ok=True)
 
-        # Create temporary folder for CSVs
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            org_folder = Path(tmp_dir) / f"org-{namespace}"
-            org_folder.mkdir(parents=True, exist_ok=True)
+        # Processed organization file types
+        file_types_mapping = {
+            IATIFileTypes.ORGANIZATION_MAIN_FILE: ("organization.csv", True, 1),
+            IATIFileTypes.ORGANIZATION_NAMES_FILE: ("names.csv", False, 1),
+            IATIFileTypes.ORGANIZATION_BUDGET_FILE: ("budgets.csv", False, None),
+            IATIFileTypes.ORGANIZATION_EXPENDITURE_FILE: ("expenditures.csv", False, None),
+            IATIFileTypes.ORGANIZATION_DOCUMENT_FILE: ("documents.csv", False, None),
+        }
 
-            # Processed organization file types
-            file_types_mapping = {
-                IATIFileTypes.ORGANIZATION_MAIN_FILE: ("organization.csv", True, 1),
-                IATIFileTypes.ORGANIZATION_NAMES_FILE: ("names.csv", False, 1),
-                IATIFileTypes.ORGANIZATION_BUDGET_FILE: ("budgets.csv", False, None),
-                IATIFileTypes.ORGANIZATION_EXPENDITURE_FILE: ("expenditures.csv", False, None),
-                IATIFileTypes.ORGANIZATION_DOCUMENT_FILE: ("documents.csv", False, None),
-            }
+        files_processed = 0
 
-            files_processed = 0
+        # Process each file type
+        for file_type, (filename, required, max_files) in file_types_mapping.items():
+            try:
+                count = h.process_org_file_type(
+                    context=context,
+                    output_folder=org_folder,
+                    filename=filename,
+                    file_type=file_type,
+                    namespace=namespace,
+                    owner_org=None,
+                    required=required,
+                    max_files=max_files,
+                )
+                files_processed += count
+                log.info(f"Processed {count} file(s) for {file_type.name}")
+            except Exception as e:
+                # If required, abort
+                log.error(f"Error processing {file_type.name}: {e}")
+                if required:
+                    raise
 
-            # Process each file type
-            for file_type, (filename, required, max_files) in file_types_mapping.items():
-                try:
-                    count = h.process_org_file_type(
-                        context=context,
-                        output_folder=org_folder,
-                        filename=filename,
-                        file_type=file_type,
-                        namespace=namespace,
-                        owner_org=owner_org,
-                        required=required,
-                        max_files=max_files,
-                    )
-                    files_processed += count
-                    log.info(f"Processed {count} file(s) for {file_type.name}")
-                except Exception as e:
-                    # If required, abort
-                    log.error(f"Error processing {file_type.name}: {e}")
-                    if required:
-                        raise
-
-            if files_processed == 0:
-                return {
-                    'success': False,
-                    'message': f'No organization files found for {org_name} with namespace {namespace}'
-                }
-
-            # Convert CSV → XML
-            converter = IatiOrganisationMultiCsvConverter()
-
-            if namespace == DEFAULT_NAMESPACE:
-                xml_filename = org_folder / "iati-organization.xml"
-            else:
-                xml_filename = org_folder / f"iati-organization-{namespace}.xml"
-
-            log.info(f"Converting CSV files to IATI XML: {xml_filename}")
-            converted = converter.csv_folder_to_xml(
-                input_folder=str(org_folder),
-                xml_output=str(xml_filename),
-            )
-
-            if not converted or not xml_filename.exists():
-                return {
-                    'success': False,
-                    'message': f'Failed to generate XML file for organization {org_name}'
-                }
-
-            # Read the generated XML content
-            with open(xml_filename, 'r', encoding='utf-8') as f:
-                xml_content = f.read()
-
-            log.info(f"Successfully generated IATI Organization XML ({len(xml_content)} bytes)")
-
+        if files_processed == 0:
             return {
-                'success': True,
-                'message': f'XML generated successfully for organization {org_name}',
-                'xml_content': xml_content,
-                'xml_file_path': str(xml_filename),
-                'files_processed': files_processed,
+                'success': False,
+                'message': f'No organization files found with namespace {namespace}'
             }
 
-    except toolkit.ValidationError:
-        # Re-raise so CKAN handles it as 409
-        raise
-    except Exception as e:
-        log.error(f"Error generating organization XML: {e}", exc_info=True)
+        # Convert CSV → XML
+        converter = IatiOrganisationMultiCsvConverter()
+
+        if namespace == DEFAULT_NAMESPACE:
+            xml_filename = org_folder / "iati-organization.xml"
+        else:
+            xml_filename = org_folder / f"iati-organization-{namespace}.xml"
+
+        log.info(f"Converting CSV files to IATI XML: {xml_filename}")
+        converted = converter.csv_folder_to_xml(
+            input_folder=str(org_folder),
+            xml_output=str(xml_filename),
+        )
+
+        if not converted or not xml_filename.exists():
+            return {
+                'success': False,
+                'message': 'Failed to generate XML file'
+            }
+
+        # Read the generated XML content
+        with open(xml_filename, 'r', encoding='utf-8') as f:
+            xml_content = f.read()
+
+        log.info(f"Successfully generated IATI Organization XML ({len(xml_content)} bytes)")
+
         return {
-            'success': False,
-            'message': f'Error generating XML: {e}',
+            'success': True,
+            'message': 'XML generated successfully',
+            'files_processed': files_processed,
         }
