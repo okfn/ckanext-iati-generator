@@ -124,3 +124,40 @@ def iati_file_list(context, data_dict):
         "success": False,
         "msg": toolkit._("Only sysadmins can list IATI files.")
     }
+
+
+def generate_organization_xml(context, data_dict):
+    """
+    Authorization for generating organization XML.
+    Only sysadmins or organization admins can generate XML for their organization.
+    """
+    owner_org = data_dict.get('owner_org')
+    if not owner_org:
+        return {
+            "success": False,
+            "msg": toolkit._("Missing owner_org parameter.")
+        }
+
+    if _is_sysadmin(context):
+        return {"success": True}
+
+    # Check if user is admin of the organization
+    user_name = context.get("user")
+    user_obj = model.User.get(user_name) if user_name else None
+    if not user_obj:
+        return {
+            "success": False,
+            "msg": toolkit._("User not found.")
+        }
+
+    # Get user's organizations and check if they're admin of the requested org
+    user_orgs = toolkit.get_action("organization_list_for_user")(context, {"id": user_obj.id})
+    is_admin = any(o.get("id") == owner_org and o.get("capacity") == "admin" for o in user_orgs)
+
+    if is_admin:
+        return {"success": True}
+
+    return {
+        "success": False,
+        "msg": toolkit._("Only organization admins (or sysadmins) can generate XML for this organization.")
+    }
