@@ -375,6 +375,7 @@ def generate_organization_xml(context, data_dict):
 
     Behavior:
       - Fetch all organization IATIFiles for the given owner_org+namespace.
+      - Include the `FINAL_ORGANIZATION_FILE`. If not exist, raise an error
       - Download the CSVs to a temporary folder org-<namespace>.
       - Run IatiOrganisationMultiCsvConverter.csv_folder_to_xml on that folder.
       - Update the resource related to the FINAL_ORGANIZATION_FILE with the final XML.
