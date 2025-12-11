@@ -1,12 +1,16 @@
 import logging
+import tempfile
+from pathlib import Path
 
 from ckan.plugins import toolkit
 from ckan import model
 from sqlalchemy import func
+from okfn_iati.organisation_xml_generator import IatiOrganisationMultiCsvConverter
 
 from ckanext.iati_generator.models.iati_files import DEFAULT_NAMESPACE, IATIFile
 from ckanext.iati_generator.models.enums import IATIFileTypes
 from ckanext.iati_generator import helpers as h
+from ckanext.iati_generator.iati.resource import save_resource_data
 
 
 log = logging.getLogger(__name__)
@@ -361,3 +365,202 @@ def iati_resources_list(context, data_dict=None):
         "count": len(results),
         "results": results,
     }
+
+
+def generate_organization_xml(context, data_dict):
+    """
+    Generate IATI Organization XML for a given organization.
+
+    Parameters (data_dict keys):
+      - owner_org (str, required): Organization ID to generate XML for.
+      - namespace (str, optional): Namespace for the IATI file. Default: DEFAULT_NAMESPACE.
+
+    Returns:
+      dict: {
+        "success": <bool>,
+        "message": <str>,
+        "xml_content": <str> (if successful),
+        "xml_file_path": <str> (path to generated XML file)
+      }
+    """
+    toolkit.check_access('generate_organization_xml', context, data_dict)
+
+    if 'owner_org' not in data_dict or not data_dict['owner_org']:
+        raise toolkit.ValidationError({'owner_org': 'Missing required field owner_org'})
+
+    owner_org = data_dict['owner_org']
+    namespace = data_dict.get('namespace', DEFAULT_NAMESPACE)
+
+    try:
+        # Get organization details
+        org = toolkit.get_action('organization_show')(context, {'id': owner_org})
+        org_name = org.get('name', 'unknown')
+
+        log.info(f"Generating IATI Organization XML for {org_name} with namespace {namespace}")
+
+        # Create temporary folder for CSV files
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            org_folder = Path(tmp_dir) / f"org-{namespace}"
+            org_folder.mkdir(parents=True, exist_ok=True)
+
+            # Process each organization file type
+            file_types_mapping = {
+                IATIFileTypes.ORGANIZATION_MAIN_FILE: ("organization.csv", True, 1),
+                IATIFileTypes.ORGANIZATION_NAMES_FILE: ("names.csv", False, 1),
+                IATIFileTypes.ORGANIZATION_BUDGET_FILE: ("budgets.csv", False, None),
+                IATIFileTypes.ORGANIZATION_EXPENDITURE_FILE: ("expenditures.csv", False, None),
+                IATIFileTypes.ORGANIZATION_DOCUMENT_FILE: ("documents.csv", False, None),
+            }
+
+            files_processed = 0
+
+            for file_type, (filename, required, max_files) in file_types_mapping.items():
+                try:
+                    count = _process_org_file_type(
+                        context=context,
+                        output_folder=org_folder,
+                        filename=filename,
+                        file_type=file_type,
+                        namespace=namespace,
+                        owner_org=owner_org,
+                        required=required,
+                        max_files=max_files
+                    )
+                    files_processed += count
+                    log.info(f"Processed {count} files for {file_type.name}")
+                except Exception as e:
+                    log.error(f"Error processing {file_type.name}: {str(e)}")
+                    if required:
+                        raise
+
+            if files_processed == 0:
+                return {
+                    'success': False,
+                    'message': f'No organization files found for {org_name} with namespace {namespace}'
+                }
+
+            # Generate IATI XML using the converter
+            converter = IatiOrganisationMultiCsvConverter()
+
+            if namespace == DEFAULT_NAMESPACE:
+                xml_filename = org_folder / "iati-organization.xml"
+            else:
+                xml_filename = org_folder / f"iati-organization-{namespace}.xml"
+
+            log.info(f"Converting CSV files to IATI XML: {xml_filename}")
+            converted = converter.csv_folder_to_xml(
+                input_folder=str(org_folder),
+                xml_output=str(xml_filename)
+            )
+
+            if not converted or not xml_filename.exists():
+                return {
+                    'success': False,
+                    'message': f'Failed to generate XML file for organization {org_name}'
+                }
+
+            # Read the generated XML content
+            with open(xml_filename, 'r', encoding='utf-8') as f:
+                xml_content = f.read()
+
+            log.info(f"Successfully generated IATI Organization XML ({len(xml_content)} bytes)")
+
+            return {
+                'success': True,
+                'message': f'XML generated successfully for organization {org_name}',
+                'xml_content': xml_content,
+                'xml_file_path': str(xml_filename),
+                'files_processed': files_processed
+            }
+
+    except toolkit.ValidationError:
+        raise
+    except Exception as e:
+        log.error(f"Error generating organization XML: {str(e)}", exc_info=True)
+        return {
+            'success': False,
+            'message': f'Error generating XML: {str(e)}'
+        }
+
+
+def _process_org_file_type(context, output_folder, filename, file_type, namespace, owner_org, required=True, max_files=1):
+    """
+    Process a specific organization file type by fetching all matching IATI files
+    and saving their resource data to the output folder.
+
+    Parameters:
+        context: CKAN context
+        output_folder: Path object where CSV files will be saved
+        filename: Name for the output CSV file
+        file_type: IATIFileTypes enum value
+        namespace: Namespace to filter by
+        owner_org: Organization ID to filter by
+        required: Whether this file type is required
+        max_files: Maximum number of files allowed (None = unlimited)
+
+    Returns:
+        int: Number of files successfully processed
+    """
+    log.info(f"Processing organization file type: {file_type.name} -> {filename}")
+
+    session = model.Session
+
+    # Query IATI files matching the criteria
+    query = (
+        session.query(IATIFile)
+        .filter(IATIFile.file_type == file_type.value)
+        .filter(IATIFile.namespace == namespace)
+    )
+
+    # Join with Resource and Package to filter by owner_org
+    if owner_org:
+        from ckan.model import Resource, Package
+        query = (
+            query
+            .join(Resource, IATIFile.resource_id == Resource.id)
+            .join(Package, Resource.package_id == Package.id)
+            .filter(Package.owner_org == owner_org)
+        )
+
+    org_files = query.all()
+
+    # Validate requirements
+    if len(org_files) == 0:
+        if required:
+            raise Exception(f"No organization IATI files of type {file_type.name} found.")
+        else:
+            log.info(f"No files found for optional type {file_type.name}")
+            return 0
+
+    if max_files and len(org_files) > max_files:
+        raise Exception(
+            f"Expected no more than {max_files} organization IATI file(s) of type {file_type.name}, "
+            f"found {len(org_files)}."
+        )
+
+    # Process each file
+    processed_count = 0
+    for iati_file in org_files:
+        log.info(f"Processing IATI file: {iati_file}")
+        destination_path = output_folder / filename
+
+        try:
+            final_path = save_resource_data(iati_file.resource_id, str(destination_path))
+
+            if not final_path:
+                log.error(f"Failed to fetch data for resource ID: {iati_file.resource_id}")
+                error_message = "Failed to save resource data"
+                iati_file.track_processing(success=False, error_message=error_message)
+                continue
+
+            iati_file.track_processing(success=True)
+            processed_count += 1
+            log.info(f"Saved organization CSV data to {final_path}")
+
+        except Exception as e:
+            log.error(f"Error processing file {iati_file.resource_id}: {str(e)}")
+            iati_file.track_processing(success=False, error_message=str(e))
+            if required:
+                raise
+
+    return processed_count
