@@ -5,6 +5,8 @@ from pathlib import Path
 from ckan.tests import factories
 from ckanext.iati_generator.models.iati_files import DEFAULT_NAMESPACE
 from ckanext.iati_generator.auth import iati as iati_auth
+from ckanext.iati_generator.models.enums import IATIFileTypes
+from ckanext.iati_generator.tests.factories import create_iati_file
 
 
 @pytest.fixture
@@ -117,9 +119,16 @@ class TestGenerateOrganizationXmlAction:
         """
         self._patch_successful_processing(monkeypatch)
 
+        # Necesario para la nueva lógica de auth:
+        # crear el IATIFile FINAL_ORGANIZATION_FILE para este namespace.
+        create_iati_file(
+            resource_id=setup_data.res["id"],
+            namespace="bcie-namespace",
+            file_type=IATIFileTypes.FINAL_ORGANIZATION_FILE.value,
+        )
+
         payload = {
             "namespace": "bcie-namespace",
-            "owner_org": setup_data.org["id"],
         }
 
         res = app.post(
@@ -141,9 +150,15 @@ class TestGenerateOrganizationXmlAction:
         """
         self._patch_successful_processing(monkeypatch)
 
+        # Para el caso sin 'namespace', se usa DEFAULT_NAMESPACE
+        create_iati_file(
+            resource_id=setup_data.res["id"],
+            namespace=DEFAULT_NAMESPACE,
+            file_type=IATIFileTypes.FINAL_ORGANIZATION_FILE.value,
+        )
+
         payload = {
             # let it use DEFAULT_NAMESPACE to test that case
-            "owner_org": setup_data.org["id"],
         }
 
         res = app.post(
@@ -162,6 +177,13 @@ class TestGenerateOrganizationXmlAction:
         We verify this by inspecting the stub.
         """
         calls = []
+
+        # Crear el FINAL_ORGANIZATION_FILE para DEFAULT_NAMESPACE
+        create_iati_file(
+            resource_id=setup_data.res["id"],
+            namespace=DEFAULT_NAMESPACE,
+            file_type=IATIFileTypes.FINAL_ORGANIZATION_FILE.value,
+        )
 
         def fake_process_org_file_type(
             context,
@@ -196,7 +218,6 @@ class TestGenerateOrganizationXmlAction:
 
         payload = {
             # WITHOUT namespace
-            "owner_org": setup_data.org["id"],
         }
 
         res = app.post(
@@ -222,7 +243,6 @@ class TestGenerateOrganizationXmlAction:
         """
         payload = {
             "namespace": DEFAULT_NAMESPACE,
-            "owner_org": setup_data.org["id"],
         }
 
         # editor -> 403
@@ -245,10 +265,20 @@ class TestGenerateOrganizationXmlAction:
         """
         An admin of another organization CANNOT generate XML for this org.
         """
+        # Crear otra org + dataset + resource
         other_org = factories.Organization()
+        other_pkg = factories.Dataset(owner_org=other_org["id"])
+        other_res = factories.Resource(package_id=other_pkg["id"])
+
+        # Y el FINAL_ORGANIZATION_FILE está asociado a esa otra org
+        create_iati_file(
+            resource_id=other_res["id"],
+            namespace=DEFAULT_NAMESPACE,
+            file_type=IATIFileTypes.FINAL_ORGANIZATION_FILE.value,
+        )
+
         payload = {
             "namespace": DEFAULT_NAMESPACE,
-            "owner_org": other_org["id"],
         }
 
         app.post(
@@ -258,21 +288,21 @@ class TestGenerateOrganizationXmlAction:
             status=403,
         )
 
-    def test_generate_xml_missing_owner_org(self):
+    def test_generate_xml_missing_final_org_file(self):
         """
-        If owner_org is missing, the auth function generate_organization_xml
-        returns success=False and the appropriate error message.
+        If there is no FINAL_ORGANIZATION_FILE for the namespace,
+        the auth function generate_organization_xml returns success=False
+        and the appropriate error message.
         """
-        context = {}  # no user needed, the owner_org check comes first
+        context = {}
         data_dict = {
             "namespace": DEFAULT_NAMESPACE,
-            # without owner_org
         }
 
         auth_result = iati_auth.generate_organization_xml(context, data_dict)
 
         assert auth_result["success"] is False
-        assert "Missing owner_org" in auth_result["msg"]
+        assert "FINAL_ORGANIZATION_FILE" in auth_result["msg"]
 
     # -------------------------------------------------------------------------
     # Internal flow errors
@@ -313,7 +343,6 @@ class TestGenerateOrganizationXmlAction:
 
         payload = {
             "namespace": DEFAULT_NAMESPACE,
-            "owner_org": setup_data.org["id"],
         }
 
         res = app.post(
