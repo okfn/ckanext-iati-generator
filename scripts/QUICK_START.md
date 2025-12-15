@@ -6,7 +6,7 @@ Guía rápida para ejecutar el script de carga de datos de prueba.
 
 ```bash
 # 1. Entrar al contenedor CKAN
-make bash
+docker exec -it ckan bash
 
 # 2. Activar el entorno virtual y configurar CKAN_INI
 source venv/bin/activate
