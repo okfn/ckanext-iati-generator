@@ -1,6 +1,7 @@
 from ckan import model
 from ckan.plugins import toolkit
-from ckanext.iati_generator.models.iati_files import IATIFile
+from ckanext.iati_generator.models.iati_files import IATIFile, DEFAULT_NAMESPACE
+from ckanext.iati_generator.models.enums import IATIFileTypes
 
 
 def _is_sysadmin(context):
@@ -126,38 +127,41 @@ def iati_file_list(context, data_dict):
     }
 
 
+def _resolve_package_id_from_final_org_file(namespace):
+    """
+    Look for the IATIFile with FINAL_ORGANIZATION_FILE for the given namespace
+    and return its package_id (via resource_id), or None.
+    """
+    ns = namespace or DEFAULT_NAMESPACE
+
+    session = model.Session
+    iati_file = (
+        session.query(IATIFile)
+        .filter(IATIFile.namespace == ns)
+        .filter(IATIFile.file_type == IATIFileTypes.FINAL_ORGANIZATION_FILE.value)
+        .first()
+    )
+    if not iati_file:
+        return None
+
+    return _resolve_package_id_from_resource_id(iati_file.resource_id)
+
+
 def generate_organization_xml(context, data_dict):
     """
     Authorization for generating organization XML.
     Only sysadmins or organization admins can generate XML for their organization.
     """
-    owner_org = data_dict.get('owner_org')
-    if not owner_org:
+    namespace = data_dict.get("namespace") or DEFAULT_NAMESPACE
+    package_id = _resolve_package_id_from_final_org_file(namespace)
+
+    if not package_id:
         return {
             "success": False,
-            "msg": toolkit._("Missing owner_org parameter.")
+            "msg": toolkit._(
+                "Cannot resolve dataset for organization XML generation "
+                "(missing FINAL_ORGANIZATION_FILE for this namespace)."
+            ),
         }
 
-    if _is_sysadmin(context):
-        return {"success": True}
-
-    # Check if user is admin of the organization
-    user_name = context.get("user")
-    user_obj = model.User.get(user_name) if user_name else None
-    if not user_obj:
-        return {
-            "success": False,
-            "msg": toolkit._("User not found.")
-        }
-
-    # Get user's organizations and check if they're admin of the requested org
-    user_orgs = toolkit.get_action("organization_list_for_user")(context, {"id": user_obj.id})
-    is_admin = any(o.get("id") == owner_org and o.get("capacity") == "admin" for o in user_orgs)
-
-    if is_admin:
-        return {"success": True}
-
-    return {
-        "success": False,
-        "msg": toolkit._("Only organization admins (or sysadmins) can generate XML for this organization.")
-    }
+    return _allow_if_sysadmin_or_org_admin(context, package_id)
