@@ -143,7 +143,7 @@ make bash
 
 # Set environment variable
 source venv/bin/activate
-export CKAN_INI=/app/ckan.ini  # o /app/src_extensions/ckanext-iati-generator/test.ini
+export CKAN_INI=/app/ckan.ini  # or /app/src_extensions/ckanext-iati-generator/test.ini
 
 # Navigate to extension
 cd src_extensions/ckanext-iati-generator
