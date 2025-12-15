@@ -351,7 +351,7 @@ class IATIDataLoader:
 
 def main():
     """Main entry point for the script."""
-    _init_ckan()  # <-- antes de crear el loader / usar toolkit
+    _init_ckan()  # Initialize CKAN before creating the loader / using toolkit
 
     parser = argparse.ArgumentParser(
         description='Load IATI sample data into CKAN',
