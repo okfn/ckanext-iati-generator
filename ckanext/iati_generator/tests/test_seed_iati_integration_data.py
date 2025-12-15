@@ -11,7 +11,9 @@ def iati_script_module():
     without executing the main() block.
     """
     # Path to script: /app/src_extensions/ckanext-iati-generator/scripts/...
-    script_path = Path(__file__).resolve().parents[3] / "scripts" / "seed_iati_integration_data.py"
+    script_path = (
+        Path(__file__).resolve().parents[3] / "scripts" / "seed_iati_integration_data.py"
+    )
     assert script_path.is_file(), f"Script not found at: {script_path}"
 
     # run_name != '__main__' so it doesn't execute main()
@@ -33,7 +35,13 @@ def make_loader(iati_script_module):
         config_path = root_dir / "scripts" / "sample_data_config.yaml"
         assert config_path.is_file(), f"Config not found at: {config_path}"
 
-        return IATIDataLoader(str(config_path), **kwargs)
+        # New signature: (ckan_url, api_key, config_path, dry_run=False, verbose=False)
+        return IATIDataLoader(
+            ckan_url="http://localhost:5000",
+            api_key="dummy-api-key",
+            config_path=str(config_path),
+            **kwargs,
+        )
 
     return _make_loader
 
@@ -174,7 +182,8 @@ def test_load_organization_fails_if_download_fails(make_loader, monkeypatch):
 
     # Force download to always fail
     monkeypatch.setattr(
-        loader, "download_csv_from_url",
+        loader,
+        "download_csv_from_url",
         lambda url: None,
     )
 
@@ -185,27 +194,24 @@ def test_load_organization_fails_if_download_fails(make_loader, monkeypatch):
     assert loader.stats["iati_files_created"] == 0
 
 
-def test_create_iati_file_record_uses_enum_and_calls_action(make_loader, monkeypatch):
+def test_create_iati_file_record_uses_enum_and_calls_post_json(make_loader, monkeypatch):
     """
     Tests that creating an IATI file record properly converts string file_type
-    to enum value and calls the correct CKAN action with proper parameters.
+    to enum value and calls the internal _post_json helper with correct
+    parameters.
     """
     loader = make_loader(dry_run=False)
 
-    # Avoid hitting CKAN for real
     called = {}
 
-    def fake_get_action(name):
-        def _action(context, data_dict):
-            called["name"] = name
-            called["context"] = context
-            called["data_dict"] = data_dict
-            return {}
-        return _action
+    def fake_post_json(action, data_dict):
+        called["action"] = action
+        called["data_dict"] = data_dict
+        # Simulate successful API call
+        return {}
 
-    # Avoid depending on real get_site_user
-    monkeypatch.setattr(loader, "_get_site_user", lambda: "test-sysadmin")
-    monkeypatch.setattr("ckan.plugins.toolkit.get_action", fake_get_action)
+    # Intercept the HTTP-layer helper instead of toolkit.get_action
+    monkeypatch.setattr(loader, "_post_json", fake_post_json)
 
     ok = loader.create_iati_file_record(
         resource_id="res-123",
@@ -214,7 +220,8 @@ def test_create_iati_file_record_uses_enum_and_calls_action(make_loader, monkeyp
     )
 
     assert ok is True
-    assert called["name"] == "iati_file_create"
+    assert loader.stats["iati_files_created"] == 1
+    assert called["action"] == "iati_file_create"
     assert called["data_dict"]["resource_id"] == "res-123"
     # Check that it was transformed to numeric value
     assert isinstance(called["data_dict"]["file_type"], int)

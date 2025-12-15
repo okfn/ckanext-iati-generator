@@ -14,11 +14,11 @@ The `seed_iati_integration_data.py` script automates the process of:
 This allows you to quickly replicate test scenarios without manual data entry.
 
 ## Requirements
-
 - Python 3.7+
-- CKAN environment activated
-- `pyyaml` and `requests` packages installed
-- `ckanext-iati-generator` extension enabled
+- `pyyaml` and `requests` installed
+- A CKAN instance accessible via HTTP(S)
+- A CKAN API key with sufficient permissions (ideally sysadmin)
+- The `ckanext-iati-generator` extension installed and enabled in that instance
 
 Install additional requirements:
 
@@ -55,16 +55,19 @@ organizations:
 
 ## Usage
 
-### Setup
+### Setup: Get Your API Key
 
-**Important**: You must set the `CKAN_INI` environment variable before running the script:
+1. Log in to your CKAN instance
+2. Go to your user profile
+3. Copy your **API Key**
+
+### Environment Variables (Optional but Recommended)
+
+You can set these environment variables to avoid passing them as arguments every time:
 
 ```bash
-# In your Docker dev environment
-export CKAN_INI=/app/ckan.ini
-
-# Or in a standard CKAN installation
-export CKAN_INI=/etc/ckan/default/ckan.ini
+export CKAN_URL=http://localhost:5000        # Your CKAN instance URL
+export CKAN_API_KEY=your-api-key-here        # Your CKAN API key
 ```
 
 ### Basic Usage
@@ -72,7 +75,7 @@ export CKAN_INI=/etc/ckan/default/ckan.ini
 Load all organizations (World Bank + Asian Bank):
 
 ```bash
-python scripts/seed_iati_integration_data.py
+python scripts/seed_iati_integration_data.py --organization all
 ```
 
 Load specific organization:
@@ -85,12 +88,23 @@ python scripts/seed_iati_integration_data.py --organization world-bank
 python scripts/seed_iati_integration_data.py --organization asian-bank
 ```
 
+### Specifying CKAN URL and API Key
+
+If you don't use environment variables, pass them directly:
+
+```bash
+python scripts/seed_iati_integration_data.py \
+  --ckan-url http://localhost:5000 \
+  --api-key your-api-key-here \
+  --organization all
+```
+
 ### Dry Run
 
 See what would be loaded without actually executing:
 
 ```bash
-python scripts/seed_iati_integration_data.py --dry-run
+python scripts/seed_iati_integration_data.py --organization all --dry-run
 ```
 
 This is useful to:
@@ -103,7 +117,7 @@ This is useful to:
 Get detailed logging for debugging:
 
 ```bash
-python scripts/seed_iati_integration_data.py --verbose
+python scripts/seed_iati_integration_data.py --organization all --verbose
 ```
 
 ### Custom Configuration
@@ -111,58 +125,67 @@ python scripts/seed_iati_integration_data.py --verbose
 Use a different configuration file:
 
 ```bash
-python scripts/seed_iati_integration_data.py --config my_custom_config.yaml
+python scripts/seed_iati_integration_data.py \
+  --config my_custom_config.yaml \
+  --organization all
 ```
 
 ## Complete Examples
 
-### Test 1: Load World Bank Data
+### Example 1: Load World Bank Data to Local CKAN
 
 ```bash
-# 1. Activate CKAN environment (if not in Docker)
-source /path/to/ckan/bin/activate
+# 1. Set your environment variables
+export CKAN_URL=http://localhost:5000
+export CKAN_API_KEY=your-api-key-here
 
-# 2. Set CKAN_INI
-export CKAN_INI=/app/ckan.ini  # Adjust path as needed
-
-# 3. Navigate to the extension directory
+# 2. Navigate to the extension directory (if needed)
 cd /path/to/ckanext-iati-generator
 
-# 4. Load World Bank data
+# 3. Load World Bank data
 python scripts/seed_iati_integration_data.py --organization world-bank
 
-# 5. Check the results
-# Visit: http://your-ckan-instance/ckan-admin/list-iati-files/iati-files
+# 4. Check the results
+# Visit: http://localhost:5000/ckan-admin/list-iati-files/iati-files
 ```
 
-### In Docker Environment
+### Example 2: Load Data from Outside CKAN
+
+The script works as an external tool - you can run it from anywhere:
 
 ```bash
-# Enter the CKAN container
-make bash
-
-# Set environment variable
-source venv/bin/activate
-export CKAN_INI=/app/ckan.ini  # or /app/src_extensions/ckanext-iati-generator/test.ini
-
-# Navigate to extension
-cd src_extensions/ckanext-iati-generator
-
-# Run the script
-python scripts/seed_iati_integration_data.py --organization all --verbose
+# From your local machine (outside CKAN/Docker)
+python scripts/seed_iati_integration_data.py \
+  --ckan-url http://localhost:5000 \
+  --api-key your-api-key-here \
+  --organization all --verbose
 ```
 
-### Test 2: Load Asian Bank with Different Namespace
+### Example 3: Load to Production CKAN Instance
+
+```bash
+# Load data to a remote CKAN instance
+python scripts/seed_iati_integration_data.py \
+  --ckan-url https://datosabiertos.bcie.org \
+  --api-key your-production-api-key \
+  --organization world-bank
+```
+
+### Example 4: Load Asian Bank with Different Namespace
 
 ```bash
 # Load Asian Development Bank data (uses "asian-bank" namespace)
+export CKAN_URL=http://localhost:5000
+export CKAN_API_KEY=your-api-key-here
 python scripts/seed_iati_integration_data.py --organization asian-bank
 ```
 
-### Test 3: Load Both Organizations
+### Example 5: Load All Organizations
 
 ```bash
 # Load all sample data
+export CKAN_URL=http://localhost:5000
+export CKAN_API_KEY=your-api-key-here
 python scripts/seed_iati_integration_data.py --organization all --verbose
 ```
 
@@ -210,13 +233,26 @@ Errors: 0
 
 ## Troubleshooting
 
-### Import Error: "This script must be run in a CKAN environment"
+### API Key Error: "CKAN API key is required"
 
-**Solution**: Activate your CKAN virtual environment first:
+**Solution**: Set your API key via environment variable or command argument:
 
 ```bash
-source /path/to/ckan/bin/activate
+# Option 1: Environment variable
+export CKAN_API_KEY=your-api-key-here
+
+# Option 2: Command argument
+python scripts/seed_iati_integration_data.py --api-key your-api-key-here --organization all
 ```
+
+### Connection Error: "Failed to connect to CKAN"
+
+**Problem**: Cannot reach the CKAN instance
+
+**Solutions**:
+- Verify the CKAN URL is correct and accessible
+- Check if CKAN is running: `curl http://localhost:5000/api/3/action/status_show`
+- If using Docker, ensure you're using the correct URL (might be `http://ckan:5000` from inside containers)
 
 ### Download Failed
 

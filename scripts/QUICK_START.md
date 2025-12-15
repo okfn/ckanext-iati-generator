@@ -1,21 +1,29 @@
 # Quick Start - Script de Integración IATI
 
-Guía rápida para ejecutar el script de carga de datos de prueba.
+Guía rápida para ejecutar el script de carga de datos de prueba usando la **API de CKAN**.
 
-## En Docker (Recomendado)
+## 1. Obtener tu API Key de CKAN
+
+En tu instancia CKAN:
+
+1. Inicia sesión
+2. Ve a tu perfil de usuario  
+3. Copia tu **API Key**
+
+## 2. Configurar Variables de Entorno (Opcional)
 
 ```bash
-# 1. Entrar al contenedor CKAN
-docker exec -it ckan bash
+export CKAN_URL=http://localhost:5000        # o la URL de tu CKAN
+export CKAN_API_KEY=TU_API_KEY
+```
 
-# 2. Activar el entorno virtual y configurar CKAN_INI
-source venv/bin/activate
-export CKAN_INI=/app/ckan.ini
+## 3. Ejecutar el Script
 
-# 3. Ir al directorio de la extensión
+Desde el directorio de la extensión:
+
+```bash
 cd src_extensions/ckanext-iati-generator
 
-# 4. Ejecutar el script (opciones)
 # Opción A: Ver qué se haría sin ejecutar (dry-run)
 python scripts/seed_iati_integration_data.py --organization all --dry-run
 
@@ -27,6 +35,15 @@ python scripts/seed_iati_integration_data.py --organization asian-bank --verbose
 
 # Opción D: Cargar todo
 python scripts/seed_iati_integration_data.py --organization all --verbose
+```
+
+**Nota:** Si no usas variables de entorno, puedes pasar `--ckan-url` y `--api-key` directamente:
+
+```bash
+python scripts/seed_iati_integration_data.py \
+  --ckan-url http://localhost:5000 \
+  --api-key TU_API_KEY \
+  --organization all
 ```
 
 ## Verificar los Resultados
@@ -80,19 +97,24 @@ Errors: 0
 
 ## Troubleshooting Rápido
 
-### Error: "Please set CKAN_INI"
+### Error: "CKAN API key is required"
 ```bash
-export CKAN_INI=/app/ckan.ini
+# Opción 1: Configurar variable de entorno
+export CKAN_API_KEY=TU_API_KEY
+
+# Opción 2: Pasar directamente en el comando
+python scripts/seed_iati_integration_data.py --api-key TU_API_KEY --organization all
 ```
 
-### Error: "This script must be run in a CKAN environment"
+### Error de conexión a CKAN
+Verifica que CKAN esté corriendo y la URL sea correcta:
 ```bash
-source venv/bin/activate
+curl http://localhost:5000/api/3/action/status_show
 ```
 
-### Ver solo los datasets creados sin recursos
+### Ver solo qué se haría sin ejecutar
 ```bash
-python scripts/seed_iati_integration_data.py --dry-run
+python scripts/seed_iati_integration_data.py --organization all --dry-run
 ```
 
 ### Problemas con downloads
@@ -109,3 +131,15 @@ python scripts/seed_iati_integration_data.py --organization all --verbose
 ```
 
 El script detectará si los datasets ya existen y los actualizará en lugar de crear duplicados.
+
+## Ejecutar desde Fuera del Contenedor Docker
+
+El script funciona como herramienta externa - puedes ejecutarlo desde tu máquina local:
+
+```bash
+# Desde tu máquina (fuera de Docker)
+python scripts/seed_iati_integration_data.py \
+  --ckan-url http://localhost:5000 \
+  --api-key TU_API_KEY \
+  --organization all
+```
