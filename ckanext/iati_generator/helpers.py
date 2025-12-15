@@ -140,7 +140,7 @@ def process_org_file_type(
     max_files: int | None = 1,
 ) -> int:
     """
-    Fetch all IATIFile records of a given organization file_type+namespace+owner_org,
+    Fetch all IATIFile records of a given organization file_type+namespace,
     download their CSV resource to `output_folder / filename` and track processing.
 
     Returns:
@@ -155,16 +155,11 @@ def process_org_file_type(
         .filter(IATIFile.namespace == namespace)
     )
 
-    # Join with Resource and Package to filter by owner_org
-    if owner_org:
-        Resource = model.Resource
-        Package = model.Package
-        query = (
-            query
-            .join(Resource, IATIFile.resource_id == Resource.id)
-            .join(Package, Resource.package_id == Package.id)
-            .filter(Package.owner_org == owner_org)
-        )
+    # NOTE:
+    # Although this function receives `owner_org`, we do not filter by CKAN
+    # organization here. IATI organization files are not related 1:1 with
+    # CKAN organizations, so we intentionally ignore this parameter.
+    # It is kept only for backwards compatibility.
 
     org_files = query.all()
 
