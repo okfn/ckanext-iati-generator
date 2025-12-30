@@ -106,3 +106,17 @@ def normalize_file_type_strict(value):
         raise toolkit.ValidationError(
             {"file_type": "Invalid IATIFileTypes value"}
         )
+
+
+def iati_namespaces():
+    """
+    Returns a list of distinct IATI namespaces from the IATIFile records.
+    """
+    session = model.Session
+    rows = (
+        session.query(IATIFile.namespace)
+        .distinct()
+        .order_by(IATIFile.namespace)
+        .all()
+    )
+    return [r[0] for r in rows if r[0]]

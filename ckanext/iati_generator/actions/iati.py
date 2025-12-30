@@ -314,12 +314,19 @@ def iati_resources_list(context, data_dict=None):
     data_dict = data_dict or {}
     toolkit.check_access("iati_file_list", context, data_dict)
 
+    namespace_filter = data_dict.get("namespace")
+
     files_by_resource = h.iati_files_by_resource()
 
     results = []
     datasets = {}
 
     for resource_id, iati_file in files_by_resource.items():
+
+        # namespace filter
+        if namespace_filter and iati_file.namespace != namespace_filter:
+            continue
+
         # resource
         res = toolkit.get_action("resource_show")(context, {"id": resource_id})
         package_id = res["package_id"]

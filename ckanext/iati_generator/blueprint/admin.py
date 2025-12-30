@@ -26,8 +26,13 @@ def iati_files_index():
     context = {"user": toolkit.c.user}
     start = int(request.args.get("start", 0) or 0)
     page_size = int(request.args.get("rows", 100) or 100)
+    namespace = request.args.get("namespace")
 
     params = {"start": start, "rows": page_size}
+
+    # namespace filter
+    if namespace:
+        params["namespace"] = namespace
     data = toolkit.get_action("iati_resources_list")(context, params)
 
     rows_out = []
@@ -73,5 +78,6 @@ def iati_files_index():
             "total": data.get("count", 0),
             "start": start,
             "rows": page_size,
+            "namespace": namespace or "",
         },
     )
