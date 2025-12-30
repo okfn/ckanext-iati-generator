@@ -161,6 +161,7 @@ def iati_file_list(context, data_dict=None):
     Parameters (data_dict keys):
       - start (int, optional): Offset for pagination. Default: 0.
       - rows (int, optional): Page size. Default: 100.
+      - namespace (str, optional): Filter by namespace (e.g. "iati-xml", "iati-json").
       - file_type (str|int, optional): IATI file type filter. Accepts Enum name
         (e.g. "ORGANIZATION_MAIN_FILE") or the corresponding integer value.
       - owner_org (str, optional): Filter by owning organization id (dataset.owner_org).
@@ -201,6 +202,7 @@ def iati_file_list(context, data_dict=None):
       toolkit.get_action("iati_file_list")(context, {"start": 0, "rows": 20})
       toolkit.get_action("iati_file_list")(context, {"file_type": "ORGANIZATION_MAIN_FILE"})
       toolkit.get_action("iati_file_list")(context, {"valid": "true", "owner_org": "<org_id>"})
+      toolkit.get_action("iati_file_list")(context, {"namespace": "iati-xml"})
     """
     data_dict = data_dict or {}
     toolkit.check_access("iati_file_list", context, data_dict)
@@ -246,6 +248,10 @@ def iati_file_list(context, data_dict=None):
 
     if data_dict.get("owner_org"):
         q_base = q_base.filter(Package.owner_org == data_dict["owner_org"])
+
+    # --- namespace filter
+    if data_dict.get("namespace"):
+        q_base = q_base.filter(IATIFile.namespace == data_dict["namespace"])
 
     if "valid" in data_dict and data_dict["valid"] is not None:
         val = str(data_dict["valid"]).lower() in ("true", "1", "yes")
