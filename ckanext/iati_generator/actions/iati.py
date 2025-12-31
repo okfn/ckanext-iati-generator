@@ -32,7 +32,7 @@ def iati_file_create(context, data_dict):
     )
 
     file = IATIFile(
-        namespace=data_dict.get('namespace', DEFAULT_NAMESPACE),
+        namespace=h.normalize_namespace(data_dict.get('namespace', DEFAULT_NAMESPACE)),
         file_type=data_dict['file_type'],
         resource_id=data_dict['resource_id'],
     )
@@ -55,7 +55,7 @@ def iati_file_update(context, data_dict):
 
     # namespace
     if 'namespace' in data_dict:
-        updates['namespace'] = data_dict['namespace']
+        updates['namespace'] = h.normalize_namespace(data_dict['namespace'])
 
     # file_type
     if 'file_type' in data_dict:

@@ -1,6 +1,7 @@
 import logging
 from pathlib import Path
 
+import re
 from ckan.plugins import toolkit
 from collections import defaultdict
 from ckan import model
@@ -197,6 +198,15 @@ def process_org_file_type(
         log.info(f"Saved organization CSV data to {final_path}")
 
     return processed_count
+def normalize_namespace(ns):
+    if ns is None:
+        return DEFAULT_NAMESPACE
+    ns = str(ns).strip()
+    if not ns:
+        return DEFAULT_NAMESPACE
+    # opcional: compactar espacios internos
+    ns = re.sub(r"\s+", "-", ns)
+    return ns
 
 
 def get_iati_files_by_namespace():
