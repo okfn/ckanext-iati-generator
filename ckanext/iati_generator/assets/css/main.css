@@ -43,12 +43,12 @@
     color: #337ab7;
 }
 
-.panel-body ul li {
+.panel-body .pending-files-list li {
     padding: 5px 0;
     border-bottom: 1px solid #f0f0f0;
 }
 
-.panel-body ul li:last-child {
+.panel-body .pending-files-list li:last-child {
     border-bottom: none;
 }
 
@@ -72,4 +72,22 @@ details summary {
 }
 details[open] summary {
   margin-bottom: 6px;
+}
+
+/* Missing files details section */
+.missing-files-details {
+    margin-top: 8px;
+}
+
+.missing-files-summary {
+    cursor: pointer;
+    font-weight: 600;
+}
+
+.missing-files-category {
+    margin-top: 10px;
+}
+
+.missing-files-list {
+    margin-top: 4px;
 }
