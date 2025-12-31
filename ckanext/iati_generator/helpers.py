@@ -25,13 +25,18 @@ def iati_file_types(field=None):
     return options
 
 
-def iati_files_by_resource():
+def iati_files_by_resource(namespace=None):
     """
     Returns an index {resource_id: IATIFile} to allow simple
     validation status queries.
+
+    If namespace is provided, returns only files for that namespace.
     """
     session = model.Session
-    files = session.query(IATIFile).all()
+    q = session.query(IATIFile)
+    if namespace:
+        q = q.filter(IATIFile.namespace == namespace)
+    files = q.all()
     return {f.resource_id: f for f in files}
 
 
