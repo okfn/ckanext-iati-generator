@@ -28,15 +28,15 @@
           <strong>{{ _("Namespace") }}:</strong> {{ namespace }}
           <strong>{{ _("Missing files") }}</strong>
 
-          <details style="margin-top: 8px;">
-            <summary style="cursor: pointer; font-weight: 600;">
+          <details class="missing-files-details">
+            <summary class="missing-files-summary">
               {{ _("Show missing files") }}
             </summary>
 
             {% if pending.organization %}
-              <div style="margin-top: 10px;">
+              <div class="missing-files-category">
                 <strong>{{ _("Organization") }}</strong>
-                <ul style="margin-top: 4px;">
+                <ul class="missing-files-list">
                   {% for ft in pending.organization %}
                     <li>
                       {{ ft.name.replace("_", " ").title() }}
@@ -47,9 +47,9 @@
             {% endif %}
 
             {% if pending.activity %}
-              <div style="margin-top: 10px;">
+              <div class="missing-files-category">
                 <strong>{{ _("Activities") }}</strong>
-                <ul style="margin-top: 4px;">
+                <ul class="missing-files-list">
                   {% for ft in pending.activity %}
                     <li>
                       {{ ft.name.replace("_", " ").title() }}
@@ -112,7 +112,7 @@
       <div class="panel panel-default">
         <div class="panel-heading">
           <h3 class="panel-title">
-            {{ _("Pending files") }}
+            {{ _("Pending files") }} - {{ _("Namespace") }}: {{ namespace }}
           </h3>
         </div>
 
@@ -121,7 +121,7 @@
             <div class="col-md-6">
               <h4>{{ _("Organization") }}</h4>
               {% if pending.organization %}
-                <ul>
+                <ul class="pending-files-list">
                   {% for ft in pending.organization %}
                     <li>
                       {{ ft.name.replace("_", " ").title() }}
@@ -138,7 +138,7 @@
             <div class="col-md-6">
               <h4>{{ _("Activities") }}</h4>
               {% if pending.activity %}
-                <ul>
+                <ul class="pending-files-list">
                   {% for ft in pending.activity %}
                     <li>
                       {{ ft.name.replace("_", " ").title() }}
