@@ -199,6 +199,29 @@ def process_org_file_type(
 
     return processed_count
 def normalize_namespace(ns):
+    """
+    Normalize a namespace string by applying consistent formatting rules.
+
+    If the namespace is None or empty, returns the default namespace.
+    Otherwise, strips whitespace and replaces internal whitespace sequences with hyphens.
+
+    Args:
+        ns (str or None): The namespace string to normalize.
+
+    Returns:
+        str: A normalized namespace string with whitespace stripped and internal
+             spaces replaced with hyphens, or DEFAULT_NAMESPACE if input is None/empty.
+
+    Examples:
+        >>> normalize_namespace("my  namespace")
+        'my-namespace'
+        >>> normalize_namespace("  test  ")
+        'test'
+        >>> normalize_namespace(None)
+        DEFAULT_NAMESPACE
+        >>> normalize_namespace("")
+        DEFAULT_NAMESPACE
+    """
     if ns is None:
         return DEFAULT_NAMESPACE
     ns = str(ns).strip()
@@ -248,34 +271,6 @@ def mandatory_file_types(include_final=False):
             act.add(ft)
 
     return org, act
-
-
-def get_pending_file_types_info():
-    """
-    Returns a dictionary with information about IATI file types,
-    organized by category (Organization and Activity).
-    """
-    org_files = []
-    activity_files = []
-
-    for file_type in IATIFileTypes:
-        file_info = {
-            "value": file_type.value,
-            "name": file_type.name,
-            "label": file_type.name.replace("_", " ").title()
-        }
-
-        # Organization files (100-199)
-        if 100 <= file_type.value < 200:
-            org_files.append(file_info)
-        # Activity files (200-399)
-        elif 200 <= file_type.value < 400:
-            activity_files.append(file_info)
-
-    return {
-        "organization": sorted(org_files, key=lambda x: x["value"]),
-        "activity": sorted(activity_files, key=lambda x: x["value"])
-    }
 
 
 def get_pending_mandatory_files(include_final=False):
