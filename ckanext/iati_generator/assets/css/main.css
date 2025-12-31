@@ -21,3 +21,55 @@
     text-align: center;
     width: 120px;
 }
+
+/* IATI Files - Pending files info */
+.panel-default {
+    border-color: #ddd;
+    margin-bottom: 20px;
+}
+
+.panel-default .panel-heading {
+    background-color: #f5f5f5;
+    border-color: #ddd;
+}
+
+.panel-default .panel-title {
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.panel-default .panel-title i {
+    margin-right: 8px;
+    color: #337ab7;
+}
+
+.panel-body ul li {
+    padding: 5px 0;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.panel-body ul li:last-child {
+    border-bottom: none;
+}
+
+.alert-info h3 {
+    margin-top: 0;
+    color: #31708f;
+}
+
+.alert-warning h4 {
+    margin-top: 0;
+    color: #8a6d3b;
+}
+
+.alert-warning ol {
+    margin-bottom: 0;
+    padding-left: 20px;
+}
+
+details summary {
+  color: #8a6d3b;
+}
+details[open] summary {
+  margin-bottom: 6px;
+}
