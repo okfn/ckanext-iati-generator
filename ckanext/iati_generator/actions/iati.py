@@ -161,7 +161,7 @@ def iati_file_list(context, data_dict=None):
     Parameters (data_dict keys):
       - start (int, optional): Offset for pagination. Default: 0.
       - rows (int, optional): Page size. Default: 100.
-      - namespace (str, optional): Filter by namespace (e.g. "iati-xml", "iati-json").
+      - namespace (str, optional): Filter by namespace (e.g. "iati-xml", "iati-country-a", "iati-country-b").
       - file_type (str|int, optional): IATI file type filter. Accepts Enum name
         (e.g. "ORGANIZATION_MAIN_FILE") or the corresponding integer value.
       - owner_org (str, optional): Filter by owning organization id (dataset.owner_org).
@@ -322,16 +322,12 @@ def iati_resources_list(context, data_dict=None):
 
     namespace_filter = data_dict.get("namespace")
 
-    files_by_resource = h.iati_files_by_resource()
+    files_by_resource = h.iati_files_by_resource(namespace=namespace_filter)
 
     results = []
     datasets = {}
 
     for resource_id, iati_file in files_by_resource.items():
-
-        # namespace filter
-        if namespace_filter and iati_file.namespace != namespace_filter:
-            continue
 
         # resource
         res = toolkit.get_action("resource_show")(context, {"id": resource_id})
