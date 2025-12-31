@@ -71,7 +71,7 @@ class TestNamespaceFilter:
     # ---- Helper methods ----
     def _call_action_as_user(self, action, user_name, **data):
         """Call an action with a specific user context."""
-        context = {"user": user_name, "ignore_auth": False}
+        context = {"user": user_name}
         return helpers.call_action(action, context=context, **data)
 
     # ---- Tests for iati_file_list action ----
