@@ -2,6 +2,7 @@ import logging
 from pathlib import Path
 
 from ckan.plugins import toolkit
+from collections import defaultdict
 from ckan import model
 from ckanext.iati_generator.models.enums import IATIFileTypes
 from ckanext.iati_generator.models.iati_files import DEFAULT_NAMESPACE, IATIFile
@@ -196,3 +197,102 @@ def process_org_file_type(
         log.info(f"Saved organization CSV data to {final_path}")
 
     return processed_count
+
+
+def get_iati_files_by_namespace():
+    """
+    Returns a map:
+      {
+        "namespace1": {IATIFileTypes.ACTIVITY_MAIN_FILE, ...},
+        "namespace2": {...}
+      }
+    """
+    session = model.Session
+    files = session.query(IATIFile).all()
+
+    ns_map = defaultdict(set)
+    for f in files:
+        ns_map[f.namespace].add(IATIFileTypes(f.file_type))
+
+    return dict(ns_map)
+
+
+def mandatory_file_types(include_final=False):
+    """
+    All enums are mandatory (by your requirement), split by category.
+
+    include_final:
+      - False: excludes FINAL_* (recommended, because FINAL is generated XML, not CSV component)
+      - True: includes FINAL_* in the mandatory sets
+    """
+    org = set()
+    act = set()
+
+    for ft in IATIFileTypes:
+        if not include_final and ft.name.startswith("FINAL_"):
+            continue
+
+        if 100 <= ft.value < 200:
+            org.add(ft)
+        elif 200 <= ft.value < 400:
+            act.add(ft)
+
+    return org, act
+
+
+def get_pending_file_types_info():
+    """
+    Returns a dictionary with information about IATI file types,
+    organized by category (Organization and Activity).
+    """
+    org_files = []
+    activity_files = []
+
+    for file_type in IATIFileTypes:
+        file_info = {
+            "value": file_type.value,
+            "name": file_type.name,
+            "label": file_type.name.replace("_", " ").title()
+        }
+
+        # Organization files (100-199)
+        if 100 <= file_type.value < 200:
+            org_files.append(file_info)
+        # Activity files (200-399)
+        elif 200 <= file_type.value < 400:
+            activity_files.append(file_info)
+
+    return {
+        "organization": sorted(org_files, key=lambda x: x["value"]),
+        "activity": sorted(activity_files, key=lambda x: x["value"])
+    }
+
+
+def get_pending_mandatory_files(include_final=False):
+    """
+    Returns pending mandatory files per namespace.
+    If no namespaces exist yet, return defaults under '__none__'.
+    """
+    ns_map = get_iati_files_by_namespace()
+    mandatory_org, mandatory_act = mandatory_file_types(include_final=include_final)
+
+    # If nothing uploaded yet: show mandatory set under __none__
+    if not ns_map:
+        return {
+            "__none__": {
+                "organization": sorted(mandatory_org, key=lambda x: x.value),
+                "activity": sorted(mandatory_act, key=lambda x: x.value),
+            }
+        }
+
+    pending = {}
+    for namespace, present_files in ns_map.items():
+        pending_org = mandatory_org - present_files
+        pending_act = mandatory_act - present_files
+
+        pending[namespace] = {
+            "organization": sorted(pending_org, key=lambda x: x.value),
+            "activity": sorted(pending_act, key=lambda x: x.value),
+        }
+
+    return pending

@@ -3,6 +3,7 @@ from flask import Blueprint, request
 from ckan.plugins import toolkit
 
 from ckanext.iati_generator.decorators import require_sysadmin_user
+from ckanext.iati_generator import helpers as h
 
 
 iati_file_admin = Blueprint("iati_generator_admin_files", __name__, url_prefix="/ckan-admin/list-iati-files")
@@ -62,6 +63,9 @@ def iati_files_index():
             "resource_url": res_url,
         })
 
+    # Prepare information about pending file types
+    pending_files = h.get_pending_mandatory_files(include_final=False)
+
     return toolkit.render(
         "iati/iati_files.html",
         {
@@ -70,5 +74,6 @@ def iati_files_index():
             "start": start,
             "rows": page_size,
             "namespace": namespace or "",
+            "pending_files": pending_files,
         },
     )
