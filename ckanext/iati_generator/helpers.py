@@ -1,4 +1,5 @@
 import logging
+import re
 from ckan.plugins import toolkit
 from collections import defaultdict
 from ckan import model
@@ -126,6 +127,17 @@ def iati_namespaces():
         .all()
     )
     return [r[0] for r in rows if r[0]]
+
+
+def normalize_namespace(ns):
+    if ns is None:
+        return DEFAULT_NAMESPACE
+    ns = str(ns).strip()
+    if not ns:
+        return DEFAULT_NAMESPACE
+    # opcional: compactar espacios internos
+    ns = re.sub(r"\s+", "-", ns)
+    return ns
 
 
 def get_iati_files_by_namespace():
