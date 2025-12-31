@@ -104,7 +104,7 @@
     <div class="alert alert-info">
       <h3>{{ _("No IATI files found") }}</h3>
       <p>
-        {{ _("There are no mandatory IATI CSV components loaded yet.") }}
+        {{ _("There are no IATI CSV components loaded yet.") }}
       </p>
     </div>
 
@@ -112,10 +112,7 @@
       <div class="panel panel-default">
         <div class="panel-heading">
           <h3 class="panel-title">
-            {{ _("Pending mandatory files") }}
-            {% if namespace != "__none__" %}
-              <small>({{ namespace }})</small>
-            {% endif %}
+            {{ _("Pending files") }}
           </h3>
         </div>
 
@@ -127,7 +124,7 @@
                 <ul>
                   {% for ft in pending.organization %}
                     <li>
-                      <strong>{{ ft.value }}</strong> – {{ ft.name.replace("_", " ").title() }}
+                      {{ ft.name.replace("_", " ").title() }}
                     </li>
                   {% endfor %}
                 </ul>
@@ -144,7 +141,7 @@
                 <ul>
                   {% for ft in pending.activity %}
                     <li>
-                      <strong>{{ ft.value }}</strong> – {{ ft.name.replace("_", " ").title() }}
+                      {{ ft.name.replace("_", " ").title() }}
                     </li>
                   {% endfor %}
                 </ul>
