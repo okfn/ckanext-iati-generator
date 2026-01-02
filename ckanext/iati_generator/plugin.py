@@ -6,7 +6,6 @@ from ckanext.iati_generator.actions import iati as iati_actions
 from ckanext.iati_generator.actions import resources as resources_actions
 from ckanext.iati_generator.auth import iati as iati_auth
 from ckan.lib.plugins import DefaultTranslation
-from ckanext.iati_generator.blueprint.iati import iati_blueprint
 from ckanext.iati_generator.blueprint.admin import iati_blueprint_admin, iati_file_admin
 from ckanext.iati_generator.blueprint.public_iati import iati_public
 from ckanext.iati_generator import helpers as h
@@ -30,7 +29,6 @@ class IatiGeneratorPlugin(p.SingletonPlugin, DefaultTranslation):
 
     def get_blueprint(self):
         return [
-            iati_blueprint,
             iati_blueprint_admin,
             iati_file_admin,
             iati_public,
