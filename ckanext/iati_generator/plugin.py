@@ -74,4 +74,5 @@ class IatiGeneratorPlugin(p.SingletonPlugin, DefaultTranslation):
         """Return a dictionary of helper functions."""
         return {
             "iati_file_type": h.iati_file_types,
+            "iati_namespaces": h.iati_namespaces,
         }
