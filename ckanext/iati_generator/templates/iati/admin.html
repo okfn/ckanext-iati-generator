@@ -30,12 +30,3 @@
     <p>{{ _('No datasets with IATI XML found.') }}</p>
   {% endif %}
 {% endblock %}
-
-{% block content_secondary_nav %}
-  {{ super() }}
-  <ul class="nav nav-pills">
-    <li class="active">
-      <a href="{{ h.url_for('iati_generator_admin.index') }}">{{ _('IATI Generator') }}</a>
-    </li>
-  </ul>
-{% endblock %}
