@@ -58,35 +58,6 @@ msgstr "Descargar archivo XML"
 msgid "IATI"
 msgstr "IATI"
 
-#: ckanext/iati_generator/templates/iati/admin.html:4
-msgid "Datasets with generated IATI XML"
-msgstr "Conjuntos de datos con XML IATI generados"
-
-#: ckanext/iati_generator/templates/iati/admin.html:10
-msgid "Title"
-msgstr "Título"
-
-#: ckanext/iati_generator/templates/iati/admin.html:11
-msgid "Name"
-msgstr "Nombre"
-
-#: ckanext/iati_generator/templates/iati/admin.html:12
-msgid "View"
-msgstr "Ver"
-
-#: ckanext/iati_generator/templates/iati/admin.html:21
-msgid "View Dataset"
-msgstr "Ver Conjunto de Datos"
-
-#: ckanext/iati_generator/templates/iati/admin.html:29
-msgid "No datasets with IATI XML found."
-msgstr "No se encontraron conjuntos de datos con XML IATI."
-
-#: ckanext/iati_generator/templates/iati/admin.html:38
-#: ckanext/iati_generator/templates/admin/base.html:5
-msgid "IATI Generator"
-msgstr "Generador IATI"
-
 #: ckanext/iati_generator/templates/admin/base.html:12
 msgid "List of existing IATI"
 msgstr "Lista de IATI existentes"
