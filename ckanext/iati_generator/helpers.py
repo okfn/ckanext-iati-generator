@@ -129,6 +129,7 @@ def iati_namespaces():
     )
     return [r[0] for r in rows if r[0]]
 
+
 def process_org_file_type(
     context,
     output_folder: Path,
