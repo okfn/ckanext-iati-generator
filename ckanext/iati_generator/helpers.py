@@ -135,7 +135,6 @@ def process_org_file_type(
     filename: str,
     file_type: IATIFileTypes,
     namespace: str,
-    owner_org: str | None,
     required: bool = True,
     max_files: int | None = 1,
 ) -> int:
@@ -154,12 +153,6 @@ def process_org_file_type(
         .filter(IATIFile.file_type == file_type.value)
         .filter(IATIFile.namespace == namespace)
     )
-
-    # NOTE:
-    # Although this function receives `owner_org`, we do not filter by CKAN
-    # organization here. IATI organization files are not related 1:1 with
-    # CKAN organizations, so we intentionally ignore this parameter.
-    # It is kept only for backwards compatibility.
 
     org_files = query.all()
 
@@ -185,20 +178,20 @@ def process_org_file_type(
         try:
             final_path = save_resource_data(iati_file.resource_id, str(destination_path))
 
-            if not final_path:
-                log.error(f"Failed to fetch data for resource ID: {iati_file.resource_id}")
-                error_message = "Failed to save resource data"
-                iati_file.track_processing(success=False, error_message=error_message)
-                continue
-
-            iati_file.track_processing(success=True)
-            processed_count += 1
-            log.info(f"Saved organization CSV data to {final_path}")
-
         except Exception as e:
             log.error(f"Error processing file {iati_file.resource_id}: {e}")
             iati_file.track_processing(success=False, error_message=str(e))
             if required:
                 raise
+
+        if not final_path:
+            log.error(f"Failed to fetch data for resource ID: {iati_file.resource_id}")
+            error_message = "Failed to save resource data"
+            iati_file.track_processing(success=False, error_message=error_message)
+            continue
+
+        iati_file.track_processing(success=True)
+        processed_count += 1
+        log.info(f"Saved organization CSV data to {final_path}")
 
     return processed_count
