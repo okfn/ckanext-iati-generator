@@ -42,6 +42,7 @@ class IatiGeneratorPlugin(p.SingletonPlugin, DefaultTranslation):
             'iati_file_list': iati_actions.iati_file_list,
             'iati_resources_list': iati_actions.iati_resources_list,
             'generate_organization_xml': iati_actions.generate_organization_xml,
+            'iati_generate': iati_actions.iati_generate,
             # Override CKAN core actions
             'resource_create': resources_actions.resource_create,
             'resource_update': resources_actions.resource_update,
@@ -58,6 +59,7 @@ class IatiGeneratorPlugin(p.SingletonPlugin, DefaultTranslation):
             'iati_file_list': iati_auth.iati_file_list,
             'iati_resources_list': iati_auth.iati_file_list,
             'generate_organization_xml': iati_auth.generate_organization_xml,
+            'iati_generate': iati_auth.iati_generate,
         }
 
     def i18n_locales(self):
@@ -74,4 +76,6 @@ class IatiGeneratorPlugin(p.SingletonPlugin, DefaultTranslation):
         return {
             "iati_file_type": h.iati_file_types,
             "iati_namespaces": h.iati_namespaces,
+            "check_mandatory_components": h.check_mandatory_components,
+            "namespace_ready_for_generation": h.namespace_ready_for_generation,
         }

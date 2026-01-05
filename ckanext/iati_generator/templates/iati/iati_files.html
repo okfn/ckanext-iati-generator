@@ -23,6 +23,66 @@
       </select>
     </form>
 
+    {# Generation section - only show when a specific namespace is selected #}
+    {% if namespace %}
+      {% set generation_status = h.namespace_ready_for_generation(namespace) %}
+      
+      <div class="card mb-3">
+        <div class="card-header">
+          <h3>{{ _("Generate IATI XML Files") }} - {{ namespace }}</h3>
+        </div>
+        <div class="card-body">
+          <div class="row mb-3">
+            <div class="col-md-6">
+              <h4>{{ _("Organization Files") }}</h4>
+              {% if generation_status.organization.complete %}
+                <span class="badge bg-success">{{ _("Ready") }}</span>
+                <p class="text-success">{{ _("All mandatory components are defined") }}</p>
+                <form method="post" action="{{ h.url_for('iati_generator_admin_files.generate_iati') }}" style="display: inline;">
+                  <input type="hidden" name="namespace" value="{{ namespace }}">
+                  <input type="hidden" name="file_category" value="organization">
+                  <button type="submit" class="btn btn-primary">
+                    <i class="fa fa-play"></i> {{ _("Generate Organization XML") }}
+                  </button>
+                </form>
+              {% else %}
+                <span class="badge bg-warning">{{ _("Not Ready") }}</span>
+                <p class="text-warning">{{ _("Missing mandatory components:") }} {{ generation_status.organization.missing|join(', ') }}</p>
+              {% endif %}
+            </div>
+            
+            <div class="col-md-6">
+              <h4>{{ _("Activity Files") }}</h4>
+              {% if generation_status.activities.complete %}
+                <span class="badge bg-success">{{ _("Ready") }}</span>
+                <p class="text-success">{{ _("All mandatory components are defined") }}</p>
+                <form method="post" action="{{ h.url_for('iati_generator_admin_files.generate_iati') }}" style="display: inline;">
+                  <input type="hidden" name="namespace" value="{{ namespace }}">
+                  <input type="hidden" name="file_category" value="activities">
+                  <button type="submit" class="btn btn-primary" disabled>
+                    <i class="fa fa-play"></i> {{ _("Generate Activities XML") }}
+                  </button>
+                  <small class="form-text text-muted">{{ _("(Coming soon)") }}</small>
+                </form>
+              {% else %}
+                <span class="badge bg-warning">{{ _("Not Ready") }}</span>
+                <p class="text-warning">{{ _("Missing mandatory components:") }} {{ generation_status.activities.missing|join(', ') }}</p>
+              {% endif %}
+            </div>
+          </div>
+          
+          <div class="alert alert-info">
+            <i class="fa fa-info-circle"></i>
+            {{ _("To view the generated files, visit:") }}
+            <ul>
+              <li><a href="/iati/{{ namespace }}/organization.xml" target="_blank">/iati/{{ namespace }}/organization.xml</a></li>
+              <li><a href="/iati/{{ namespace }}/activities.xml" target="_blank">/iati/{{ namespace }}/activities.xml</a></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    {% endif %}
+
     <table class="table table-striped table-bordered">
       <thead>
         <tr>
@@ -83,6 +143,9 @@
       </p>
       <p>
         {{ _("This page lists the IATI files configured on resources. It shows whether each file is currently valid, and the date/message of the last validation run.") }}
+      </p>
+      <p>
+        {{ _("Select a specific namespace to generate IATI XML files when all mandatory components are defined.") }}
       </p>
       <p>
         {{ _("OKFN IATI library:") }}
