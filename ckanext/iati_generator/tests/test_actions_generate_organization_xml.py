@@ -82,7 +82,6 @@ class TestGenerateOrganizationXmlAction:
             filename,
             file_type,
             namespace,
-            owner_org,
             required=True,
             max_files=None,
         ):
@@ -191,7 +190,6 @@ class TestGenerateOrganizationXmlAction:
             filename,
             file_type,
             namespace,
-            owner_org,
             required=True,
             max_files=None,
         ):
@@ -320,7 +318,6 @@ class TestGenerateOrganizationXmlAction:
             filename,
             file_type,
             namespace,
-            owner_org,
             required=True,
             max_files=None,
         ):
