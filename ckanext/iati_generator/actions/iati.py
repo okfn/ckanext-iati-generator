@@ -418,7 +418,6 @@ def generate_organization_xml(context, data_dict):
                     filename=filename,
                     file_type=file_type,
                     namespace=namespace,
-                    owner_org=None,
                     required=required,
                     max_files=max_files,
                 )
