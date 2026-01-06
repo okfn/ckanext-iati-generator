@@ -198,6 +198,8 @@ def process_org_file_type(
         log.info(f"Saved organization CSV data to {final_path}")
 
     return processed_count
+
+
 def normalize_namespace(ns):
     """
     Normalize a namespace string by applying consistent formatting rules.
