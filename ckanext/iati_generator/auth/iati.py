@@ -112,6 +112,20 @@ def iati_file_delete(context, data_dict):
     return _allow_if_sysadmin_or_org_admin(context, package_id)
 
 
+def iati_generate(context, data_dict):
+    """
+    Authorization for IATI generation.
+    Only sysadmins can trigger IATI generation.
+    """
+    if _is_sysadmin(context):
+        return {"success": True}
+
+    return {
+        "success": False,
+        "msg": toolkit._("Only sysadmins can trigger IATI generation."),
+    }
+
+
 def iati_file_show(context, data_dict):
     # Unrestricted access
     return {"success": True}

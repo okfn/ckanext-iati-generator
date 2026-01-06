@@ -72,3 +72,35 @@ def iati_files_index():
             "namespace": namespace or "",
         },
     )
+
+
+@iati_file_admin.route("/generate", methods=["POST"])
+@require_sysadmin_user
+def generate_iati():
+    """
+    Generate IATI files for a given namespace and file category.
+    """
+
+    context = {"user": toolkit.c.user}
+
+    namespace = request.form.get("namespace")
+    file_category = request.form.get("file_category", "organization")
+
+    if not namespace:
+        toolkit.h.flash_error(toolkit._("Namespace is required"))
+        return toolkit.redirect_to("iati_generator_admin_files.iati_files_index")
+
+    try:
+        result = toolkit.get_action("iati_generate")(context, {
+            "namespace": namespace,
+            "file_category": file_category
+        })
+
+        toolkit.h.flash_success(result.get('message'))
+    except toolkit.ValidationError as e:
+        for field, errors in e.error_dict.items():
+            toolkit.h.flash_error(f"{field}: {errors}")
+    except Exception as e:
+        toolkit.h.flash_error(toolkit._(f"Error generating IATI files: {str(e)}"))
+
+    return toolkit.redirect_to("iati_generator_admin_files.iati_files_index", namespace=namespace)

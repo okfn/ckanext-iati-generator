@@ -196,3 +196,66 @@ def process_org_file_type(
         log.info(f"Saved organization CSV data to {final_path}")
 
     return processed_count
+
+
+def check_mandatory_components(namespace, file_category='organization'):
+    """
+    Check if all mandatory components are defined for a namespace.
+
+    Args:
+        namespace: The IATI namespace to check
+        file_category: 'organization' or 'activities'
+
+    Returns:
+        dict: {
+            'complete': bool,
+            'missing': list of missing file types,
+            'present': list of present file types
+        }
+    """
+
+    session = model.Session
+
+    # Define mandatory components for each category
+    if file_category == 'organization':
+        mandatory_types = [
+            IATIFileTypes.ORGANIZATION_MAIN_FILE.value,
+        ]
+    elif file_category == 'activities':
+        mandatory_types = [
+            IATIFileTypes.ACTIVITY_MAIN_FILE.value,
+        ]
+    else:
+        raise ValueError(f"Unknown file_category: {file_category}")
+
+    # Query existing files for this namespace
+    existing_files = (
+        session.query(IATIFile.file_type)
+        .filter(IATIFile.namespace == namespace)
+        .filter(IATIFile.file_type.in_(mandatory_types))
+        .all()
+    )
+
+    existing_types = [f[0] for f in existing_files]
+    missing_types = [ft for ft in mandatory_types if ft not in existing_types]
+
+    return {
+        'complete': len(missing_types) == 0,
+        'missing': [IATIFileTypes(ft).name for ft in missing_types],
+        'present': [IATIFileTypes(ft).name for ft in existing_types]
+    }
+
+
+def namespace_ready_for_generation(namespace):
+    """
+    Check if a namespace is ready for IATI generation.
+    Returns dict with status for organization and activities.
+    """
+    org_status = check_mandatory_components(namespace, 'organization')
+    act_status = check_mandatory_components(namespace, 'activities')
+
+    return {
+        'organization': org_status,
+        'activities': act_status,
+        'ready': org_status['complete'] or act_status['complete']
+    }

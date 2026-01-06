@@ -7,9 +7,12 @@ from ckan import model
 from sqlalchemy import func
 from okfn_iati.organisation_xml_generator import IatiOrganisationMultiCsvConverter
 
+
 from ckanext.iati_generator.models.iati_files import DEFAULT_NAMESPACE, IATIFile
 from ckanext.iati_generator.models.enums import IATIFileTypes
 from ckanext.iati_generator import helpers as h
+from ckanext.iati_generator.iati.org import process_org_files
+from ckanext.iati_generator.iati.activities import process_activity_files
 
 
 log = logging.getLogger(__name__)
@@ -442,3 +445,56 @@ def generate_organization_xml(context, data_dict):
             'message': 'XML generated successfully',
             'files_processed': files_processed,
         }
+
+
+def iati_generate(context, data_dict):
+    """
+    Trigger IATI XML generation for a specific namespace and file type.
+
+    Args:
+        namespace: The namespace to generate files for (default: DEFAULT_NAMESPACE)
+        file_category: 'organization' or 'activities' (default: 'organization')
+
+    Returns:
+        dict: Status of the generation process
+    """
+    toolkit.check_access('iati_generate', context, data_dict)
+
+    namespace = data_dict.get('namespace', DEFAULT_NAMESPACE)
+    file_category = data_dict.get('file_category', 'organization')
+
+    # Check if namespace is ready for generation
+    status = h.check_mandatory_components(namespace, file_category)
+    if not status['complete']:
+        raise toolkit.ValidationError({
+            'namespace': f"Missing mandatory components for {file_category}: {', '.join(status['missing'])}"
+        })
+
+    try:
+        # Use the same temp folder strategy as process.py
+        tmp_folder = Path(__file__).parent.parent / "iati" / f"tmp-{namespace}"
+        tmp_folder.mkdir(parents=True, exist_ok=True)
+
+        if file_category == 'organization':
+            process_org_files(namespace, tmp_folder)
+
+        elif file_category == 'activities':
+            process_activity_files(namespace, tmp_folder)
+
+        else:
+            raise toolkit.ValidationError({'file_category': f"Unknown file_category: {file_category}"})
+
+        return {
+            'success': True,
+            'namespace': namespace,
+            'file_category': file_category,
+            'message': f'Successfully generated IATI {file_category} files for namespace {namespace}'
+        }
+
+    except toolkit.ValidationError:
+        raise
+    except Exception as e:
+        log.error(f"Error generating IATI files for namespace {namespace}: {str(e)}", exc_info=True)
+        raise toolkit.ValidationError({
+            'generation': f"Error generating IATI files: {str(e)}"
+        })

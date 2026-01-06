@@ -5,6 +5,7 @@ Go through all IATIFile entries by type and process the related CKAN resource
 from pathlib import Path
 import logging
 
+from ckanext.iati_generator.iati.activities import process_activity_files
 from ckanext.iati_generator.iati.org import process_org_files
 from ckanext.iati_generator.models.iati_files import DEFAULT_NAMESPACE
 
@@ -26,7 +27,13 @@ def process_iati_files(namespace=DEFAULT_NAMESPACE):
     # activities_folder.mkdir(parents=True, exist_ok=True)
 
     # ============ ORGANIZATION FILEs ================================
-    processed_files = process_org_files(namespace, tmp_folder)
-    log.info(f"Processed {processed_files} organization IATI files.")
+    org_result = process_org_files(namespace, tmp_folder)
+    log.info(f"Processed organization result: {org_result}")
     # ============ ACTIVITIES FILEs ================================
     # TODO implement process_activities_files()
+    act_result = process_activity_files(namespace, tmp_folder)
+    log.info(f"Processed activity result: {act_result}")
+    return {
+        "organization": org_result,
+        "activity": act_result,
+    }
