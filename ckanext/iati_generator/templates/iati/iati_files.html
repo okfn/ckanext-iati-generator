@@ -59,10 +59,9 @@
                 <form method="post" action="{{ h.url_for('iati_generator_admin_files.generate_iati') }}" style="display: inline;">
                   <input type="hidden" name="namespace" value="{{ namespace }}">
                   <input type="hidden" name="file_category" value="activities">
-                  <button type="submit" class="btn btn-primary" disabled>
+                  <button type="submit" class="btn btn-primary">
                     <i class="fa fa-play"></i> {{ _("Generate Activities XML") }}
                   </button>
-                  <small class="form-text text-muted">{{ _("(Coming soon)") }}</small>
                 </form>
               {% else %}
                 <span class="badge bg-warning">{{ _("Not Ready") }}</span>
