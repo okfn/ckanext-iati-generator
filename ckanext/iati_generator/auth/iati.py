@@ -1,6 +1,7 @@
 from ckan import model
 from ckan.plugins import toolkit
-from ckanext.iati_generator.models.iati_files import IATIFile
+from ckanext.iati_generator.models.iati_files import IATIFile, DEFAULT_NAMESPACE
+from ckanext.iati_generator.models.enums import IATIFileTypes
 
 
 def _is_sysadmin(context):
@@ -124,3 +125,43 @@ def iati_file_list(context, data_dict):
         "success": False,
         "msg": toolkit._("Only sysadmins can list IATI files.")
     }
+
+
+def _resolve_package_id_from_final_org_file(namespace):
+    """
+    Look for the IATIFile with FINAL_ORGANIZATION_FILE for the given namespace
+    and return its package_id (via resource_id), or None.
+    """
+    ns = namespace or DEFAULT_NAMESPACE
+
+    session = model.Session
+    iati_file = (
+        session.query(IATIFile)
+        .filter(IATIFile.namespace == ns)
+        .filter(IATIFile.file_type == IATIFileTypes.FINAL_ORGANIZATION_FILE.value)
+        .first()
+    )
+    if not iati_file:
+        return None
+
+    return _resolve_package_id_from_resource_id(iati_file.resource_id)
+
+
+def generate_organization_xml(context, data_dict):
+    """
+    Authorization for generating organization XML.
+    Only sysadmins or organization admins can generate XML for their organization.
+    """
+    namespace = data_dict.get("namespace") or DEFAULT_NAMESPACE
+    package_id = _resolve_package_id_from_final_org_file(namespace)
+
+    if not package_id:
+        return {
+            "success": False,
+            "msg": toolkit._(
+                "Cannot resolve dataset for organization XML generation "
+                "(missing FINAL_ORGANIZATION_FILE for this namespace)."
+            ),
+        }
+
+    return _allow_if_sysadmin_or_org_admin(context, package_id)

@@ -1,8 +1,11 @@
 import logging
+import tempfile
+from pathlib import Path
 
 from ckan.plugins import toolkit
 from ckan import model
 from sqlalchemy import func
+from okfn_iati.organisation_xml_generator import IatiOrganisationMultiCsvConverter
 
 from ckanext.iati_generator.models.iati_files import DEFAULT_NAMESPACE, IATIFile
 from ckanext.iati_generator.models.enums import IATIFileTypes
@@ -337,3 +340,105 @@ def iati_resources_list(context, data_dict=None):
         "count": len(results),
         "results": results,
     }
+
+
+def generate_organization_xml(context, data_dict):
+    """
+    Generate IATI Organization XML for a given organization.
+
+    Parameters (data_dict keys):
+      - namespace (str, optional): Namespace for the IATI file. Default: DEFAULT_NAMESPACE.
+
+    Behavior:
+      - Fetch all organization IATIFiles for the given owner_org+namespace.
+      - Include the `FINAL_ORGANIZATION_FILE`. If not exist, raise an error
+      - Download the CSVs to a temporary folder org-<namespace>.
+      - Run IatiOrganisationMultiCsvConverter.csv_folder_to_xml on that folder.
+      - Update the resource related to the FINAL_ORGANIZATION_FILE with the final XML.
+    Returns:
+      dict: {
+        "success": <bool>,
+        "message": <str>,
+        "files_processed": <int> (number of CSV files processed)
+      }
+    """
+    # Permissions: iati_auth.generate_organization_xml
+    toolkit.check_access('generate_organization_xml', context, data_dict)
+
+    namespace = data_dict.get('namespace', DEFAULT_NAMESPACE)
+
+    log.info(f"Generating IATI Organization XML with namespace {namespace}")
+
+    # Create temporary folder for CSVs
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        org_folder = Path(tmp_dir) / f"org-{namespace}"
+        org_folder.mkdir(parents=True, exist_ok=True)
+
+        # Processed organization file types
+        file_types_mapping = {
+            IATIFileTypes.ORGANIZATION_MAIN_FILE: ("organization.csv", True, 1),
+            IATIFileTypes.ORGANIZATION_NAMES_FILE: ("names.csv", False, 1),
+            IATIFileTypes.ORGANIZATION_BUDGET_FILE: ("budgets.csv", False, None),
+            IATIFileTypes.ORGANIZATION_EXPENDITURE_FILE: ("expenditures.csv", False, None),
+            IATIFileTypes.ORGANIZATION_DOCUMENT_FILE: ("documents.csv", False, None),
+        }
+
+        files_processed = 0
+
+        # Process each file type
+        for file_type, (filename, required, max_files) in file_types_mapping.items():
+            try:
+                count = h.process_org_file_type(
+                    context=context,
+                    output_folder=org_folder,
+                    filename=filename,
+                    file_type=file_type,
+                    namespace=namespace,
+                    required=required,
+                    max_files=max_files,
+                )
+                files_processed += count
+                log.info(f"Processed {count} file(s) for {file_type.name}")
+            except Exception as e:
+                # If required, abort
+                log.error(f"Error processing {file_type.name}: {e}")
+                if required:
+                    raise
+
+        if files_processed == 0:
+            return {
+                'success': False,
+                'message': f'No organization files found with namespace {namespace}'
+            }
+
+        # Convert CSV → XML
+        converter = IatiOrganisationMultiCsvConverter()
+
+        if namespace == DEFAULT_NAMESPACE:
+            xml_filename = org_folder / "iati-organization.xml"
+        else:
+            xml_filename = org_folder / f"iati-organization-{namespace}.xml"
+
+        log.info(f"Converting CSV files to IATI XML: {xml_filename}")
+        converted = converter.csv_folder_to_xml(
+            input_folder=str(org_folder),
+            xml_output=str(xml_filename),
+        )
+
+        if not converted or not xml_filename.exists():
+            return {
+                'success': False,
+                'message': 'Failed to generate XML file'
+            }
+
+        # Read the generated XML content
+        with open(xml_filename, 'r', encoding='utf-8') as f:
+            xml_content = f.read()
+
+        log.info(f"Successfully generated IATI Organization XML ({len(xml_content)} bytes)")
+
+        return {
+            'success': True,
+            'message': 'XML generated successfully',
+            'files_processed': files_processed,
+        }
