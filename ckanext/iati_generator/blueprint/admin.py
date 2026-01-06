@@ -64,7 +64,8 @@ def iati_files_index():
         })
 
     # Prepare information about pending file types
-    pending_files = h.get_pending_mandatory_files(include_final=False)
+    pending_files = h.get_pending_mandatory_files(include_final=False,
+                                                  namespace=namespace)
 
     return toolkit.render(
         "iati/iati_files.html",

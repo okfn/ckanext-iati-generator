@@ -275,13 +275,29 @@ def mandatory_file_types(include_final=False):
     return org, act
 
 
-def get_pending_mandatory_files(include_final=False):
+def get_pending_mandatory_files(include_final=False, namespace=None):
     """
     Returns pending mandatory files per namespace.
-    If no namespaces exist yet, return defaults under '__none__'.
+
+    If namespace is provided:
+      - returns ONLY that namespace
+      - if the namespace has no files yet, treat as "all mandatory missing"
     """
     ns_map = get_iati_files_by_namespace()
     mandatory_org, mandatory_act = mandatory_file_types(include_final=include_final)
+
+    # If a namespace is requested explicitly:
+    if namespace:
+        present_files = ns_map.get(namespace, set())
+        pending_org = mandatory_org - present_files
+        pending_act = mandatory_act - present_files
+
+        return {
+            namespace: {
+                "organization": sorted(pending_org, key=lambda x: x.value),
+                "activity": sorted(pending_act, key=lambda x: x.value),
+            }
+        }
 
     # If nothing uploaded yet: show mandatory set under __none__
     if not ns_map:
