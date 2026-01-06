@@ -4,7 +4,6 @@ from pathlib import Path
 
 from ckan.plugins import toolkit
 from ckan import model
-from pathlib import Path
 from sqlalchemy import func
 from okfn_iati.organisation_xml_generator import IatiOrganisationMultiCsvConverter
 
