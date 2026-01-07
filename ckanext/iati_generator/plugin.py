@@ -1,3 +1,4 @@
+from ckan.logic.action.create import resource_create
 
 import logging
 from ckan import plugins as p
@@ -42,9 +43,10 @@ class IatiGeneratorPlugin(p.SingletonPlugin, DefaultTranslation):
             'iati_file_list': iati_actions.iati_file_list,
             'iati_resources_list': iati_actions.iati_resources_list,
             'generate_organization_xml': iati_actions.generate_organization_xml,
-            # Override CKAN core actions
+            # Chain to CKAN core actions
             'resource_create': resources_actions.resource_create,
             'resource_update': resources_actions.resource_update,
+            'resource_show': resources_actions.resource_show,
         }
 
         return actions
