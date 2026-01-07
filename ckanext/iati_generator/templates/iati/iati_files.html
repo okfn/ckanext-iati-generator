@@ -29,7 +29,7 @@
           <th>{{ _("Namespace") }}</th>
           <th>{{ _("File type") }}</th>
           <th>{{ _("Resource") }}</th>
-          <th>{{ _("Validation") }}</th>
+          <th>{{ _("Status") }}</th>
           <th>{{ _("Notes") }}</th>
         </tr>
       </thead>
@@ -47,11 +47,11 @@
             <td class="status-cell">
               {% if row.valid %}
                 <span class="bg bg-valid">
-                  {{ _('Valid') }}
+                  {{ _('Success') }}
                 </span>
               {% else %}
                 <span class="bg bg-invalid">
-                  {{ _('Invalid') }}
+                  {{ _('Error') }}
                 </span>
               {% endif %}
             </td>
