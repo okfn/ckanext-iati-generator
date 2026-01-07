@@ -369,6 +369,23 @@ def generate_organization_xml(context, data_dict):
 
     log.info(f"Generating IATI Organization XML with namespace {namespace}")
 
+    # Find the FINAL_ORGANIZATION_FILE for this namespace to track status
+    session = model.Session
+    final_org_file = (
+        session.query(IATIFile)
+        .filter(IATIFile.namespace == namespace)
+        .filter(IATIFile.file_type == IATIFileTypes.FINAL_ORGANIZATION_FILE.value)
+        .first()
+    )
+
+    if not final_org_file:
+        error_msg = f"No FINAL_ORGANIZATION_FILE found for namespace {namespace}"
+        log.error(error_msg)
+        return {
+            'success': False,
+            'message': error_msg
+        }
+
     # Create temporary folder for CSVs
     with tempfile.TemporaryDirectory() as tmp_dir:
         org_folder = Path(tmp_dir) / f"org-{namespace}"
@@ -400,15 +417,22 @@ def generate_organization_xml(context, data_dict):
                 files_processed += count
                 log.info(f"Processed {count} file(s) for {file_type.name}")
             except Exception as e:
-                # If required, abort
-                log.error(f"Error processing {file_type.name}: {e}")
+                error_msg = f"Error processing {file_type.name}: {str(e)}"
+                log.error(error_msg, exc_info=True)
+                # If required, track error and abort
                 if required:
-                    raise
+                    final_org_file.track_processing(success=False, error_message=error_msg)
+                    return {
+                        'success': False,
+                        'message': error_msg
+                    }
 
         if files_processed == 0:
+            error_msg = f'No organization files found with namespace {namespace}'
+            final_org_file.track_processing(success=False, error_message=error_msg)
             return {
                 'success': False,
-                'message': f'No organization files found with namespace {namespace}'
+                'message': error_msg
             }
 
         # Convert CSV → XML
@@ -420,22 +444,46 @@ def generate_organization_xml(context, data_dict):
             xml_filename = org_folder / f"iati-organization-{namespace}.xml"
 
         log.info(f"Converting CSV files to IATI XML: {xml_filename}")
-        converted = converter.csv_folder_to_xml(
-            input_folder=str(org_folder),
-            xml_output=str(xml_filename),
-        )
-
-        if not converted or not xml_filename.exists():
+        
+        try:
+            converted = converter.csv_folder_to_xml(
+                input_folder=str(org_folder),
+                xml_output=str(xml_filename),
+            )
+        except Exception as e:
+            error_msg = f"Error converting CSV to XML: {str(e)}"
+            log.error(error_msg, exc_info=True)
+            final_org_file.track_processing(success=False, error_message=error_msg)
             return {
                 'success': False,
-                'message': 'Failed to generate XML file'
+                'message': error_msg
+            }
+
+        if not converted or not xml_filename.exists():
+            error_msg = 'Failed to generate XML file'
+            final_org_file.track_processing(success=False, error_message=error_msg)
+            return {
+                'success': False,
+                'message': error_msg
             }
 
         # Read the generated XML content
-        with open(xml_filename, 'r', encoding='utf-8') as f:
-            xml_content = f.read()
+        try:
+            with open(xml_filename, 'r', encoding='utf-8') as f:
+                xml_content = f.read()
+        except Exception as e:
+            error_msg = f"Error reading generated XML: {str(e)}"
+            log.error(error_msg, exc_info=True)
+            final_org_file.track_processing(success=False, error_message=error_msg)
+            return {
+                'success': False,
+                'message': error_msg
+            }
 
         log.info(f"Successfully generated IATI Organization XML ({len(xml_content)} bytes)")
+
+        # Mark as successful
+        final_org_file.track_processing(success=True)
 
         return {
             'success': True,
