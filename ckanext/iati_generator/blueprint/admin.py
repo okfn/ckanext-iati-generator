@@ -41,14 +41,16 @@ def iati_files_index():
         # Validation info
         is_valid = bool(iati_file.get("is_valid"))
         last_success = iati_file.get("last_processed_success")
-        last_error = iati_file.get("last_error") or ""
+        last_error = (iati_file.get("last_error") or "").strip()
 
-        if is_valid and last_success:
-            notes = f"Last success: {last_success}"
-        elif not is_valid and last_error:
-            notes = f"Last error: {last_error}"
+        if is_valid:
+            if last_success:
+                notes = f"Last success: {last_success}"
+            else:
+                notes = "Success (no timestamp available)"
         else:
-            notes = ""
+            # Always show something for errors
+            notes = f"Last error: {last_error}" if last_error else "Processing failed (no error message provided)"
 
         # Append row
         rows_out.append({
