@@ -10,7 +10,7 @@
 
       <select name="namespace" id="namespace" class="form-select mr-2"
               onchange="this.form.submit()">
-        <option value="">{{ _("All") }}</option>
+        <option value="">{{ _("Select a namespace to start...") }}</option>
         {% for ns in h.iati_namespaces() %}
           <option value="{{ ns }}" {% if ns == namespace %}selected{% endif %}>
             {{ ns }}
@@ -18,6 +18,21 @@
         {% endfor %}
       </select>
     </form>
+
+    {% if not namespace %}
+      <div class="alert alert-warning">
+        <h4>{{ _("Getting Started") }}</h4>
+        {{ namespace }}
+        <ol>
+          <li>{{ _("Create a dataset and fill the namespace value (so it gets identified as an IATI file)") }}</li>
+          <li>{{ _("For each IATI CSV file you have, create a resource on the dataset and upload the file to it.") }}</li>
+          <li>{{ _("To each created resource, assign the corresponding IATI file type (it will be available in the resource form).") }}</li>
+          <li>{{ _("Once all mandatory files exist, XML generation will be enabled on this page.") }}</li>
+        </ol>
+      </div>
+    {% endif %}
+
+    {% if pending_files %}
     {% for namespace, pending in pending_files.items() %}
       {% if pending.organization or pending.activity %}
         <div class="alert alert-warning">
@@ -58,6 +73,7 @@
         </div>
       {% endif %}
     {% endfor %}
+  {% endif %}
 
   {% if iati_files %}
     <table class="table table-striped table-bordered">
@@ -98,73 +114,8 @@
         {% endfor %}
       </tbody>
     </table>
-  {% else %}
-    <div class="alert alert-info">
-      <h3>{{ _("No IATI files found") }}</h3>
-      <p>
-        {{ _("There are no IATI CSV components loaded yet.") }}
-      </p>
-    </div>
-
-    {% for namespace, pending in pending_files.items() %}
-      <div class="panel panel-default">
-        <div class="panel-heading">
-          <h3 class="panel-title">
-            {{ _("Pending files") }} - {{ _("Namespace") }}: {{ namespace }}
-          </h3>
-        </div>
-
-        <div class="panel-body">
-          <div class="row">
-            <div class="col-md-6">
-              <h4>{{ _("Organization") }}</h4>
-              {% if pending.organization %}
-                <ul class="pending-files-list">
-                  {% for ft in pending.organization %}
-                    <li>
-                      {{ ft.name.replace("_", " ").title() }}
-                    </li>
-                  {% endfor %}
-                </ul>
-              {% else %}
-                <span class="label label-success">
-                  {{ _("All mandatory organization files uploaded") }}
-                </span>
-              {% endif %}
-            </div>
-
-            <div class="col-md-6">
-              <h4>{{ _("Activities") }}</h4>
-              {% if pending.activity %}
-                <ul class="pending-files-list">
-                  {% for ft in pending.activity %}
-                    <li>
-                      {{ ft.name.replace("_", " ").title() }}
-                    </li>
-                  {% endfor %}
-                </ul>
-              {% else %}
-                <span class="label label-success">
-                  {{ _("All mandatory activity files uploaded") }}
-                </span>
-              {% endif %}
-            </div>
-          </div>
-        </div>
-      </div>
-    {% endfor %}
-
-    <div class="alert alert-warning">
-      <h4>{{ _("Getting Started") }}</h4>
-      <ol>
-        <li>{{ _("Create or select a dataset") }}</li>
-        <li>{{ _("Upload CSV resources") }}</li>
-        <li>{{ _("Assign IATI namespace and file type") }}</li>
-        <li>{{ _("Once mandatory files exist, XML generation will be enabled") }}</li>
-      </ol>
-    </div>
-
   {% endif %}
+
 {% endblock %}
 
 {% block content_secondary_nav %}

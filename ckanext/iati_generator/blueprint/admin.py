@@ -13,7 +13,11 @@ def iati_files_index():
     """List all IATI “files” (resources with IATI extras) in the system.
     This is a simple admin view to see the status of IATI files.
     """
+
     namespace = request.args.get("namespace")
+    if not namespace:
+        return toolkit.render("iati/iati_files.html", {"namespace": ""})
+
     params = {}
     search_filter = "iati_namespace:[* TO *]"  # Get all datasets with namespace
 
