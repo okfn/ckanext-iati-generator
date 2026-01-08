@@ -29,13 +29,6 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
 ]
 
-# PyPi packages of OKFN are broken and schema validations fails. 
-# (Probably missing static files when package distribution)
-dependencies = [
-    "okfn_iati @ git+https://github.com/okfn/okfn_iati.git@0.4.1#egg=okfn_iati"
-]
-
-
 [project.urls]
 Homepage = "https://github.com/okfn/ckanext-iati-generator"
 Issues = "https://github.com/okfn/ckanext-iati-generator/issues"
