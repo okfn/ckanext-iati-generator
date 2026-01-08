@@ -1,11 +1,15 @@
+import os
 import logging
 import tempfile
+import shutil
 from pathlib import Path
 
 from ckan.plugins import toolkit
+from ckan.lib.uploader import ResourceUpload
 from ckan import model
 from sqlalchemy import func
 from okfn_iati.organisation_xml_generator import IatiOrganisationMultiCsvConverter
+from okfn_iati import IatiMultiCsvConverter
 
 from ckanext.iati_generator.models.iati_files import DEFAULT_NAMESPACE, IATIFile
 from ckanext.iati_generator.models.enums import IATIFileTypes
@@ -442,3 +446,54 @@ def generate_organization_xml(context, data_dict):
             'message': 'XML generated successfully',
             'files_processed': files_processed,
         }
+
+
+def _get_iati_file_name(iati_file_type):
+    mapping = {
+        "200": "activities.csv",
+        "210": "participating_orgs.csv",
+        "220": "sectors.csv",
+        "230": "budgets.csv",
+        "240": "transactions.csv",
+        "250": "transaction_sectors.csv",
+        "260": "locations.csv",
+        "270": "documents.csv",
+        "280": "results.csv",
+        "290": "indicators.csv",
+        "300": "indicator_periods.csv",
+        "310": "activity_date.csv",
+        "320": "contact_info.csv",
+        "330": "conditions.csv",
+        "340": "descriptions.csv",
+        "350": "country_budget_items.csv",
+    }
+    return mapping[iati_file_type]
+
+
+def _copy_resource_file_to_tmp_folder(resource_dict, tmp_dir):
+    """Copy the file to a temporary folder.
+
+    This only works if file is hosted in the same webserver (single VM deployments).
+    For other architectures (K8s, AWS, etc) will need to be reimplemented.
+    """
+    ru = ResourceUpload({"id": resource_dict["id"]})
+    filepath = ru.get_path(resource_dict["id"])
+    destination = tmp_dir + "/" + _get_iati_file_name(resource_dict["iati_file_type"])
+    shutil.copy(filepath, destination)
+
+
+@toolkit.side_effect_free
+def iati_generate_activities_xml(context, data_dict):
+    """Generates the xml of Activities from a multi-csv structure."""
+    package_id = toolkit.get_or_bust(data_dict, "package_id")
+    dataset = toolkit.get_action('package_show')({}, {"id": package_id})
+
+    tmp_dir = tempfile.mkdtemp()
+
+    for resource in dataset["resources"]:
+        if resource.get("iati_file_type", 0):
+            _copy_resource_file_to_tmp_folder(resource, tmp_dir)
+
+    converter = IatiMultiCsvConverter()
+    converter.csv_folder_to_xml(str(tmp_dir), xml_output="/tmp/activity.xml", validate_output=True)
+
