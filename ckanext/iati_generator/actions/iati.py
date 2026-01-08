@@ -449,6 +449,10 @@ def generate_organization_xml(context, data_dict):
 
 
 def _get_iati_file_name(iati_file_type):
+    """Map our Enums to filenames.
+
+    okfn_iati expects specific names for each file.
+    """
     mapping = {
         "200": "activities.csv",
         "210": "participating_orgs.csv",
@@ -470,16 +474,20 @@ def _get_iati_file_name(iati_file_type):
     return mapping[iati_file_type]
 
 
-def _copy_resource_file_to_tmp_folder(resource_dict, tmp_dir):
-    """Copy the file to a temporary folder.
+def _prepare_csv_folder(dataset, tmp_dir):
+    """Copy all IATI CSV files into a folder for okfn_iati to process.
 
-    This only works if file is hosted in the same webserver (single VM deployments).
-    For other architectures (K8s, AWS, etc) will need to be reimplemented.
+    The okfn_iati tool expects all the csv files to live in a folder.
+
+    TODO: This method only works if files are hosted in the same webserver (single VM deployments).
+    For other architectures (K8s, AWS, etc) will need to be extended/reimplemented.
     """
-    ru = ResourceUpload({"id": resource_dict["id"]})
-    filepath = ru.get_path(resource_dict["id"])
-    destination = tmp_dir + "/" + _get_iati_file_name(resource_dict["iati_file_type"])
-    shutil.copy(filepath, destination)
+    for resource in dataset["resources"]:
+        if resource.get("iati_file_type", 0):
+            ru = ResourceUpload({"id": resource["id"]})
+            filepath = ru.get_path(resource["id"])
+            destination = tmp_dir + "/" + _get_iati_file_name(resource["iati_file_type"])
+            shutil.copy(filepath, destination)
 
 
 @toolkit.side_effect_free
@@ -490,10 +498,8 @@ def iati_generate_activities_xml(context, data_dict):
 
     tmp_dir = tempfile.mkdtemp()
 
-    for resource in dataset["resources"]:
-        if resource.get("iati_file_type", 0):
-            _copy_resource_file_to_tmp_folder(resource, tmp_dir)
+    _prepare_csv_folder(dataset, tmp_dir)
 
     converter = IatiMultiCsvConverter()
-    converter.csv_folder_to_xml(str(tmp_dir), xml_output="/tmp/activity.xml", validate_output=True)
+    converter.csv_folder_to_xml(csv_folder=tmp_dir, xml_output="/tmp/activity.xml", validate_output=True)
 
