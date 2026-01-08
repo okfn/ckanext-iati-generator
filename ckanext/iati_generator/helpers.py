@@ -120,16 +120,19 @@ def normalize_file_type_strict(value):
 
 def iati_namespaces():
     """
-    Returns a list of distinct IATI namespaces from the IATIFile records.
+    Returns a list of distinct IATI namespaces.
+
+    We search for all the datasets with iati_namespace and return a unique list (in case
+    there are multiple datasets with the same namespace)
+
+    TODO: Should we allow multiple datasets with the same namespace?
     """
-    session = model.Session
-    rows = (
-        session.query(IATIFile.namespace)
-        .distinct()
-        .order_by(IATIFile.namespace)
-        .all()
-    )
-    return [r[0] for r in rows if r[0]]
+    ctx = {'user': toolkit.g.user}
+    result = toolkit.get_action("package_search")(ctx, {"fq": "iati_namespace:[* TO *]"})
+    datasets = result.get("results", [])
+    namespaces = [dataset["iati_namespace"] for dataset in datasets]
+    return list(set(namespaces))
+
 
 
 def process_org_file_type(
