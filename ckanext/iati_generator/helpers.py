@@ -277,7 +277,6 @@ def get_pending_mandatory_files(package_id):
     mandatory_org, mandatory_act = mandatory_file_types()
 
     present_files = get_iati_files(package_id)
-    print(present_files)
     pending_org = mandatory_org - present_files
     pending_act = mandatory_act - present_files
 
