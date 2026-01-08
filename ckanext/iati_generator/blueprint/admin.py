@@ -1,9 +1,7 @@
+from ckan.plugins import toolkit
 from flask import Blueprint, request
 
-from ckan.plugins import toolkit
-
 from ckanext.iati_generator.decorators import require_sysadmin_user
-
 
 iati_file_admin = Blueprint("iati_generator_admin_files", __name__, url_prefix="/ckan-admin/list-iati-files")
 
@@ -16,7 +14,7 @@ def iati_files_index():
     """
     namespace = request.args.get("namespace")
     params = {}
-    search_filter = "iati_namespace:[* TO *]" # Get all datasets with namespace
+    search_filter = "iati_namespace:[* TO *]"  # Get all datasets with namespace
 
     # namespace filter
     if namespace:

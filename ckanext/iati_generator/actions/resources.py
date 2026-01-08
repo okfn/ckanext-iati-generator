@@ -55,7 +55,7 @@ def iati_resource_update(context, data_dict):
 
     iati_file_type = data_dict.get("iati_file_type", None)
     if not iati_file_type and existing:
-        toolkit.get_action("iati_file_delete")({},{"id": existing.id})
+        toolkit.get_action("iati_file_delete")({}, {"id": existing.id})
         return
 
     pkg_dict = toolkit.get_action("package_show")({}, {"id": data_dict["package_id"]})
@@ -63,8 +63,8 @@ def iati_resource_update(context, data_dict):
     if not namespace:
         namespace = DEFAULT_NAMESPACE
 
-    file_dict = { "id": existing.id, "file_type": iati_file_type, "namespace": namespace }
-    toolkit.get_action("iati_file_update")({},file_dict)
+    file_dict = {"id": existing.id, "file_type": iati_file_type, "namespace": namespace}
+    toolkit.get_action("iati_file_update")({}, file_dict)
 
 
 @toolkit.side_effect_free
