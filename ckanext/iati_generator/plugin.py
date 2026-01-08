@@ -6,7 +6,6 @@ from ckan.plugins import toolkit
 
 from ckanext.iati_generator import helpers as h
 from ckanext.iati_generator.actions import iati as iati_actions
-from ckanext.iati_generator.actions import resources as resources_actions
 from ckanext.iati_generator.auth import iati as iati_auth
 from ckanext.iati_generator.blueprint.admin import iati_file_admin
 from ckanext.iati_generator.blueprint.public_iati import iati_public
@@ -44,9 +43,9 @@ class IatiGeneratorPlugin(p.SingletonPlugin, DefaultTranslation):
             'generate_organization_xml': iati_actions.generate_organization_xml,
             'iati_generate_activity_xml': iati_actions.iati_generate_activities_xml,
             # Chain to CKAN core actions
-            'resource_create': resources_actions.resource_create,
-            'resource_update': resources_actions.resource_update,
-            'resource_show': resources_actions.resource_show,
+            # 'resource_create': resources_actions.resource_create,
+            # 'resource_update': resources_actions.resource_update,
+            # 'resource_show': resources_actions.resource_show,
         }
 
         return actions
