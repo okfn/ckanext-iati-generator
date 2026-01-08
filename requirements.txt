@@ -1,2 +1,3 @@
-okfn-iati==0.4.0
-
+# PyPi is broken. Probably due to missing static files in the distribution package.
+# TODO: Fix this
+git+https://github.com/okfn/okfn_iati.git@main#egg=okfn_iati
