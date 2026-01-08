@@ -449,14 +449,15 @@ def generate_organization_xml(context, data_dict):
         }
 
 
-def _get_iati_file_name(iati_file_type):
-    """Map our Enums to filenames.
+def _prepare_activities_csv_folder(dataset, tmp_dir):
+    """Copy all IATI CSV files into a folder for okfn_iati to process.
 
-    okfn_iati expects specific names for each file.
+    The okfn_iati tool expects all the csv files to live in a folder.
+
+    TODO: This method only works if files are hosted in the same webserver (single VM deployments).
+    For other architectures (K8s, AWS, etc) will need to be extended/reimplemented.
     """
 
-    # TODO: Add the organization files based on:
-    # https://github.com/okfn/okfn_iati/blob/999c24156cd741e3ea2c0c1a2da434ec7bd8feb9/src/okfn_iati/organisation_xml_generator.py#L1099-L1108
     mapping = {
         "200": "activities.csv",
         "210": "participating_orgs.csv",
@@ -475,22 +476,13 @@ def _get_iati_file_name(iati_file_type):
         "340": "descriptions.csv",
         "350": "country_budget_items.csv",
     }
-    return mapping[iati_file_type]
 
-
-def _prepare_csv_folder(dataset, tmp_dir):
-    """Copy all IATI CSV files into a folder for okfn_iati to process.
-
-    The okfn_iati tool expects all the csv files to live in a folder.
-
-    TODO: This method only works if files are hosted in the same webserver (single VM deployments).
-    For other architectures (K8s, AWS, etc) will need to be extended/reimplemented.
-    """
     for resource in dataset["resources"]:
-        if resource.get("iati_file_type", 0):
+        key = resource.get("iati_file_type", "")
+        if key and key in mapping.keys():
             ru = ResourceUpload({"id": resource["id"]})
             filepath = ru.get_path(resource["id"])
-            destination = tmp_dir + "/" + _get_iati_file_name(resource["iati_file_type"])
+            destination = tmp_dir + "/" + mapping[key]
             shutil.copy(filepath, destination)
     log.info(f"Finished preparing the CSV folder for the IATI converter. (Path: {tmp_dir})")
 
@@ -507,7 +499,7 @@ def iati_generate_activities_xml(context, data_dict):
 
     tmp_dir = tempfile.mkdtemp()
 
-    _prepare_csv_folder(dataset, tmp_dir)
+    _prepare_activities_csv_folder(dataset, tmp_dir)
 
     output_path = tmp_dir + "/activity.xml"
     converter = IatiMultiCsvConverter()
