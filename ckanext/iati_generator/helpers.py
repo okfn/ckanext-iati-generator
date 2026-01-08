@@ -237,88 +237,53 @@ def normalize_namespace(ns):
     return ns
 
 
-def get_iati_files_by_namespace():
+def get_iati_files(package_id):
+    """Get a list of the existing IATIFileTypes for a specific namespace."""
+    ctx = {"user": toolkit.g.user}
+
+    dataset = toolkit.get_action("package_show")(ctx, {"id": package_id})
+
+    iati_types = [res.get("iati_file_type", "") for res in dataset.get("resources", [])]
+    iati_enums = [IATIFileTypes(int(key)) for key in iati_types]
+
+    return set(iati_enums)
+
+
+def mandatory_file_types():
+    """Return a list of mandatory file types.
+
+    For now, mandatory files are the ones that okfn_iati MultiCSVConvert needs.
     """
-    Returns a map:
-      {
-        "namespace1": {IATIFileTypes.ACTIVITY_MAIN_FILE, ...},
-        "namespace2": {...}
-      }
-    """
-    session = model.Session
-    files = session.query(IATIFile).all()
+    org = [
+        IATIFileTypes.ORGANIZATION_MAIN_FILE,
+    ]
 
-    ns_map = defaultdict(set)
-    for f in files:
-        ns_map[f.namespace].add(IATIFileTypes(f.file_type))
-
-    return dict(ns_map)
-
-
-def mandatory_file_types(include_final=False):
-    """
-    All enums are mandatory (by your requirement), split by category.
-
-    include_final:
-      - False: excludes FINAL_* (recommended, because FINAL is generated XML, not CSV component)
-      - True: includes FINAL_* in the mandatory sets
-    """
-    org = set()
-    act = set()
-
-    for ft in IATIFileTypes:
-        if not include_final and ft.name.startswith("FINAL_"):
-            continue
-
-        if 100 <= ft.value < 200:
-            org.add(ft)
-        elif 200 <= ft.value < 400:
-            act.add(ft)
-
-    return org, act
+    # https://github.com/okfn/okfn_iati/blob/999c24156cd741e3ea2c0c1a2da434ec7bd8feb9/src/okfn_iati/multi_csv_converter.py#L56
+    act = [
+        IATIFileTypes.ACTIVITY_MAIN_FILE,
+        IATIFileTypes.ACTIVITY_CONTACT_INFO_FILE,
+        IATIFileTypes.ACTIVITY_DOCUMENTS_FILE,
+        IATIFileTypes.ACTIVITY_INDICATORS_FILE,
+        IATIFileTypes.ACTIVITY_INDICATOR_PERIODS_FILE,
+        IATIFileTypes.ACTIVITY_RESULTS_FILE,
+        IATIFileTypes.ACTIVITY_SECTORS_FILE,
+        IATIFileTypes.ACTIVITY_TRANSACTIONS_FILE,
+    ]
+    return set(org), set(act)
 
 
-def get_pending_mandatory_files(include_final=False, namespace=None):
-    """
-    Returns pending mandatory files per namespace.
+def get_pending_mandatory_files(package_id):
+    """Returns pending mandatory files for the namespace."""
+    mandatory_org, mandatory_act = mandatory_file_types()
 
-    If namespace is provided:
-      - returns ONLY that namespace
-      - if the namespace has no files yet, treat as "all mandatory missing"
-    """
-    ns_map = get_iati_files_by_namespace()
-    mandatory_org, mandatory_act = mandatory_file_types(include_final=include_final)
+    present_files = get_iati_files(package_id)
+    print(present_files)
+    pending_org = mandatory_org - present_files
+    pending_act = mandatory_act - present_files
 
-    # If a namespace is requested explicitly:
-    if namespace:
-        present_files = ns_map.get(namespace, set())
-        pending_org = mandatory_org - present_files
-        pending_act = mandatory_act - present_files
+    result = {
+        "organization": sorted(pending_org, key=lambda x: x.value),
+        "activity": sorted(pending_act, key=lambda x: x.value),
+    }
 
-        return {
-            namespace: {
-                "organization": sorted(pending_org, key=lambda x: x.value),
-                "activity": sorted(pending_act, key=lambda x: x.value),
-            }
-        }
-
-    # If nothing uploaded yet: show mandatory set under __none__
-    if not ns_map:
-        return {
-            "__none__": {
-                "organization": sorted(mandatory_org, key=lambda x: x.value),
-                "activity": sorted(mandatory_act, key=lambda x: x.value),
-            }
-        }
-
-    pending = {}
-    for namespace, present_files in ns_map.items():
-        pending_org = mandatory_org - present_files
-        pending_act = mandatory_act - present_files
-
-        pending[namespace] = {
-            "organization": sorted(pending_org, key=lambda x: x.value),
-            "activity": sorted(pending_act, key=lambda x: x.value),
-        }
-
-    return pending
+    return result

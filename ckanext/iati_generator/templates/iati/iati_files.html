@@ -33,22 +33,17 @@
     {% endif %}
 
     {% if pending_files %}
-    {% for namespace, pending in pending_files.items() %}
-      {% if pending.organization or pending.activity %}
         <div class="alert alert-warning">
-          <strong>{{ _("Namespace") }}:</strong> {{ namespace }}
-          <strong>{{ _("Missing files") }}</strong>
-
           <details class="missing-files-details">
             <summary class="missing-files-summary">
               {{ _("Show missing files") }}
             </summary>
 
-            {% if pending.organization %}
+            {% if pending_files.organization %}
               <div class="missing-files-category">
                 <strong>{{ _("Organization") }}</strong>
                 <ul class="missing-files-list">
-                  {% for ft in pending.organization %}
+                  {% for ft in pending_files.organization %}
                     <li>
                       {{ ft.name.replace("_", " ").title() }}
                     </li>
@@ -57,11 +52,11 @@
               </div>
             {% endif %}
 
-            {% if pending.activity %}
+            {% if pending_files.activity %}
               <div class="missing-files-category">
                 <strong>{{ _("Activities") }}</strong>
                 <ul class="missing-files-list">
-                  {% for ft in pending.activity %}
+                  {% for ft in pending_files.activity %}
                     <li>
                       {{ ft.name.replace("_", " ").title() }}
                     </li>
@@ -71,8 +66,6 @@
             {% endif %}
           </details>
         </div>
-      {% endif %}
-    {% endfor %}
   {% endif %}
 
   {% if iati_files %}

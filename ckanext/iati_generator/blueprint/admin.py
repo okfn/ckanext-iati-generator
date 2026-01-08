@@ -38,9 +38,7 @@ def iati_files_index():
                 "resource_url": resource.get("url"),
             })
 
-    # Prepare information about pending file types
-    pending_files = h.get_pending_mandatory_files(include_final=False,
-                                                  namespace=namespace)
+    pending_files = h.get_pending_mandatory_files(dataset["id"])
 
     return toolkit.render(
         "iati/iati_files.html",
