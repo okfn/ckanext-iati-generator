@@ -6,9 +6,19 @@ from ckan import model
 from ckanext.iati_generator.models.enums import IATIFileTypes
 from ckanext.iati_generator.models.iati_files import DEFAULT_NAMESPACE, IATIFile
 from ckanext.iati_generator.iati.resource import save_resource_data
+from okfn_iati.organisation_xml_generator import IatiOrganisationMultiCsvConverter
 
 
 log = logging.getLogger(__name__)
+
+
+ORG_FILE_TYPES_MAPPING = {
+    IATIFileTypes.ORGANIZATION_MAIN_FILE: ("organization.csv", True, 1),
+    IATIFileTypes.ORGANIZATION_NAMES_FILE: ("names.csv", False, 1),
+    IATIFileTypes.ORGANIZATION_BUDGET_FILE: ("budgets.csv", False, None),
+    IATIFileTypes.ORGANIZATION_EXPENDITURE_FILE: ("expenditures.csv", False, None),
+    IATIFileTypes.ORGANIZATION_DOCUMENT_FILE: ("documents.csv", False, None),
+}
 
 
 def iati_file_types(field=None):
@@ -196,3 +206,74 @@ def process_org_file_type(
         log.info(f"Saved organization CSV data to {final_path}")
 
     return processed_count
+
+
+def get_final_org_file(session, namespace):
+    """
+    Get the final organization file for a given namespace.
+    Find the FINAL_ORGANIZATION_FILE for this namespace to track status
+    of the overall organization XML generation.
+    """
+    return (
+        session.query(IATIFile)
+        .filter(IATIFile.namespace == namespace)
+        .filter(IATIFile.file_type == IATIFileTypes.FINAL_ORGANIZATION_FILE.value)
+        .first()
+    )
+
+
+def xml_output_path(org_folder: Path, namespace: str) -> Path:
+    """
+    Get the output XML path for the given namespace.
+    """
+    if namespace == DEFAULT_NAMESPACE:
+        return org_folder / "iati-organization.xml"
+    return org_folder / f"iati-organization-{namespace}.xml"
+
+
+def process_org_inputs(context, org_folder: Path, namespace: str):
+    """
+    Process all input CSV types. Returns (files_processed, error_msg_or_None)
+    If a required file errors, returns early with error_msg.
+    """
+    files_processed = 0
+
+    for file_type, (filename, required, max_files) in ORG_FILE_TYPES_MAPPING.items():
+        try:
+            count = process_org_file_type(
+                context=context,
+                output_folder=org_folder,
+                filename=filename,
+                file_type=file_type,
+                namespace=namespace,
+                required=required,
+                max_files=max_files,
+            )
+            files_processed += count
+            log.info(f"Processed {count} file(s) for {file_type.name}")
+        except Exception as e:
+            error_msg = f"Error processing {file_type.name}: {str(e)}"
+            log.error(error_msg, exc_info=True)
+            if required:
+                return files_processed, error_msg
+
+    return files_processed, None
+
+
+def convert_org_csvs_to_xml(org_folder: Path, namespace: str) -> Path:
+    """
+    Convert the organization's CSV files in org_folder to an IATI XML file.
+    Returns the path to the generated XML file.
+    """
+
+    converter = IatiOrganisationMultiCsvConverter()
+    xml_path = xml_output_path(org_folder, namespace)
+
+    converted = converter.csv_folder_to_xml(
+        input_folder=str(org_folder),
+        xml_output=str(xml_path),
+    )
+    if not converted or not xml_path.exists():
+        raise RuntimeError("Failed to generate XML file")
+
+    return xml_path

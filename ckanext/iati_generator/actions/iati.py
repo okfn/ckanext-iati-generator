@@ -5,7 +5,6 @@ from pathlib import Path
 from ckan.plugins import toolkit
 from ckan import model
 from sqlalchemy import func
-from okfn_iati.organisation_xml_generator import IatiOrganisationMultiCsvConverter
 
 from ckanext.iati_generator.models.iati_files import DEFAULT_NAMESPACE, IATIFile
 from ckanext.iati_generator.models.enums import IATIFileTypes
@@ -363,130 +362,53 @@ def generate_organization_xml(context, data_dict):
       }
     """
     # Permissions: iati_auth.generate_organization_xml
-    toolkit.check_access('generate_organization_xml', context, data_dict)
+    toolkit.check_access("generate_organization_xml", context, data_dict)
 
-    namespace = data_dict.get('namespace', DEFAULT_NAMESPACE)
-
+    namespace = data_dict.get("namespace", DEFAULT_NAMESPACE)
     log.info(f"Generating IATI Organization XML with namespace {namespace}")
 
-    # Find the FINAL_ORGANIZATION_FILE for this namespace to track status
     session = model.Session
-    final_org_file = (
-        session.query(IATIFile)
-        .filter(IATIFile.namespace == namespace)
-        .filter(IATIFile.file_type == IATIFileTypes.FINAL_ORGANIZATION_FILE.value)
-        .first()
-    )
+    final_org_file = h.get_final_org_file(session, namespace)
 
     if not final_org_file:
         error_msg = f"No FINAL_ORGANIZATION_FILE found for namespace {namespace}"
         log.error(error_msg)
-        return {
-            'success': False,
-            'message': error_msg
-        }
+        return {"success": False, "message": error_msg}
 
-    # Create temporary folder for CSVs
     with tempfile.TemporaryDirectory() as tmp_dir:
         org_folder = Path(tmp_dir) / f"org-{namespace}"
         org_folder.mkdir(parents=True, exist_ok=True)
 
-        # Processed organization file types
-        file_types_mapping = {
-            IATIFileTypes.ORGANIZATION_MAIN_FILE: ("organization.csv", True, 1),
-            IATIFileTypes.ORGANIZATION_NAMES_FILE: ("names.csv", False, 1),
-            IATIFileTypes.ORGANIZATION_BUDGET_FILE: ("budgets.csv", False, None),
-            IATIFileTypes.ORGANIZATION_EXPENDITURE_FILE: ("expenditures.csv", False, None),
-            IATIFileTypes.ORGANIZATION_DOCUMENT_FILE: ("documents.csv", False, None),
-        }
-
-        files_processed = 0
-
-        # Process each file type
-        for file_type, (filename, required, max_files) in file_types_mapping.items():
-            try:
-                count = h.process_org_file_type(
-                    context=context,
-                    output_folder=org_folder,
-                    filename=filename,
-                    file_type=file_type,
-                    namespace=namespace,
-                    required=required,
-                    max_files=max_files,
-                )
-                files_processed += count
-                log.info(f"Processed {count} file(s) for {file_type.name}")
-            except Exception as e:
-                error_msg = f"Error processing {file_type.name}: {str(e)}"
-                log.error(error_msg, exc_info=True)
-                # If required, track error and abort
-                if required:
-                    final_org_file.track_processing(success=False, error_message=error_msg)
-                    return {
-                        'success': False,
-                        'message': error_msg
-                    }
+        # Process organization input files
+        files_processed, error_msg = h.process_org_inputs(
+            context=context,
+            org_folder=org_folder,
+            namespace=namespace,
+        )
+        if error_msg:
+            final_org_file.track_processing(success=False, error_message=error_msg)
+            return {"success": False, "message": error_msg}
 
         if files_processed == 0:
-            error_msg = f'No organization files found with namespace {namespace}'
+            error_msg = f"No organization files found with namespace {namespace}"
             final_org_file.track_processing(success=False, error_message=error_msg)
-            return {
-                'success': False,
-                'message': error_msg
-            }
+            return {"success": False, "message": error_msg}
 
-        # Convert CSV → XML
-        converter = IatiOrganisationMultiCsvConverter()
-
-        if namespace == DEFAULT_NAMESPACE:
-            xml_filename = org_folder / "iati-organization.xml"
-        else:
-            xml_filename = org_folder / f"iati-organization-{namespace}.xml"
-
-        log.info(f"Converting CSV files to IATI XML: {xml_filename}")
-        
         try:
-            converted = converter.csv_folder_to_xml(
-                input_folder=str(org_folder),
-                xml_output=str(xml_filename),
-            )
-        except Exception as e:
-            error_msg = f"Error converting CSV to XML: {str(e)}"
-            log.error(error_msg, exc_info=True)
-            final_org_file.track_processing(success=False, error_message=error_msg)
-            return {
-                'success': False,
-                'message': error_msg
-            }
-
-        if not converted or not xml_filename.exists():
-            error_msg = 'Failed to generate XML file'
-            final_org_file.track_processing(success=False, error_message=error_msg)
-            return {
-                'success': False,
-                'message': error_msg
-            }
-
-        # Read the generated XML content
-        try:
-            with open(xml_filename, 'r', encoding='utf-8') as f:
+            xml_path = h.convert_org_csvs_to_xml(org_folder, namespace)
+            with open(xml_path, "r", encoding="utf-8") as f:
                 xml_content = f.read()
         except Exception as e:
-            error_msg = f"Error reading generated XML: {str(e)}"
+            error_msg = f"Error generating XML: {str(e)}"
             log.error(error_msg, exc_info=True)
             final_org_file.track_processing(success=False, error_message=error_msg)
-            return {
-                'success': False,
-                'message': error_msg
-            }
+            return {"success": False, "message": error_msg}
 
         log.info(f"Successfully generated IATI Organization XML ({len(xml_content)} bytes)")
-
-        # Mark as successful
         final_org_file.track_processing(success=True)
 
         return {
-            'success': True,
-            'message': 'XML generated successfully',
-            'files_processed': files_processed,
+            "success": True,
+            "message": "XML generated successfully",
+            "files_processed": files_processed,
         }
