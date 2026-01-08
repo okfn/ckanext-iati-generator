@@ -488,11 +488,15 @@ def _prepare_csv_folder(dataset, tmp_dir):
             filepath = ru.get_path(resource["id"])
             destination = tmp_dir + "/" + _get_iati_file_name(resource["iati_file_type"])
             shutil.copy(filepath, destination)
+    log.info(f"Finished preparing the CSV folder for the IATI converter. (Path: {tmp_dir})")
 
 
 @toolkit.side_effect_free
 def iati_generate_activities_xml(context, data_dict):
     """Generates the xml of Activities from a multi-csv structure."""
+
+    # TODO: Add authorization, cannot sysadmin since it is reserved for IT personel.
+
     package_id = toolkit.get_or_bust(data_dict, "package_id")
     dataset = toolkit.get_action('package_show')({}, {"id": package_id})
 
@@ -500,6 +504,10 @@ def iati_generate_activities_xml(context, data_dict):
 
     _prepare_csv_folder(dataset, tmp_dir)
 
+    output_path = tmp_dir + "/activity.xml"
     converter = IatiMultiCsvConverter()
-    converter.csv_folder_to_xml(csv_folder=tmp_dir, xml_output="/tmp/activity.xml", validate_output=True)
+    converter.csv_folder_to_xml(csv_folder=tmp_dir, xml_output=output_path, validate_output=True)
 
+    # TODO: Create a CKAN resource for the activity.xml file if it doesn't exist or update the existing one.
+
+    shutil.rmtree(tmp_dir)
