@@ -1,10 +1,8 @@
-from flask import Blueprint, request
-
 from ckan.plugins import toolkit
+from flask import Blueprint, request
 
 from ckanext.iati_generator.decorators import require_sysadmin_user
 from ckanext.iati_generator import helpers as h
-
 
 iati_file_admin = Blueprint("iati_generator_admin_files", __name__, url_prefix="/ckan-admin/list-iati-files")
 
@@ -15,53 +13,32 @@ def iati_files_index():
     """List all IATI “files” (resources with IATI extras) in the system.
     This is a simple admin view to see the status of IATI files.
     """
-    context = {"user": toolkit.c.user}
-    start = int(request.args.get("start", 0) or 0)
-    page_size = int(request.args.get("rows", 100) or 100)
     namespace = request.args.get("namespace")
-
-    params = {"start": start, "rows": page_size}
+    params = {}
+    search_filter = "iati_namespace:[* TO *]"  # Get all datasets with namespace
 
     # namespace filter
     if namespace:
         params["namespace"] = namespace
-    data = toolkit.get_action("iati_resources_list")(context, params)
+        search_filter = f"iati_namespace:{namespace}"
+
+    results = toolkit.get_action('package_search')({}, {'fq': search_filter})
 
     rows_out = []
-    for item in data.get("results", []):
-        resource = item.get("resource") or {}
-        dataset = item.get("dataset") or {}
-        iati_file = item.get("iati_file") or {}
-
-        res_id = resource.get("id")
-        pkg_name = dataset.get("name", "")
-
-        # generate resource URL
-        res_url = f"/dataset/{pkg_name}/resource/{res_id}" if pkg_name and res_id else "#"
-
-        # Validation info
-        is_valid = bool(iati_file.get("is_valid"))
-        last_success = iati_file.get("last_processed_success")
-        last_error = iati_file.get("last_error") or ""
-
-        if is_valid and last_success:
-            notes = f"Last success: {last_success}"
-        elif not is_valid and last_error:
-            notes = f"Last error: {last_error}"
-        else:
-            notes = ""
-
-        # Append row
-        rows_out.append({
-            "namespace": iati_file.get("namespace", ""),
-            "file_type": iati_file.get("file_type", ""),
-            "resource_name": resource.get("name") or res_id,
-            "resource_id": res_id,
-            "dataset_name": pkg_name,
-            "valid": is_valid,
-            "notes": notes,
-            "resource_url": res_url,
-        })
+    for dataset in results.get("results", []):
+        for res in dataset["resources"]:
+            # Call resource show to add IATI File fields to each resource dict.
+            resource = toolkit.get_action("resource_show")({}, {"id": res["id"]})
+            rows_out.append({
+                "namespace": dataset.get("iati_namespace"),
+                "file_type": resource.get("iati_file_type"),
+                "resource_name": resource.get("name") or resource.get("id"),
+                "resource_id": resource.get("id"),
+                "dataset_name": dataset.get("name"),
+                "valid": resource.get("iati_is_valid"),
+                "notes": "Notes from the backend...",
+                "resource_url": resource.get("url"),
+            })
 
     # Prepare information about pending file types
     pending_files = h.get_pending_mandatory_files(include_final=False,
@@ -71,9 +48,7 @@ def iati_files_index():
         "iati/iati_files.html",
         {
             "iati_files": rows_out,
-            "total": data.get("count", 0),
-            "start": start,
-            "rows": page_size,
+            "total": results.get("count", 0),
             "namespace": namespace or "",
             "pending_files": pending_files,
         },

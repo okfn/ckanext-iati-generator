@@ -1,11 +1,14 @@
 import logging
 import tempfile
+import shutil
 from pathlib import Path
 
 from ckan.plugins import toolkit
+from ckan.lib.uploader import ResourceUpload
 from ckan import model
 from sqlalchemy import func
 from okfn_iati.organisation_xml_generator import IatiOrganisationMultiCsvConverter
+from okfn_iati import IatiMultiCsvConverter
 
 from ckanext.iati_generator.models.iati_files import DEFAULT_NAMESPACE, IATIFile
 from ckanext.iati_generator.models.enums import IATIFileTypes
@@ -360,6 +363,7 @@ def iati_resources_list(context, data_dict=None):
     }
 
 
+# TODO: Refactor this function to mimic iati_generate_activities_xml function.
 def generate_organization_xml(context, data_dict):
     """
     Generate IATI Organization XML for a given organization.
@@ -460,3 +464,65 @@ def generate_organization_xml(context, data_dict):
             'message': 'XML generated successfully',
             'files_processed': files_processed,
         }
+
+
+def _prepare_activities_csv_folder(dataset, tmp_dir):
+    """Copy all IATI CSV files into a folder for okfn_iati to process.
+
+    The okfn_iati tool expects all the csv files to live in a folder.
+
+    TODO: This method only works if files are hosted in the same webserver (single VM deployments).
+    For other architectures (K8s, AWS, etc) will need to be extended/reimplemented.
+    """
+
+    mapping = {
+        "200": "activities.csv",
+        "210": "participating_orgs.csv",
+        "220": "sectors.csv",
+        "230": "budgets.csv",
+        "240": "transactions.csv",
+        "250": "transaction_sectors.csv",
+        "260": "locations.csv",
+        "270": "documents.csv",
+        "280": "results.csv",
+        "290": "indicators.csv",
+        "300": "indicator_periods.csv",
+        "310": "activity_date.csv",
+        "320": "contact_info.csv",
+        "330": "conditions.csv",
+        "340": "descriptions.csv",
+        "350": "country_budget_items.csv",
+    }
+
+    for resource in dataset["resources"]:
+        key = resource.get("iati_file_type", "")
+        if key and key in mapping.keys():
+            ru = ResourceUpload({"id": resource["id"]})
+            filepath = ru.get_path(resource["id"])
+            destination = tmp_dir + "/" + mapping[key]
+            shutil.copy(filepath, destination)
+    log.info(f"Finished preparing the CSV folder for the IATI converter. (Path: {tmp_dir})")
+
+
+# TODO: remove decorator once integrated with the UI.
+@toolkit.side_effect_free
+def iati_generate_activities_xml(context, data_dict):
+    """Generates the xml of Activities from a multi-csv structure."""
+
+    # TODO: Add authorization, cannot sysadmin since it is reserved for IT personel.
+
+    package_id = toolkit.get_or_bust(data_dict, "package_id")
+    dataset = toolkit.get_action('package_show')({}, {"id": package_id})
+
+    tmp_dir = tempfile.mkdtemp()
+
+    _prepare_activities_csv_folder(dataset, tmp_dir)
+
+    output_path = tmp_dir + "/activity.xml"
+    converter = IatiMultiCsvConverter()
+    converter.csv_folder_to_xml(csv_folder=tmp_dir, xml_output=output_path, validate_output=True)
+
+    # TODO: Create a CKAN resource for the activity.xml file if it doesn't exist or update the existing one.
+    # The resource should live in the same dataset as all the other IATI csv and must be of type: ACTIVITY_MAIN_FILE.
+
+    shutil.rmtree(tmp_dir)
