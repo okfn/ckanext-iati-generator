@@ -346,6 +346,7 @@ def iati_resources_list(context, data_dict=None):
     }
 
 
+# TODO: Refactor this function to mimic iati_generate_activities_xml function.
 def generate_organization_xml(context, data_dict):
     """
     Generate IATI Organization XML for a given organization.
@@ -453,6 +454,9 @@ def _get_iati_file_name(iati_file_type):
 
     okfn_iati expects specific names for each file.
     """
+
+    # TODO: Add the organization files based on:
+    # https://github.com/okfn/okfn_iati/blob/999c24156cd741e3ea2c0c1a2da434ec7bd8feb9/src/okfn_iati/organisation_xml_generator.py#L1099-L1108
     mapping = {
         "200": "activities.csv",
         "210": "participating_orgs.csv",
@@ -491,6 +495,7 @@ def _prepare_csv_folder(dataset, tmp_dir):
     log.info(f"Finished preparing the CSV folder for the IATI converter. (Path: {tmp_dir})")
 
 
+# TODO: remove decorator once integrated with the UI.
 @toolkit.side_effect_free
 def iati_generate_activities_xml(context, data_dict):
     """Generates the xml of Activities from a multi-csv structure."""
@@ -509,5 +514,6 @@ def iati_generate_activities_xml(context, data_dict):
     converter.csv_folder_to_xml(csv_folder=tmp_dir, xml_output=output_path, validate_output=True)
 
     # TODO: Create a CKAN resource for the activity.xml file if it doesn't exist or update the existing one.
+    # The resource should live in the same dataset as all the other IATI csv and must be of type: ACTIVITY_MAIN_FILE.
 
     shutil.rmtree(tmp_dir)
