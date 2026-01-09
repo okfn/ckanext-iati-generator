@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-01-06 12:17+0000\n"
-"PO-Revision-Date: 2026-01-06 12:30+0000\n"
+"POT-Creation-Date: 2026-01-09 11:01+0000\n"
+"PO-Revision-Date: 2026-01-09 11:15+0000\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: es\n"
 "Language-Team: es <LL@li.org>\n"
@@ -18,34 +18,41 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.15.0\n"
 
-#: ckanext/iati_generator/auth/iati.py:76
+#: ckanext/iati_generator/auth/iati.py:77
 msgid "Only organization admins (or sysadmins) can perform this action."
 msgstr "Solo los administradores de organización (o administradores del sistema) pueden realizar esta acción."
 
-#: ckanext/iati_generator/auth/iati.py:87
+#: ckanext/iati_generator/auth/iati.py:88
 msgid ""
 "Missing or invalid resource_id; cannot resolve dataset for IATI file "
 "creation."
 msgstr ""
 "Falta o es inválido el resource_id; no se puede resolver el conjunto de datos para la creación del archivo IATI."
 
-#: ckanext/iati_generator/auth/iati.py:98
+#: ckanext/iati_generator/auth/iati.py:99
 msgid ""
 "Cannot resolve dataset for IATI file update (need valid id or "
 "resource_id)."
 msgstr ""
 "No se puede resolver el conjunto de datos para la actualización del archivo IATI (se necesita un id o resource_id válido)."
 
-#: ckanext/iati_generator/auth/iati.py:109
+#: ckanext/iati_generator/auth/iati.py:110
 msgid ""
 "Cannot resolve dataset for IATI file deletion (need valid id or "
 "resource_id)."
 msgstr ""
 "No se puede resolver el conjunto de datos para la eliminación del archivo IATI (se necesita un id o resource_id válido)."
 
-#: ckanext/iati_generator/auth/iati.py:125
+#: ckanext/iati_generator/auth/iati.py:126
 msgid "Only sysadmins can list IATI files."
 msgstr "Solo los administradores del sistema pueden listar archivos IATI."
+
+#: ckanext/iati_generator/auth/iati.py:161
+msgid ""
+"Cannot resolve dataset for organization XML generation (missing "
+"FINAL_ORGANIZATION_FILE for this namespace)."
+msgstr ""
+"No se puede resolver el conjunto de datos para la generación de XML de organización (falta FINAL_ORGANIZATION_FILE para este espacio de nombres)."
 
 #: ckanext/iati_generator/templates/admin/base.html:5
 msgid "IATI Files"
@@ -64,115 +71,103 @@ msgstr ""
 "Aquí puede encontrar una lista de todos los registros IATI existentes generados por el sistema. Utilice esta sección para revisar, gestionar o actualizar los datos IATI disponibles según sea necesario."
 
 #: ckanext/iati_generator/templates/iati/iati_files.html:4
-#: ckanext/iati_generator/templates/iati/iati_files.html:176
+#: ckanext/iati_generator/templates/iati/iati_files.html:118
 msgid "IATI files"
 msgstr "Archivos IATI"
 
-#: ckanext/iati_generator/templates/iati/iati_files.html:10
-#: ckanext/iati_generator/templates/iati/iati_files.html:28
-#: ckanext/iati_generator/templates/iati/iati_files.html:69
-#: ckanext/iati_generator/templates/iati/iati_files.html:115
+#: ckanext/iati_generator/templates/iati/iati_files.html:8
+#: ckanext/iati_generator/templates/iati/iati_files.html:76
 msgid "Namespace"
 msgstr "Espacio de nombres"
 
-#: ckanext/iati_generator/templates/iati/iati_files.html:15
-msgid "All"
-msgstr "Todos"
+#: ckanext/iati_generator/templates/iati/iati_files.html:13
+msgid "Select a namespace to start..."
+msgstr "Seleccione un espacio de nombres para comenzar..."
 
-#: ckanext/iati_generator/templates/iati/iati_files.html:29
-msgid "Missing files"
-msgstr "Archivos faltantes"
-
-#: ckanext/iati_generator/templates/iati/iati_files.html:33
-msgid "Show missing files"
-msgstr "Mostrar archivos faltantes"
-
-#: ckanext/iati_generator/templates/iati/iati_files.html:38
-#: ckanext/iati_generator/templates/iati/iati_files.html:122
-msgid "Organization"
-msgstr "Organización"
-
-#: ckanext/iati_generator/templates/iati/iati_files.html:51
-#: ckanext/iati_generator/templates/iati/iati_files.html:139
-msgid "Activities"
-msgstr "Actividades"
-
-#: ckanext/iati_generator/templates/iati/iati_files.html:70
-msgid "File type"
-msgstr "Tipo de archivo"
-
-#: ckanext/iati_generator/templates/iati/iati_files.html:71
-msgid "Resource"
-msgstr "Recurso"
-
-#: ckanext/iati_generator/templates/iati/iati_files.html:72
-msgid "Validation"
-msgstr "Validación"
-
-#: ckanext/iati_generator/templates/iati/iati_files.html:73
-msgid "Notes"
-msgstr "Notas"
-
-#: ckanext/iati_generator/templates/iati/iati_files.html:90
-msgid "Valid"
-msgstr "Válido"
-
-#: ckanext/iati_generator/templates/iati/iati_files.html:94
-msgid "Invalid"
-msgstr "Inválido"
-
-#: ckanext/iati_generator/templates/iati/iati_files.html:105
-msgid "No IATI files found"
-msgstr "No se encontraron archivos IATI"
-
-#: ckanext/iati_generator/templates/iati/iati_files.html:107
-msgid "There are no IATI CSV components loaded yet."
-msgstr "Todavía no hay componentes CSV IATI cargados."
-
-#: ckanext/iati_generator/templates/iati/iati_files.html:115
-msgid "Pending files"
-msgstr "Archivos pendientes"
-
-#: ckanext/iati_generator/templates/iati/iati_files.html:133
-msgid "All mandatory organization files uploaded"
-msgstr "Todos los archivos obligatorios de organización han sido subidos"
-
-#: ckanext/iati_generator/templates/iati/iati_files.html:150
-msgid "All mandatory activity files uploaded"
-msgstr "Todos los archivos obligatorios de actividades han sido subidos"
-
-#: ckanext/iati_generator/templates/iati/iati_files.html:160
+#: ckanext/iati_generator/templates/iati/iati_files.html:24
 msgid "Getting Started"
 msgstr "Primeros pasos"
 
-#: ckanext/iati_generator/templates/iati/iati_files.html:162
-msgid "Create or select a dataset"
-msgstr "Crear o seleccionar un conjunto de datos"
+#: ckanext/iati_generator/templates/iati/iati_files.html:27
+msgid ""
+"Create a dataset and fill the namespace value (so it gets identified as "
+"an IATI file)"
+msgstr ""
+"Cree un conjunto de datos y complete el valor del espacio de nombres (para que se identifique como un archivo IATI)"
 
-#: ckanext/iati_generator/templates/iati/iati_files.html:163
-msgid "Upload CSV resources"
-msgstr "Subir recursos CSV"
+#: ckanext/iati_generator/templates/iati/iati_files.html:28
+msgid ""
+"For each IATI CSV file you have, create a resource on the dataset and "
+"upload the file to it."
+msgstr ""
+"Para cada archivo CSV IATI que tenga, cree un recurso en el conjunto de datos y suba el archivo a él."
 
-#: ckanext/iati_generator/templates/iati/iati_files.html:164
-msgid "Assign IATI namespace and file type"
-msgstr "Asignar espacio de nombres IATI y tipo de archivo"
+#: ckanext/iati_generator/templates/iati/iati_files.html:29
+msgid ""
+"To each created resource, assign the corresponding IATI file type (it "
+"will be available in the resource form)."
+msgstr ""
+"A cada recurso creado, asigne el tipo de archivo IATI correspondiente (estará disponible en el formulario del recurso)."
 
-#: ckanext/iati_generator/templates/iati/iati_files.html:165
-msgid "Once mandatory files exist, XML generation will be enabled"
-msgstr "Una vez que existan los archivos obligatorios, se habilitará la generación de XML"
+#: ckanext/iati_generator/templates/iati/iati_files.html:30
+msgid ""
+"Once all mandatory files exist, XML generation will be enabled on this "
+"page."
+msgstr ""
+"Una vez que existan todos los archivos obligatorios, se habilitará la generación de XML en esta página."
 
-#: ckanext/iati_generator/templates/iati/iati_files.html:183
+#: ckanext/iati_generator/templates/iati/iati_files.html:39
+msgid "Show missing files"
+msgstr "Mostrar archivos faltantes"
+
+#: ckanext/iati_generator/templates/iati/iati_files.html:44
+msgid "Organization"
+msgstr "Organización"
+
+#: ckanext/iati_generator/templates/iati/iati_files.html:57
+msgid "Activities"
+msgstr "Actividades"
+
+#: ckanext/iati_generator/templates/iati/iati_files.html:75
+msgid "Dataset"
+msgstr "Conjunto de datos"
+
+#: ckanext/iati_generator/templates/iati/iati_files.html:77
+msgid "File type"
+msgstr "Tipo de archivo"
+
+#: ckanext/iati_generator/templates/iati/iati_files.html:78
+msgid "Resource"
+msgstr "Recurso"
+
+#: ckanext/iati_generator/templates/iati/iati_files.html:79
+msgid "Validation"
+msgstr "Validación"
+
+#: ckanext/iati_generator/templates/iati/iati_files.html:80
+msgid "Notes"
+msgstr "Notas"
+
+#: ckanext/iati_generator/templates/iati/iati_files.html:97
+msgid "Valid"
+msgstr "Válido"
+
+#: ckanext/iati_generator/templates/iati/iati_files.html:101
+msgid "Invalid"
+msgstr "Inválido"
+
+#: ckanext/iati_generator/templates/iati/iati_files.html:125
 msgid "About IATI"
 msgstr "Acerca de IATI"
 
-#: ckanext/iati_generator/templates/iati/iati_files.html:186
+#: ckanext/iati_generator/templates/iati/iati_files.html:128
 msgid ""
 "IATI (International Aid Transparency Initiative) is a global standard for"
 " publishing data on development and humanitarian resources."
 msgstr ""
 "IATI (Iniciativa Internacional para la Transparencia de la Ayuda) es un estándar global para publicar datos sobre recursos de desarrollo y humanitarios."
 
-#: ckanext/iati_generator/templates/iati/iati_files.html:189
+#: ckanext/iati_generator/templates/iati/iati_files.html:131
 msgid ""
 "This page lists the IATI files configured on resources. It shows whether "
 "each file is currently valid, and the date/message of the last validation"
@@ -180,6 +175,6 @@ msgid ""
 msgstr ""
 "Esta página lista los archivos IATI configurados en los recursos. Muestra si cada archivo es válido actualmente, y la fecha/mensaje de la última ejecución de validación."
 
-#: ckanext/iati_generator/templates/iati/iati_files.html:192
+#: ckanext/iati_generator/templates/iati/iati_files.html:134
 msgid "OKFN IATI library:"
 msgstr "Biblioteca IATI de OKFN:"
