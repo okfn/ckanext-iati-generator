@@ -2,6 +2,7 @@ from ckan.plugins import toolkit
 from flask import Blueprint, request
 
 from ckanext.iati_generator.decorators import require_sysadmin_user
+from ckanext.iati_generator import helpers as h
 
 iati_file_admin = Blueprint("iati_generator_admin_files", __name__, url_prefix="/ckan-admin/list-iati-files")
 
@@ -13,14 +14,12 @@ def iati_files_index():
     This is a simple admin view to see the status of IATI files.
     """
     namespace = request.args.get("namespace")
+    if not namespace:
+        return toolkit.render("iati/iati_files.html", {"namespace": ""})
+
     params = {}
-    search_filter = "iati_namespace:[* TO *]"  # Get all datasets with namespace
-
-    # namespace filter
-    if namespace:
-        params["namespace"] = namespace
-        search_filter = f"iati_namespace:{namespace}"
-
+    params["namespace"] = namespace
+    search_filter = f"iati_namespace:{namespace}"
     results = toolkit.get_action('package_search')({}, {'fq': search_filter})
 
     rows_out = []
@@ -39,11 +38,14 @@ def iati_files_index():
                 "resource_url": resource.get("url"),
             })
 
+    pending_files = h.get_pending_mandatory_files(dataset["id"])
+
     return toolkit.render(
         "iati/iati_files.html",
         {
             "iati_files": rows_out,
             "total": results.get("count", 0),
             "namespace": namespace or "",
+            "pending_files": pending_files,
         },
     )

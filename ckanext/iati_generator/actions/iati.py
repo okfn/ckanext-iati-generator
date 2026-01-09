@@ -35,7 +35,7 @@ def iati_file_create(context, data_dict):
     )
 
     file = IATIFile(
-        namespace=data_dict.get('namespace', DEFAULT_NAMESPACE),
+        namespace=h.normalize_namespace(data_dict.get('namespace', DEFAULT_NAMESPACE)),
         file_type=data_dict['file_type'],
         resource_id=data_dict['resource_id'],
     )
@@ -58,7 +58,7 @@ def iati_file_update(context, data_dict):
 
     # namespace
     if 'namespace' in data_dict:
-        updates['namespace'] = data_dict['namespace']
+        updates['namespace'] = h.normalize_namespace(data_dict['namespace'])
 
     # file_type
     if 'file_type' in data_dict:
@@ -312,12 +312,30 @@ def iati_resources_list(context, data_dict=None):
     for resource_id, iati_file in files_by_resource.items():
 
         # resource
-        res = toolkit.get_action("resource_show")(context, {"id": resource_id})
+        try:
+            res = toolkit.get_action("resource_show")(context, {"id": resource_id})
+        except toolkit.ObjectNotFound:
+            log.warning(
+                "Orphan IATIFile detected: iati_file_id=%s resource_id=%s not found",
+                iati_file.id, resource_id
+            )
+            # mark as failed processing
+            iati_file.track_processing(success=False, error_message="Resource not found (orphan IATIFile)")
+            continue
+
         package_id = res["package_id"]
 
         # dataset (cache to avoid multiple calls)
         if package_id not in datasets:
-            pkg = toolkit.get_action("package_show")(context, {"id": package_id})
+            try:
+                pkg = toolkit.get_action("package_show")(context, {"id": package_id})
+            except toolkit.ObjectNotFound:
+                log.warning(
+                    "Orphan IATIFile detected: iati_file_id=%s package_id=%s not found (resource_id=%s)",
+                    iati_file.id, package_id, resource_id
+                )
+                iati_file.track_processing(success=False, error_message="Dataset not found (orphan IATIFile)")
+                continue
             datasets[package_id] = pkg
         else:
             pkg = datasets[package_id]

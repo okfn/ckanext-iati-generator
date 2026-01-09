@@ -1,6 +1,7 @@
 import logging
 from pathlib import Path
 
+import re
 from ckan.plugins import toolkit
 from ckan import model
 from ckanext.iati_generator.models.enums import IATIFileTypes
@@ -118,16 +119,18 @@ def normalize_file_type_strict(value):
 
 def iati_namespaces():
     """
-    Returns a list of distinct IATI namespaces from the IATIFile records.
+    Returns a list of distinct IATI namespaces.
+
+    We search for all the datasets with iati_namespace and return a unique list (in case
+    there are multiple datasets with the same namespace)
+
+    TODO: Should we allow multiple datasets with the same namespace?
     """
-    session = model.Session
-    rows = (
-        session.query(IATIFile.namespace)
-        .distinct()
-        .order_by(IATIFile.namespace)
-        .all()
-    )
-    return [r[0] for r in rows if r[0]]
+    ctx = {'user': toolkit.g.user}
+    result = toolkit.get_action("package_search")(ctx, {"fq": "iati_namespace:[* TO *]"})
+    datasets = result.get("results", [])
+    namespaces = [dataset["iati_namespace"] for dataset in datasets]
+    return list(set(namespaces))
 
 
 def process_org_file_type(
@@ -196,3 +199,88 @@ def process_org_file_type(
         log.info(f"Saved organization CSV data to {final_path}")
 
     return processed_count
+
+
+def normalize_namespace(ns):
+    """
+    Normalize a namespace string by applying consistent formatting rules.
+
+    If the namespace is None or empty, returns the default namespace.
+    Otherwise, strips whitespace and replaces internal whitespace sequences with hyphens.
+
+    Args:
+        ns (str or None): The namespace string to normalize.
+
+    Returns:
+        str: A normalized namespace string with whitespace stripped and internal
+             spaces replaced with hyphens, or DEFAULT_NAMESPACE if input is None/empty.
+
+    Examples:
+        >>> normalize_namespace("my  namespace")
+        'my-namespace'
+        >>> normalize_namespace("  test  ")
+        'test'
+        >>> normalize_namespace(None)
+        DEFAULT_NAMESPACE
+        >>> normalize_namespace("")
+        DEFAULT_NAMESPACE
+    """
+    if ns is None:
+        return DEFAULT_NAMESPACE
+    ns = str(ns).strip()
+    if not ns:
+        return DEFAULT_NAMESPACE
+    # opcional: compactar espacios internos
+    ns = re.sub(r"\s+", "-", ns)
+    return ns
+
+
+def get_iati_files(package_id):
+    """Get a list of the existing IATIFileTypes for a specific namespace."""
+    ctx = {"user": toolkit.g.user}
+
+    dataset = toolkit.get_action("package_show")(ctx, {"id": package_id})
+
+    iati_types = [res.get("iati_file_type", "") for res in dataset.get("resources", [])]
+    iati_enums = [IATIFileTypes(int(key)) for key in iati_types]
+
+    return set(iati_enums)
+
+
+def mandatory_file_types():
+    """Return a list of mandatory file types.
+
+    For now, mandatory files are the ones that okfn_iati MultiCSVConvert needs.
+    """
+    org = [
+        IATIFileTypes.ORGANIZATION_MAIN_FILE,
+    ]
+
+    # https://github.com/okfn/okfn_iati/blob/999c24156cd741e3ea2c0c1a2da434ec7bd8feb9/src/okfn_iati/multi_csv_converter.py#L56
+    act = [
+        IATIFileTypes.ACTIVITY_MAIN_FILE,
+        IATIFileTypes.ACTIVITY_CONTACT_INFO_FILE,
+        IATIFileTypes.ACTIVITY_DOCUMENTS_FILE,
+        IATIFileTypes.ACTIVITY_INDICATORS_FILE,
+        IATIFileTypes.ACTIVITY_INDICATOR_PERIODS_FILE,
+        IATIFileTypes.ACTIVITY_RESULTS_FILE,
+        IATIFileTypes.ACTIVITY_SECTORS_FILE,
+        IATIFileTypes.ACTIVITY_TRANSACTIONS_FILE,
+    ]
+    return set(org), set(act)
+
+
+def get_pending_mandatory_files(package_id):
+    """Returns pending mandatory files for the namespace."""
+    mandatory_org, mandatory_act = mandatory_file_types()
+
+    present_files = get_iati_files(package_id)
+    pending_org = mandatory_org - present_files
+    pending_act = mandatory_act - present_files
+
+    result = {
+        "organization": sorted(pending_org, key=lambda x: x.value),
+        "activity": sorted(pending_act, key=lambda x: x.value),
+    }
+
+    return result
