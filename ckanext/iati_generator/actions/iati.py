@@ -345,6 +345,126 @@ def iati_resources_list(context, data_dict=None):
     }
 
 
+def _get_owner_org_id(context, data_dict):
+    """Get or infer owner_org_id from data_dict or user permissions."""
+    owner_org_id = data_dict.get("owner_org")
+
+    if not owner_org_id:
+        orgs = toolkit.get_action("organization_list_for_user")(context, {"permission": "admin"})
+        if orgs:
+            owner_org_id = orgs[0]["id"]
+
+    if not owner_org_id:
+        raise toolkit.ValidationError(
+            {"owner_org": "Missing owner_org and could not infer it from user permissions"}
+        )
+
+    return owner_org_id
+
+
+def _get_final_org_record(owner_org_id, namespace):
+    """Fetch the FINAL_ORGANIZATION_FILE record for the given org and namespace."""
+    Session = model.Session
+    Resource = model.Resource
+    Package = model.Package
+
+    final_record = (
+        Session.query(IATIFile)
+        .join(Resource, Resource.id == IATIFile.resource_id)
+        .join(Package, Package.id == Resource.package_id)
+        .filter(
+            Package.owner_org == owner_org_id,
+            Package.state == "active",
+            Resource.state == "active",
+            IATIFile.file_type == IATIFileTypes.FINAL_ORGANIZATION_FILE.value,
+            IATIFile.namespace == namespace,
+        )
+        .first()
+    )
+
+    if not final_record:
+        raise toolkit.ObjectNotFound(
+            f"No destination resource (FINAL_ORGANIZATION_FILE) found for owner_org={owner_org_id} ns={namespace}"
+        )
+
+    return final_record
+
+
+def _process_org_csv_files(context, org_folder, namespace, owner_org_id, final_record):
+    """Process all organization CSV file types and download to org_folder."""
+    file_types_mapping = {
+        IATIFileTypes.ORGANIZATION_MAIN_FILE: ("organization.csv", True, 1),
+        IATIFileTypes.ORGANIZATION_NAMES_FILE: ("names.csv", False, 1),
+        IATIFileTypes.ORGANIZATION_BUDGET_FILE: ("budgets.csv", False, None),
+        IATIFileTypes.ORGANIZATION_EXPENDITURE_FILE: ("expenditures.csv", False, None),
+        IATIFileTypes.ORGANIZATION_DOCUMENT_FILE: ("documents.csv", False, None),
+    }
+
+    files_processed = 0
+    for file_type, (filename, required, max_files) in file_types_mapping.items():
+        try:
+            count = h.process_org_file_type(
+                context=context,
+                output_folder=org_folder,
+                filename=filename,
+                file_type=file_type,
+                namespace=namespace,
+                owner_org_id=owner_org_id,
+                required=required,
+                max_files=max_files,
+            )
+            files_processed += count
+            log.info("Processed %s file(s) for %s", count, file_type.name)
+        except Exception as e:
+            log.error("Error processing %s: %s", file_type.name, e)
+            if required:
+                try:
+                    final_record.track_processing(success=False, error_message=str(e))
+                except Exception:
+                    pass
+                raise
+
+    return files_processed
+
+
+def _convert_org_xml(org_folder, namespace, owner_org_id, files_processed, final_record):
+    """Convert organization CSV files to XML and return the path."""
+    if files_processed == 0:
+        msg = f"No organization CSV files found for owner_org={owner_org_id} ns={namespace}"
+        log.warning(msg)
+        try:
+            final_record.track_processing(success=False, error_message=msg)
+        except Exception:
+            pass
+        return None
+
+    converter = IatiOrganisationMultiCsvConverter()
+
+    xml_filename = (
+        org_folder / "iati-organization.xml"
+        if namespace == DEFAULT_NAMESPACE
+        else org_folder / f"iati-organization-{namespace}.xml"
+    )
+
+    log.info("Converting Organization CSV folder to XML: %s", xml_filename)
+
+    converted = converter.csv_folder_to_xml(
+        input_folder=str(org_folder),
+        xml_output=str(xml_filename),
+    )
+
+    if not converted or not xml_filename.exists():
+        msg = f"Failed to generate organization XML for owner_org={owner_org_id} ns={namespace}"
+        log.error(msg)
+        try:
+            final_record.track_processing(success=False, error_message=msg)
+        except Exception:
+            pass
+        return None
+
+    return xml_filename
+
+
 def generate_organization_xml(context, data_dict):
     """
     Generate IATI Organization XML for a given organization.
@@ -370,113 +490,26 @@ def generate_organization_xml(context, data_dict):
     toolkit.check_access("generate_organization_xml", context, data_dict)
 
     namespace = h.normalize_namespace(data_dict.get("namespace", DEFAULT_NAMESPACE))
-
-    # Prefer explicit owner_org in data_dict if UI passes it
-    owner_org_id = data_dict.get("owner_org")
-
-    if not owner_org_id:
-        # Fallback: infer from user memberships (admin orgs)
-        orgs = toolkit.get_action("organization_list_for_user")(context, {"permission": "admin"})
-        if orgs:
-            owner_org_id = orgs[0]["id"]
-
-    if not owner_org_id:
-        raise toolkit.ValidationError({"owner_org": "Missing owner_org and could not infer it from user permissions"})
+    owner_org_id = _get_owner_org_id(context, data_dict)
 
     log.info("Generating IATI Organization XML (owner_org=%s ns=%s)", owner_org_id, namespace)
 
-    Session = model.Session
-    Resource = model.Resource
-    Package = model.Package
-
-    # Destination: FINAL_ORGANIZATION_FILE scoped by owner_org+namespace
-    final_record = (
-        Session.query(IATIFile)
-        .join(Resource, Resource.id == IATIFile.resource_id)
-        .join(Package, Package.id == Resource.package_id)
-        .filter(
-            Package.owner_org == owner_org_id,
-            Package.state == "active",
-            Resource.state == "active",
-            IATIFile.file_type == IATIFileTypes.FINAL_ORGANIZATION_FILE.value,
-            IATIFile.namespace == namespace,
-        )
-        .first()
-    )
-
-    if not final_record:
-        raise toolkit.ObjectNotFound(
-            f"No destination resource (FINAL_ORGANIZATION_FILE) found for owner_org={owner_org_id} ns={namespace}"
-        )
+    final_record = _get_final_org_record(owner_org_id, namespace)
 
     with tempfile.TemporaryDirectory() as tmp_dir:
         org_folder = Path(tmp_dir) / f"org-{namespace}"
         org_folder.mkdir(parents=True, exist_ok=True)
 
-        file_types_mapping = {
-            IATIFileTypes.ORGANIZATION_MAIN_FILE: ("organization.csv", True, 1),
-            IATIFileTypes.ORGANIZATION_NAMES_FILE: ("names.csv", False, 1),
-            IATIFileTypes.ORGANIZATION_BUDGET_FILE: ("budgets.csv", False, None),
-            IATIFileTypes.ORGANIZATION_EXPENDITURE_FILE: ("expenditures.csv", False, None),
-            IATIFileTypes.ORGANIZATION_DOCUMENT_FILE: ("documents.csv", False, None),
-        }
+        files_processed = _process_org_csv_files(context, org_folder, namespace, owner_org_id, final_record)
 
-        files_processed = 0
-        for file_type, (filename, required, max_files) in file_types_mapping.items():
-            try:
-                count = h.process_org_file_type(
-                    context=context,
-                    output_folder=org_folder,
-                    filename=filename,
-                    file_type=file_type,
-                    namespace=namespace,
-                    owner_org_id=owner_org_id,
-                    required=required,
-                    max_files=max_files,
-                )
-                files_processed += count
-                log.info("Processed %s file(s) for %s", count, file_type.name)
-            except Exception as e:
-                log.error("Error processing %s: %s", file_type.name, e)
-                if required:
-                    try:
-                        final_record.track_processing(success=False, error_message=str(e))
-                    except Exception:
-                        pass
-                    raise
+        xml_filename = _convert_org_xml(org_folder, namespace, owner_org_id, files_processed, final_record)
 
-        if files_processed == 0:
-            msg = f"No organization CSV files found for owner_org={owner_org_id} ns={namespace}"
-            log.warning(msg)
-            try:
-                final_record.track_processing(success=False, error_message=msg)
-            except Exception:
-                pass
-            return {"success": False, "message": msg, "files_processed": 0}
-
-        converter = IatiOrganisationMultiCsvConverter()
-
-        xml_filename = (
-            org_folder / "iati-organization.xml"
-            if namespace == DEFAULT_NAMESPACE
-            else org_folder / f"iati-organization-{namespace}.xml"
-        )
-
-        log.info("Converting Organization CSV folder to XML: %s", xml_filename)
-
-        converted = converter.csv_folder_to_xml(
-            input_folder=str(org_folder),
-            xml_output=str(xml_filename),
-        )
-
-        if not converted or not xml_filename.exists():
-            msg = f"Failed to generate organization XML for owner_org={owner_org_id} ns={namespace}"
-            log.error(msg)
-            try:
-                final_record.track_processing(success=False, error_message=msg)
-            except Exception:
-                pass
-            return {"success": False, "message": msg, "files_processed": files_processed}
+        if not xml_filename:
+            return {
+                "success": False,
+                "message": f"No organization CSV files found for owner_org={owner_org_id} ns={namespace}",
+                "files_processed": files_processed
+            }
 
         # Upload to destination resource
         with open(xml_filename, "rb") as f:

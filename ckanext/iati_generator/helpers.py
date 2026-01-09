@@ -131,6 +131,99 @@ def iati_namespaces():
     return [r[0] for r in rows if r[0]]
 
 
+def _fetch_org_files(file_type, namespace, owner_org_id):
+    """
+    Fetch organization IATI files matching criteria.
+
+    Returns:
+        list[IATIFile]: matching files
+    """
+    session = model.Session
+    Resource = model.Resource
+    Package = model.Package
+
+    query = (
+        session.query(IATIFile)
+        .join(Resource, Resource.id == IATIFile.resource_id)
+        .join(Package, Package.id == Resource.package_id)
+        .filter(
+            Package.owner_org == owner_org_id,
+            Package.state == "active",
+            Resource.state == "active",
+            IATIFile.file_type == file_type.value,
+            IATIFile.namespace == namespace,
+        )
+    )
+    return query.all()
+
+
+def _validate_org_files(org_files, file_type, owner_org_id, namespace, required, max_files):
+    """
+    Validate organization files meet requirements.
+
+    Returns:
+        bool: True if validation passes
+
+    Raises:
+        ObjectNotFound: if required files are missing
+        ValidationError: if max_files exceeded
+    """
+    if len(org_files) == 0:
+        if required:
+            raise toolkit.ObjectNotFound(
+                f"No organization IATI files of type {file_type.name} found for owner_org={owner_org_id} ns={namespace}."
+            )
+        log.info("No files found for optional type %s (owner_org=%s ns=%s)",
+                 file_type.name, owner_org_id, namespace)
+        return False
+
+    if max_files and len(org_files) > max_files:
+        raise toolkit.ValidationError({
+            "file_type": (
+                f"Expected no more than {max_files} organization IATI file(s) of type {file_type.name} "
+                f"for owner_org={owner_org_id} ns={namespace}, found {len(org_files)}."
+            )
+        })
+
+    return True
+
+
+def _process_single_iati_file(iati_file, output_folder, filename, file_type, required):
+    """
+    Process a single IATI file by downloading its resource data.
+
+    Returns:
+        bool: True if processed successfully, False otherwise
+    """
+    log.info(f"Processing IATI file: {iati_file}")
+    destination_path = output_folder / filename
+
+    try:
+        final_path = save_resource_data(iati_file.resource_id, str(destination_path))
+    except Exception as e:
+        log.error("Error fetching CSV for resource=%s (%s): %s", iati_file.resource_id, file_type.name, e)
+        try:
+            iati_file.track_processing(success=False, error_message=str(e))
+        except Exception:
+            pass
+        if required:
+            raise
+        return False
+
+    if not final_path:
+        msg = "Failed to save resource data"
+        log.error("Failed to fetch data for resource ID: %s (%s)", iati_file.resource_id, file_type.name)
+        try:
+            iati_file.track_processing(success=False, error_message=msg)
+        except Exception:
+            pass
+        return False
+
+    iati_file.track_processing(success=True)
+    log.info(f"Saved organization CSV data to {final_path}")
+    return True
+
+
 def process_org_file_type(
     context,
     output_folder: Path,
@@ -151,74 +244,15 @@ def process_org_file_type(
     log.info("Processing organization file type: %s -> %s (ns=%s owner_org=%s)",
              file_type.name, filename, namespace, owner_org_id)
 
-    session = model.Session
-    Resource = model.Resource
-    Package = model.Package
+    org_files = _fetch_org_files(file_type, namespace, owner_org_id)
 
-    query = (
-        session.query(IATIFile)
-        .join(Resource, Resource.id == IATIFile.resource_id)
-        .join(Package, Package.id == Resource.package_id)
-        .filter(
-            Package.owner_org == owner_org_id,
-            Package.state == "active",
-            Resource.state == "active",
-            IATIFile.file_type == file_type.value,
-            IATIFile.namespace == namespace,
-        )
-    )
-
-    org_files = query.all()
-
-    # Validate requirements
-    if len(org_files) == 0:
-        if required:
-            raise toolkit.ObjectNotFound(
-                f"No organization IATI files of type {file_type.name} found for owner_org={owner_org_id} ns={namespace}."
-            )
-        log.info("No files found for optional type %s (owner_org=%s ns=%s)",
-                 file_type.name, owner_org_id, namespace)
+    if not _validate_org_files(org_files, file_type, owner_org_id, namespace, required, max_files):
         return 0
 
-    if max_files and len(org_files) > max_files:
-        raise toolkit.ValidationError({
-            "file_type": (
-                f"Expected no more than {max_files} organization IATI file(s) of type {file_type.name} "
-                f"for owner_org={owner_org_id} ns={namespace}, found {len(org_files)}."
-            )
-        })
-
-    processed_count = 0
-
-    for iati_file in org_files:
-        log.info(f"Processing IATI file: {iati_file}")
-        destination_path = output_folder / filename
-
-        try:
-            final_path = save_resource_data(iati_file.resource_id, str(destination_path))
-
-        except Exception as e:
-            log.error("Error fetching CSV for resource=%s (%s): %s", iati_file.resource_id, file_type.name, e)
-            try:
-                iati_file.track_processing(success=False, error_message=str(e))
-            except Exception:
-                pass
-            if required:
-                raise
-            continue
-
-        if not final_path:
-            msg = "Failed to save resource data"
-            log.error("Failed to fetch data for resource ID: %s (%s)", iati_file.resource_id, file_type.name)
-            try:
-                iati_file.track_processing(success=False, error_message=msg)
-            except Exception:
-                pass
-            continue
-
-        iati_file.track_processing(success=True)
-        processed_count += 1
-        log.info(f"Saved organization CSV data to {final_path}")
+    processed_count = sum(
+        _process_single_iati_file(iati_file, output_folder, filename, file_type, required)
+        for iati_file in org_files
+    )
 
     return processed_count
 
