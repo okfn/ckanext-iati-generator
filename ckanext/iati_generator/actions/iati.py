@@ -369,24 +369,61 @@ def generate_organization_xml(context, data_dict):
     toolkit.check_access('generate_organization_xml', context, data_dict)
     namespace = h.normalize_namespace(data_dict.get("namespace", DEFAULT_NAMESPACE))
 
-    # Find the resource where we will save the final XML
-    # We need the FINAL_ORGANIZATION_FILE type resource to update it
-    q = model.Session.query(IATIFile).filter(
-        IATIFile.file_type == IATIFileTypes.FINAL_ORGANIZATION_FILE.value,
-        IATIFile.namespace == namespace
-    ).first()
+    # Determine owner_org (organization) from context/user (common CKAN pattern)
+    auth_user_obj = context.get("auth_user_obj")
+    if not auth_user_obj:
+        # fallback: may exist in context for some calls
+        auth_user_obj = getattr(model.User, "get", lambda _: None)(context.get("user"))
 
-    if not q:
-        raise toolkit.ObjectNotFound(f"No destination resource (FINAL_ORGANIZATION_FILE) found for namespace {namespace}")
+    owner_org_id = None
+    if auth_user_obj is not None:
+        # Prefer helper if you have one. Fall back to org memberships.
+        try:
+            owner_org_id = h.get_current_user_owner_org_id(context)
+        except Exception:
+            pass
 
-    log.info(f"Generating IATI Organization XML with namespace {namespace}")
+    if not owner_org_id:
+        # Fallback: use the first organization the user is admin of (common pattern)
+        orgs = toolkit.get_action("organization_list_for_user")(context, {"permission": "admin"})
+        if orgs:
+            owner_org_id = orgs[0]["id"]
+
+    if not owner_org_id:
+        raise toolkit.ValidationError({"owner_org": "Could not determine owner_org for current user"})
+
+    log.info("Generating IATI Organization XML for owner_org=%s ns=%s", owner_org_id, namespace)
+
+    Session = model.Session
+    Resource = model.Resource
+    Package = model.Package
+
+    # Find destination FINAL_ORGANIZATION_FILE resource scoped to owner_org + namespace
+    final_record = (
+        Session.query(IATIFile)
+        .join(Resource, Resource.id == IATIFile.resource_id)
+        .join(Package, Package.id == Resource.package_id)
+        .filter(
+            Package.owner_org == owner_org_id,
+            Package.state == "active",
+            Resource.state == "active",
+            IATIFile.file_type == IATIFileTypes.FINAL_ORGANIZATION_FILE.value,
+            IATIFile.namespace == namespace,
+        )
+        .first()
+    )
+
+    if not final_record:
+        raise toolkit.ObjectNotFound(
+            f"No destination resource (FINAL_ORGANIZATION_FILE) found for owner_org={owner_org_id} namespace={namespace}"
+        )
 
     # Create temporary folder for CSVs
     with tempfile.TemporaryDirectory() as tmp_dir:
         org_folder = Path(tmp_dir) / f"org-{namespace}"
         org_folder.mkdir(parents=True, exist_ok=True)
 
-        # Processed organization file types
+        # CSVs to prepare for the converter
         file_types_mapping = {
             IATIFileTypes.ORGANIZATION_MAIN_FILE: ("organization.csv", True, 1),
             IATIFileTypes.ORGANIZATION_NAMES_FILE: ("names.csv", False, 1),
@@ -396,7 +433,7 @@ def generate_organization_xml(context, data_dict):
         }
 
         files_processed = 0
-        # Process each file type
+
         for file_type, (filename, required, max_files) in file_types_mapping.items():
             try:
                 count = h.process_org_file_type(
@@ -407,30 +444,87 @@ def generate_organization_xml(context, data_dict):
                     namespace=namespace,
                     required=required,
                     max_files=max_files,
+                    # IMPORTANT: make your helper scope by org if it supports it
+                    owner_org_id=owner_org_id,  # harmless if helper ignores unknown kwargs
                 )
                 files_processed += count
-                log.info(f"Processed {count} file(s) for {file_type.name}")
+                log.info("Processed %s file(s) for %s", count, file_type.name)
+            except TypeError:
+                # Backwards compatible call if helper doesn't accept owner_org_id
+                count = h.process_org_file_type(
+                    context=context,
+                    output_folder=org_folder,
+                    filename=filename,
+                    file_type=file_type,
+                    namespace=namespace,
+                    required=required,
+                    max_files=max_files,
+                )
+                files_processed += count
+                log.info("Processed %s file(s) for %s", count, file_type.name)
             except Exception as e:
-                # If required, abort
-                log.error(f"Error processing {file_type.name}: {e}")
+                log.error("Error processing %s: %s", file_type.name, e)
                 if required:
+                    # track + re-raise
+                    try:
+                        final_record.track_processing(success=False, error_message=str(e))
+                    except Exception:
+                        pass
                     raise
+
+        if files_processed == 0:
+            msg = f"No organization CSV files found for owner_org={owner_org_id} namespace={namespace}"
+            log.warning(msg)
+            try:
+                final_record.track_processing(success=False, error_message=msg)
+            except Exception:
+                pass
+            return {"success": False, "message": msg, "files_processed": 0}
 
         # Convert CSV → XML
         converter = IatiOrganisationMultiCsvConverter()
-        xml_filename = org_folder / f"iati-organization-{namespace}.xml"
 
-        converter.csv_folder_to_xml(str(org_folder), str(xml_filename))
+        # Match prior naming: default namespace uses iati-organization.xml
+        if namespace == DEFAULT_NAMESPACE:
+            xml_filename = org_folder / "iati-organization.xml"
+        else:
+            xml_filename = org_folder / f"iati-organization-{namespace}.xml"
 
-        # Update the resource in CKAN with the new file
-        with open(xml_filename, 'rb') as f:
-            toolkit.get_action('resource_patch')(context, {
-                'id': q.resource_id,
-                'upload': f,
-                'format': 'XML'
+        log.info("Converting Organization CSV folder to XML: %s", xml_filename)
+
+        converted = converter.csv_folder_to_xml(
+            input_folder=str(org_folder),
+            xml_output=str(xml_filename),
+        )
+
+        if not converted or not xml_filename.exists():
+            msg = f"Failed to generate organization XML for owner_org={owner_org_id} namespace={namespace}"
+            log.error(msg)
+            try:
+                final_record.track_processing(success=False, error_message=msg)
+            except Exception:
+                pass
+            return {"success": False, "message": msg, "files_processed": files_processed}
+
+        # Upload to destination resource
+        with open(xml_filename, "rb") as f:
+            toolkit.get_action("resource_patch")(context, {
+                "id": final_record.resource_id,
+                "upload": f,
+                "format": "XML",
+                "url_type": "upload",
             })
 
-    return {'success': True, 'files_processed': files_processed}
+        try:
+            final_record.track_processing(success=True)
+        except Exception:
+            pass
+
+        return {
+            "success": True,
+            "message": "Organization XML generated and uploaded successfully",
+            "files_processed": files_processed,
+        }
 
 
 def _prepare_activities_csv_folder(dataset, tmp_dir):
@@ -472,13 +566,23 @@ def _prepare_activities_csv_folder(dataset, tmp_dir):
 
 
 def iati_generate_activities_xml(context, data_dict):
-    """Generates the xml of Activities from a multi-csv structure."""
+    """Generates the XML of Activities from a multi-csv structure.
 
-    # Permissions: iati_auth.iati_generate_activities_xml
-    toolkit.check_access('iati_generate_activities_xml', context, data_dict)
+    Parameters (data_dict keys):
+      - package_id (str): dataset id/name
+      - namespace (str, optional): namespace, defaults to DEFAULT_NAMESPACE
+
+    Behavior:
+      - Prepare csv folder (local files)
+      - Convert csv→xml (validate_output=True)
+      - CREATE the ACTIVITY_MAIN_FILE XML resource + IATIFile if missing, else UPDATE it
+      - Track processing on the IATIFile record
+    """
+    toolkit.check_access("iati_generate_activities_xml", context, data_dict)
 
     package_id = toolkit.get_or_bust(data_dict, "package_id")
     namespace = h.normalize_namespace(data_dict.get("namespace", DEFAULT_NAMESPACE))
+
     dataset = toolkit.get_action("package_show")(context, {"id": package_id})
 
     Session = model.Session
@@ -496,15 +600,12 @@ def iati_generate_activities_xml(context, data_dict):
         .first()
     )
 
-    if not main_file_record:
-        raise toolkit.ValidationError({'package_id': 'Dataset does not have a resource marked as ACTIVITY_MAIN_FILE'})
-
     with tempfile.TemporaryDirectory() as tmp_dir:
+        output_path = Path(tmp_dir) / "activity.xml"
+
         try:
-            # Prepare folder with CSVs expected by okfn_iati
             _prepare_activities_csv_folder(dataset, tmp_dir)
 
-            output_path = Path(tmp_dir) / "activity.xml"
             converter = IatiMultiCsvConverter()
             converter.csv_folder_to_xml(
                 csv_folder=tmp_dir,
@@ -512,27 +613,32 @@ def iati_generate_activities_xml(context, data_dict):
                 validate_output=True,
             )
 
-            # CREATE or UPDATE the CKAN resource
+            if not output_path.exists():
+                raise toolkit.ValidationError({"xml": "Converter did not produce output activity.xml"})
+
+            # CREATE if missing, else UPDATE
             if main_file_record:
-                # UPDATE existing resource
                 with open(output_path, "rb") as f:
                     toolkit.get_action("resource_patch")(context, {
                         "id": main_file_record.resource_id,
                         "upload": f,
                         "format": "XML",
+                        "url_type": "upload",
                     })
             else:
-                # CREATE new resource (upload the XML) then create IATIFile
+                # create resource
+                name = "iati-activity.xml" if namespace == DEFAULT_NAMESPACE else f"iati-activity-{namespace}.xml"
                 with open(output_path, "rb") as f:
                     new_res = toolkit.get_action("resource_create")(context, {
                         "package_id": package_id,
-                        "name": f"iati-activity-{namespace}.xml",
+                        "name": name,
                         "format": "XML",
                         "upload": f,
                         "url_type": "upload",
                         "description": "Generated IATI Activities XML",
                     })
-                # Create IATIFile record for the new resource
+
+                # create IATIFile record
                 main_file_record = IATIFile(
                     namespace=namespace,
                     file_type=IATIFileTypes.ACTIVITY_MAIN_FILE.value,
@@ -540,16 +646,20 @@ def iati_generate_activities_xml(context, data_dict):
                 )
                 main_file_record.save()
 
-            # Track success
-            main_file_record.track_processing(success=True)
+            try:
+                main_file_record.track_processing(success=True)
+            except Exception:
+                pass
 
             return {"success": True, "resource_id": main_file_record.resource_id}
 
         except Exception as e:
             log.error("Error generating activities XML for %s (ns=%s): %s", package_id, namespace, e)
 
-            # Track failure (if we have a record already)
             if main_file_record:
-                main_file_record.track_processing(success=False, error_message=str(e))
+                try:
+                    main_file_record.track_processing(success=False, error_message=str(e))
+                except Exception:
+                    pass
 
             raise
