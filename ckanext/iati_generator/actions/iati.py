@@ -345,7 +345,6 @@ def iati_resources_list(context, data_dict=None):
     }
 
 
-# TODO: Refactor this function to mimic iati_generate_activities_xml function.
 def generate_organization_xml(context, data_dict):
     """
     Generate IATI Organization XML for a given organization.
@@ -368,8 +367,17 @@ def generate_organization_xml(context, data_dict):
     """
     # Permissions: iati_auth.generate_organization_xml
     toolkit.check_access('generate_organization_xml', context, data_dict)
+    namespace = h.normalize_namespace(data_dict.get("namespace", DEFAULT_NAMESPACE))
 
-    namespace = data_dict.get('namespace', DEFAULT_NAMESPACE)
+    # 1. Buscar el recurso donde guardaremos el XML final
+    # Necesitamos el recurso de tipo FINAL_ORGANIZATION_FILE para actualizarlo
+    q = model.Session.query(IATIFile).filter(
+        IATIFile.file_type == IATIFileTypes.FINAL_ORGANIZATION_FILE.value,
+        IATIFile.namespace == namespace
+    ).first()
+
+    if not q:
+        raise toolkit.ObjectNotFound(f"No destination resource (FINAL_ORGANIZATION_FILE) found for namespace {namespace}")
 
     log.info(f"Generating IATI Organization XML with namespace {namespace}")
 
@@ -388,7 +396,6 @@ def generate_organization_xml(context, data_dict):
         }
 
         files_processed = 0
-
         # Process each file type
         for file_type, (filename, required, max_files) in file_types_mapping.items():
             try:
@@ -409,43 +416,21 @@ def generate_organization_xml(context, data_dict):
                 if required:
                     raise
 
-        if files_processed == 0:
-            return {
-                'success': False,
-                'message': f'No organization files found with namespace {namespace}'
-            }
-
         # Convert CSV → XML
         converter = IatiOrganisationMultiCsvConverter()
+        xml_filename = org_folder / f"iati-organization-{namespace}.xml"
 
-        if namespace == DEFAULT_NAMESPACE:
-            xml_filename = org_folder / "iati-organization.xml"
-        else:
-            xml_filename = org_folder / f"iati-organization-{namespace}.xml"
+        converter.csv_folder_to_xml(str(org_folder), str(xml_filename))
 
-        log.info(f"Converting CSV files to IATI XML: {xml_filename}")
-        converted = converter.csv_folder_to_xml(
-            input_folder=str(org_folder),
-            xml_output=str(xml_filename),
-        )
+        # 2. Actualizar el recurso en CKAN con el nuevo archivo
+        with open(xml_filename, 'rb') as f:
+            toolkit.get_action('resource_patch')(context, {
+                'id': q.resource_id,
+                'upload': f,
+                'format': 'XML'
+            })
 
-        if not converted or not xml_filename.exists():
-            return {
-                'success': False,
-                'message': 'Failed to generate XML file'
-            }
-
-        # Read the generated XML content
-        with open(xml_filename, 'r', encoding='utf-8') as f:
-            xml_content = f.read()
-
-        log.info(f"Successfully generated IATI Organization XML ({len(xml_content)} bytes)")
-
-        return {
-            'success': True,
-            'message': 'XML generated successfully',
-            'files_processed': files_processed,
-        }
+    return {'success': True, 'files_processed': files_processed}
 
 
 def _prepare_activities_csv_folder(dataset, tmp_dir):
@@ -486,25 +471,48 @@ def _prepare_activities_csv_folder(dataset, tmp_dir):
     log.info(f"Finished preparing the CSV folder for the IATI converter. (Path: {tmp_dir})")
 
 
-# TODO: remove decorator once integrated with the UI.
-@toolkit.side_effect_free
 def iati_generate_activities_xml(context, data_dict):
     """Generates the xml of Activities from a multi-csv structure."""
 
-    # TODO: Add authorization, cannot sysadmin since it is reserved for IT personel.
+    # Permissions: iati_auth.iati_generate_activities_xml
+    toolkit.check_access('iati_generate_activities_xml', context, data_dict)
 
     package_id = toolkit.get_or_bust(data_dict, "package_id")
-    dataset = toolkit.get_action('package_show')({}, {"id": package_id})
+    dataset = toolkit.get_action("package_show")(context, {"id": package_id})
+
+    main_file_record = model.Session.query(IATIFile).join(model.Resource).filter(
+        model.Resource.package_id == package_id,
+        IATIFile.file_type == IATIFileTypes.ACTIVITY_MAIN_FILE.value
+    ).first()
+
+    if not main_file_record:
+        raise toolkit.ValidationError({'package_id': 'Dataset does not have a resource marked as ACTIVITY_MAIN_FILE'})
 
     tmp_dir = tempfile.mkdtemp()
+    try:
+        _prepare_activities_csv_folder(dataset, tmp_dir)
 
-    _prepare_activities_csv_folder(dataset, tmp_dir)
+        output_path = Path(tmp_dir) / "activity.xml"
+        converter = IatiMultiCsvConverter()
+        converter.csv_folder_to_xml(csv_folder=tmp_dir, xml_output=str(output_path), validate_output=True)
 
-    output_path = tmp_dir + "/activity.xml"
-    converter = IatiMultiCsvConverter()
-    converter.csv_folder_to_xml(csv_folder=tmp_dir, xml_output=output_path, validate_output=True)
+        # Subir el archivo XML generado al recurso correspondiente
+        with open(output_path, 'rb') as f:
+            toolkit.get_action('resource_patch')(context, {
+                'id': main_file_record.resource_id,
+                'upload': f,
+                'format': 'XML'
+            })
 
-    # TODO: Create a CKAN resource for the activity.xml file if it doesn't exist or update the existing one.
-    # The resource should live in the same dataset as all the other IATI csv and must be of type: ACTIVITY_MAIN_FILE.
+        # Marcar éxito en el registro de IATIFile
+        main_file_record.track_processing(success=True)
 
-    shutil.rmtree(tmp_dir)
+    except Exception as e:
+        log.error(f"Error generating activities XML for {package_id}: {str(e)}")
+        if main_file_record:
+            main_file_record.track_processing(success=False, error_message=str(e))
+        raise
+    finally:
+        shutil.rmtree(tmp_dir)
+
+    return {"success": True, "resource_id": main_file_record.resource_id}
