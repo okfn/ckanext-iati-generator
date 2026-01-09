@@ -369,8 +369,8 @@ def generate_organization_xml(context, data_dict):
     toolkit.check_access('generate_organization_xml', context, data_dict)
     namespace = h.normalize_namespace(data_dict.get("namespace", DEFAULT_NAMESPACE))
 
-    # 1. Buscar el recurso donde guardaremos el XML final
-    # Necesitamos el recurso de tipo FINAL_ORGANIZATION_FILE para actualizarlo
+    # Find the resource where we will save the final XML
+    # We need the FINAL_ORGANIZATION_FILE type resource to update it
     q = model.Session.query(IATIFile).filter(
         IATIFile.file_type == IATIFileTypes.FINAL_ORGANIZATION_FILE.value,
         IATIFile.namespace == namespace
@@ -422,7 +422,7 @@ def generate_organization_xml(context, data_dict):
 
         converter.csv_folder_to_xml(str(org_folder), str(xml_filename))
 
-        # 2. Actualizar el recurso en CKAN con el nuevo archivo
+        # Update the resource in CKAN with the new file
         with open(xml_filename, 'rb') as f:
             toolkit.get_action('resource_patch')(context, {
                 'id': q.resource_id,
@@ -496,7 +496,7 @@ def iati_generate_activities_xml(context, data_dict):
         converter = IatiMultiCsvConverter()
         converter.csv_folder_to_xml(csv_folder=tmp_dir, xml_output=str(output_path), validate_output=True)
 
-        # Subir el archivo XML generado al recurso correspondiente
+        # Upload the generated XML file to the corresponding resource
         with open(output_path, 'rb') as f:
             toolkit.get_action('resource_patch')(context, {
                 'id': main_file_record.resource_id,
@@ -504,7 +504,7 @@ def iati_generate_activities_xml(context, data_dict):
                 'format': 'XML'
             })
 
-        # Marcar éxito en el registro de IATIFile
+        # Mark success in the IATIFile record
         main_file_record.track_processing(success=True)
 
     except Exception as e:
