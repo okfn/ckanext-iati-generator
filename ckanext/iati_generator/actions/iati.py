@@ -351,54 +351,45 @@ def generate_organization_xml(context, data_dict):
 
     Parameters (data_dict keys):
       - namespace (str, optional): Namespace for the IATI file. Default: DEFAULT_NAMESPACE.
+      - owner_org (str, optional but recommended): Organization id. If not provided, inferred from user.
 
-    Behavior:
+    Behavior (matches TODO/docstring):
       - Fetch all organization IATIFiles for the given owner_org+namespace.
-      - Include the `FINAL_ORGANIZATION_FILE`. If not exist, raise an error
+      - Require the FINAL_ORGANIZATION_FILE destination resource for that owner_org+namespace.
       - Download the CSVs to a temporary folder org-<namespace>.
       - Run IatiOrganisationMultiCsvConverter.csv_folder_to_xml on that folder.
       - Update the resource related to the FINAL_ORGANIZATION_FILE with the final XML.
+
     Returns:
       dict: {
         "success": <bool>,
         "message": <str>,
-        "files_processed": <int> (number of CSV files processed)
+        "files_processed": <int>
       }
     """
-    # Permissions: iati_auth.generate_organization_xml
-    toolkit.check_access('generate_organization_xml', context, data_dict)
+    toolkit.check_access("generate_organization_xml", context, data_dict)
+
     namespace = h.normalize_namespace(data_dict.get("namespace", DEFAULT_NAMESPACE))
 
-    # Determine owner_org (organization) from context/user (common CKAN pattern)
-    auth_user_obj = context.get("auth_user_obj")
-    if not auth_user_obj:
-        # fallback: may exist in context for some calls
-        auth_user_obj = getattr(model.User, "get", lambda _: None)(context.get("user"))
-
-    owner_org_id = None
-    if auth_user_obj is not None:
-        # Prefer helper if you have one. Fall back to org memberships.
-        try:
-            owner_org_id = h.get_current_user_owner_org_id(context)
-        except Exception:
-            pass
+    # Prefer explicit owner_org in data_dict if UI passes it
+    owner_org_id = data_dict.get("owner_org")
 
     if not owner_org_id:
-        # Fallback: use the first organization the user is admin of (common pattern)
+        # Fallback: infer from user memberships (admin orgs)
         orgs = toolkit.get_action("organization_list_for_user")(context, {"permission": "admin"})
         if orgs:
             owner_org_id = orgs[0]["id"]
 
     if not owner_org_id:
-        raise toolkit.ValidationError({"owner_org": "Could not determine owner_org for current user"})
+        raise toolkit.ValidationError({"owner_org": "Missing owner_org and could not infer it from user permissions"})
 
-    log.info("Generating IATI Organization XML for owner_org=%s ns=%s", owner_org_id, namespace)
+    log.info("Generating IATI Organization XML (owner_org=%s ns=%s)", owner_org_id, namespace)
 
     Session = model.Session
     Resource = model.Resource
     Package = model.Package
 
-    # Find destination FINAL_ORGANIZATION_FILE resource scoped to owner_org + namespace
+    # Destination: FINAL_ORGANIZATION_FILE scoped by owner_org+namespace
     final_record = (
         Session.query(IATIFile)
         .join(Resource, Resource.id == IATIFile.resource_id)
@@ -415,15 +406,13 @@ def generate_organization_xml(context, data_dict):
 
     if not final_record:
         raise toolkit.ObjectNotFound(
-            f"No destination resource (FINAL_ORGANIZATION_FILE) found for owner_org={owner_org_id} namespace={namespace}"
+            f"No destination resource (FINAL_ORGANIZATION_FILE) found for owner_org={owner_org_id} ns={namespace}"
         )
 
-    # Create temporary folder for CSVs
     with tempfile.TemporaryDirectory() as tmp_dir:
         org_folder = Path(tmp_dir) / f"org-{namespace}"
         org_folder.mkdir(parents=True, exist_ok=True)
 
-        # CSVs to prepare for the converter
         file_types_mapping = {
             IATIFileTypes.ORGANIZATION_MAIN_FILE: ("organization.csv", True, 1),
             IATIFileTypes.ORGANIZATION_NAMES_FILE: ("names.csv", False, 1),
@@ -433,7 +422,6 @@ def generate_organization_xml(context, data_dict):
         }
 
         files_processed = 0
-
         for file_type, (filename, required, max_files) in file_types_mapping.items():
             try:
                 count = h.process_org_file_type(
@@ -442,21 +430,7 @@ def generate_organization_xml(context, data_dict):
                     filename=filename,
                     file_type=file_type,
                     namespace=namespace,
-                    required=required,
-                    max_files=max_files,
-                    # IMPORTANT: make your helper scope by org if it supports it
-                    owner_org_id=owner_org_id,  # harmless if helper ignores unknown kwargs
-                )
-                files_processed += count
-                log.info("Processed %s file(s) for %s", count, file_type.name)
-            except TypeError:
-                # Backwards compatible call if helper doesn't accept owner_org_id
-                count = h.process_org_file_type(
-                    context=context,
-                    output_folder=org_folder,
-                    filename=filename,
-                    file_type=file_type,
-                    namespace=namespace,
+                    owner_org_id=owner_org_id,
                     required=required,
                     max_files=max_files,
                 )
@@ -465,7 +439,6 @@ def generate_organization_xml(context, data_dict):
             except Exception as e:
                 log.error("Error processing %s: %s", file_type.name, e)
                 if required:
-                    # track + re-raise
                     try:
                         final_record.track_processing(success=False, error_message=str(e))
                     except Exception:
@@ -473,7 +446,7 @@ def generate_organization_xml(context, data_dict):
                     raise
 
         if files_processed == 0:
-            msg = f"No organization CSV files found for owner_org={owner_org_id} namespace={namespace}"
+            msg = f"No organization CSV files found for owner_org={owner_org_id} ns={namespace}"
             log.warning(msg)
             try:
                 final_record.track_processing(success=False, error_message=msg)
@@ -481,14 +454,13 @@ def generate_organization_xml(context, data_dict):
                 pass
             return {"success": False, "message": msg, "files_processed": 0}
 
-        # Convert CSV → XML
         converter = IatiOrganisationMultiCsvConverter()
 
-        # Match prior naming: default namespace uses iati-organization.xml
-        if namespace == DEFAULT_NAMESPACE:
-            xml_filename = org_folder / "iati-organization.xml"
-        else:
-            xml_filename = org_folder / f"iati-organization-{namespace}.xml"
+        xml_filename = (
+            org_folder / "iati-organization.xml"
+            if namespace == DEFAULT_NAMESPACE
+            else org_folder / f"iati-organization-{namespace}.xml"
+        )
 
         log.info("Converting Organization CSV folder to XML: %s", xml_filename)
 
@@ -498,7 +470,7 @@ def generate_organization_xml(context, data_dict):
         )
 
         if not converted or not xml_filename.exists():
-            msg = f"Failed to generate organization XML for owner_org={owner_org_id} namespace={namespace}"
+            msg = f"Failed to generate organization XML for owner_org={owner_org_id} ns={namespace}"
             log.error(msg)
             try:
                 final_record.track_processing(success=False, error_message=msg)
@@ -618,6 +590,7 @@ def iati_generate_activities_xml(context, data_dict):
 
             # CREATE if missing, else UPDATE
             if main_file_record:
+                # UPDATE
                 with open(output_path, "rb") as f:
                     toolkit.get_action("resource_patch")(context, {
                         "id": main_file_record.resource_id,
@@ -626,7 +599,7 @@ def iati_generate_activities_xml(context, data_dict):
                         "url_type": "upload",
                     })
             else:
-                # create resource
+                # CREATE resource + IATIFile
                 name = "iati-activity.xml" if namespace == DEFAULT_NAMESPACE else f"iati-activity-{namespace}.xml"
                 with open(output_path, "rb") as f:
                     new_res = toolkit.get_action("resource_create")(context, {

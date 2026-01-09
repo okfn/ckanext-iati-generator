@@ -137,6 +137,7 @@ def process_org_file_type(
     filename: str,
     file_type: IATIFileTypes,
     namespace: str,
+    owner_org_id: str,
     required: bool = True,
     max_files: int | None = 1,
 ) -> int:
@@ -147,13 +148,24 @@ def process_org_file_type(
     Returns:
         int: number of successfully processed files.
     """
-    log.info(f"Processing organization file type: {file_type.name} -> {filename}")
+    log.info("Processing organization file type: %s -> %s (ns=%s owner_org=%s)",
+             file_type.name, filename, namespace, owner_org_id)
 
     session = model.Session
+    Resource = model.Resource
+    Package = model.Package
+
     query = (
         session.query(IATIFile)
-        .filter(IATIFile.file_type == file_type.value)
-        .filter(IATIFile.namespace == namespace)
+        .join(Resource, Resource.id == IATIFile.resource_id)
+        .join(Package, Package.id == Resource.package_id)
+        .filter(
+            Package.owner_org == owner_org_id,
+            Package.state == "active",
+            Resource.state == "active",
+            IATIFile.file_type == file_type.value,
+            IATIFile.namespace == namespace,
+        )
     )
 
     org_files = query.all()
@@ -161,15 +173,20 @@ def process_org_file_type(
     # Validate requirements
     if len(org_files) == 0:
         if required:
-            raise Exception(f"No organization IATI files of type {file_type.name} found.")
-        log.info(f"No files found for optional type {file_type.name}")
+            raise toolkit.ObjectNotFound(
+                f"No organization IATI files of type {file_type.name} found for owner_org={owner_org_id} ns={namespace}."
+            )
+        log.info("No files found for optional type %s (owner_org=%s ns=%s)",
+                 file_type.name, owner_org_id, namespace)
         return 0
 
     if max_files and len(org_files) > max_files:
-        raise Exception(
-            f"Expected no more than {max_files} organization IATI file(s) of type {file_type.name}, "
-            f"found {len(org_files)}."
-        )
+        raise toolkit.ValidationError({
+            "file_type": (
+                f"Expected no more than {max_files} organization IATI file(s) of type {file_type.name} "
+                f"for owner_org={owner_org_id} ns={namespace}, found {len(org_files)}."
+            )
+        })
 
     processed_count = 0
 
@@ -181,15 +198,22 @@ def process_org_file_type(
             final_path = save_resource_data(iati_file.resource_id, str(destination_path))
 
         except Exception as e:
-            log.error(f"Error processing file {iati_file.resource_id}: {e}")
-            iati_file.track_processing(success=False, error_message=str(e))
+            log.error("Error fetching CSV for resource=%s (%s): %s", iati_file.resource_id, file_type.name, e)
+            try:
+                iati_file.track_processing(success=False, error_message=str(e))
+            except Exception:
+                pass
             if required:
                 raise
+            continue
 
         if not final_path:
-            log.error(f"Failed to fetch data for resource ID: {iati_file.resource_id}")
-            error_message = "Failed to save resource data"
-            iati_file.track_processing(success=False, error_message=error_message)
+            msg = "Failed to save resource data"
+            log.error("Failed to fetch data for resource ID: %s (%s)", iati_file.resource_id, file_type.name)
+            try:
+                iati_file.track_processing(success=False, error_message=msg)
+            except Exception:
+                pass
             continue
 
         iati_file.track_processing(success=True)
