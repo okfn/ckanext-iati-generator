@@ -3,7 +3,6 @@ from pathlib import Path
 
 import re
 from ckan.plugins import toolkit
-from collections import defaultdict
 from ckan import model
 from ckanext.iati_generator.models.enums import IATIFileTypes
 from ckanext.iati_generator.models.iati_files import DEFAULT_NAMESPACE, IATIFile
@@ -132,7 +131,6 @@ def iati_namespaces():
     datasets = result.get("results", [])
     namespaces = [dataset["iati_namespace"] for dataset in datasets]
     return list(set(namespaces))
-
 
 
 def process_org_file_type(
