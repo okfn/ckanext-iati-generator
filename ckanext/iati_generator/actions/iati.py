@@ -478,41 +478,78 @@ def iati_generate_activities_xml(context, data_dict):
     toolkit.check_access('iati_generate_activities_xml', context, data_dict)
 
     package_id = toolkit.get_or_bust(data_dict, "package_id")
+    namespace = h.normalize_namespace(data_dict.get("namespace", DEFAULT_NAMESPACE))
     dataset = toolkit.get_action("package_show")(context, {"id": package_id})
 
-    main_file_record = model.Session.query(IATIFile).join(model.Resource).filter(
-        model.Resource.package_id == package_id,
-        IATIFile.file_type == IATIFileTypes.ACTIVITY_MAIN_FILE.value
-    ).first()
+    Session = model.Session
+    Resource = model.Resource
+
+    main_file_record = (
+        Session.query(IATIFile)
+        .join(Resource, Resource.id == IATIFile.resource_id)
+        .filter(
+            Resource.package_id == package_id,
+            Resource.state == "active",
+            IATIFile.file_type == IATIFileTypes.ACTIVITY_MAIN_FILE.value,
+            IATIFile.namespace == namespace,
+        )
+        .first()
+    )
 
     if not main_file_record:
         raise toolkit.ValidationError({'package_id': 'Dataset does not have a resource marked as ACTIVITY_MAIN_FILE'})
 
-    tmp_dir = tempfile.mkdtemp()
-    try:
-        _prepare_activities_csv_folder(dataset, tmp_dir)
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        try:
+            # Prepare folder with CSVs expected by okfn_iati
+            _prepare_activities_csv_folder(dataset, tmp_dir)
 
-        output_path = Path(tmp_dir) / "activity.xml"
-        converter = IatiMultiCsvConverter()
-        converter.csv_folder_to_xml(csv_folder=tmp_dir, xml_output=str(output_path), validate_output=True)
+            output_path = Path(tmp_dir) / "activity.xml"
+            converter = IatiMultiCsvConverter()
+            converter.csv_folder_to_xml(
+                csv_folder=tmp_dir,
+                xml_output=str(output_path),
+                validate_output=True,
+            )
 
-        # Upload the generated XML file to the corresponding resource
-        with open(output_path, 'rb') as f:
-            toolkit.get_action('resource_patch')(context, {
-                'id': main_file_record.resource_id,
-                'upload': f,
-                'format': 'XML'
-            })
+            # CREATE or UPDATE the CKAN resource
+            if main_file_record:
+                # UPDATE existing resource
+                with open(output_path, "rb") as f:
+                    toolkit.get_action("resource_patch")(context, {
+                        "id": main_file_record.resource_id,
+                        "upload": f,
+                        "format": "XML",
+                    })
+            else:
+                # CREATE new resource (upload the XML) then create IATIFile
+                with open(output_path, "rb") as f:
+                    new_res = toolkit.get_action("resource_create")(context, {
+                        "package_id": package_id,
+                        "name": f"iati-activity-{namespace}.xml",
+                        "format": "XML",
+                        "upload": f,
+                        "url_type": "upload",
+                        "description": "Generated IATI Activities XML",
+                    })
+                # Create IATIFile record for the new resource
+                main_file_record = IATIFile(
+                    namespace=namespace,
+                    file_type=IATIFileTypes.ACTIVITY_MAIN_FILE.value,
+                    resource_id=new_res["id"],
+                )
+                main_file_record.save()
 
-        # Mark success in the IATIFile record
-        main_file_record.track_processing(success=True)
+            # Track success
+            main_file_record.track_processing(success=True)
 
-    except Exception as e:
-        log.error(f"Error generating activities XML for {package_id}: {str(e)}")
-        if main_file_record:
-            main_file_record.track_processing(success=False, error_message=str(e))
-        raise
-    finally:
-        shutil.rmtree(tmp_dir)
+            return {"success": True, "resource_id": main_file_record.resource_id}
 
-    return {"success": True, "resource_id": main_file_record.resource_id}
+        except Exception as e:
+            log.error("Error generating activities XML for %s (ns=%s): %s", package_id, namespace, e)
+
+            # Track failure (if we have a record already)
+            if main_file_record:
+                main_file_record.track_processing(success=False, error_message=str(e))
+
+            raise
