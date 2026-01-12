@@ -1,3 +1,4 @@
+import io
 import logging
 import shutil
 import tempfile
@@ -9,6 +10,7 @@ from ckan.plugins import toolkit
 from okfn_iati import IatiMultiCsvConverter
 from okfn_iati.organisation_xml_generator import IatiOrganisationMultiCsvConverter
 from sqlalchemy import func
+from werkzeug.datastructures import FileStorage
 
 from ckanext.iati_generator import helpers as h
 from ckanext.iati_generator.models.enums import IATIFileTypes
@@ -34,7 +36,7 @@ def iati_file_create(context, data_dict):
     )
 
     file = IATIFile(
-        namespace=data_dict.get('namespace', DEFAULT_NAMESPACE),
+        namespace=h.normalize_namespace(data_dict.get('namespace', DEFAULT_NAMESPACE)),
         file_type=data_dict['file_type'],
         resource_id=data_dict['resource_id'],
     )
@@ -57,7 +59,7 @@ def iati_file_update(context, data_dict):
 
     # namespace
     if 'namespace' in data_dict:
-        updates['namespace'] = data_dict['namespace']
+        updates['namespace'] = h.normalize_namespace(data_dict['namespace'])
 
     # file_type
     if 'file_type' in data_dict:
@@ -311,12 +313,30 @@ def iati_resources_list(context, data_dict=None):
     for resource_id, iati_file in files_by_resource.items():
 
         # resource
-        res = toolkit.get_action("resource_show")(context, {"id": resource_id})
+        try:
+            res = toolkit.get_action("resource_show")(context, {"id": resource_id})
+        except toolkit.ObjectNotFound:
+            log.warning(
+                "Orphan IATIFile detected: iati_file_id=%s resource_id=%s not found",
+                iati_file.id, resource_id
+            )
+            # mark as failed processing
+            iati_file.track_processing(success=False, error_message="Resource not found (orphan IATIFile)")
+            continue
+
         package_id = res["package_id"]
 
         # dataset (cache to avoid multiple calls)
         if package_id not in datasets:
-            pkg = toolkit.get_action("package_show")(context, {"id": package_id})
+            try:
+                pkg = toolkit.get_action("package_show")(context, {"id": package_id})
+            except toolkit.ObjectNotFound:
+                log.warning(
+                    "Orphan IATIFile detected: iati_file_id=%s package_id=%s not found (resource_id=%s)",
+                    iati_file.id, package_id, resource_id
+                )
+                iati_file.track_processing(success=False, error_message="Dataset not found (orphan IATIFile)")
+                continue
             datasets[package_id] = pkg
         else:
             pkg = datasets[package_id]
@@ -458,9 +478,40 @@ def iati_generate_activities_xml(context, data_dict):
 
     output_path = tmp_dir + "/activity.xml"
     converter = IatiMultiCsvConverter()
-    converter.csv_folder_to_xml(csv_folder=tmp_dir, xml_output=output_path, validate_output=True)
+    success = converter.csv_folder_to_xml(csv_folder=tmp_dir, xml_output=output_path, validate_output=True)
 
-    # TODO: Create a CKAN resource for the activity.xml file if it doesn't exist or update the existing one.
-    # The resource should live in the same dataset as all the other IATI csv and must be of type: ACTIVITY_MAIN_FILE.
+    if not success:
+        log.warning(f"Could not generate activity file for dataset {dataset['name']} ({dataset['id']})")
+        # Is this the best way to handle this scenario?
+        raise toolkit.ValidationError(
+            "Activity.xml file could not be created probably due to missing mandatory files or corrupted data."
+        )
+
+    activity_resource = None
+    for res in dataset["resources"]:
+        if int(res["iati_file_type"]) == IATIFileTypes.FINAL_ACTIVITY_FILE.value:
+            activity_resource = res
+            break
+
+    # Using werkzeug FileStorage is the only way I found to get the resource_create action working.
+    with open(output_path, "rb") as f:
+        stream = io.BytesIO(f.read())
+    upload = FileStorage(stream=stream, filename="activity.xml")
+
+    res_dict = {
+        "name": "activity.xml",
+        "url_type": "upload",
+        "upload": upload,
+        "iati_file_type": IATIFileTypes.FINAL_ACTIVITY_FILE.value,
+        "format": "XML",
+    }
+    if activity_resource:
+        res_dict["id"] = activity_resource["id"]
+        toolkit.get_action("resource_patch")({}, res_dict)
+        log.info(f"Patched activity.xml resource {activity_resource['id']}.")
+    else:
+        res_dict["package_id"] = dataset["id"]
+        created = toolkit.get_action("resource_create")({}, res_dict)
+        log.info(f"Created new activity.xml resource with id {created['id']}.")
 
     shutil.rmtree(tmp_dir)
