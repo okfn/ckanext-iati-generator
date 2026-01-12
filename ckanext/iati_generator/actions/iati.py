@@ -1,3 +1,4 @@
+import io
 import logging
 import tempfile
 import shutil
@@ -9,6 +10,7 @@ from ckan import model
 from sqlalchemy import func
 from okfn_iati.organisation_xml_generator import IatiOrganisationMultiCsvConverter
 from okfn_iati import IatiMultiCsvConverter
+from werkzeug.datastructures import FileStorage
 
 from ckanext.iati_generator.models.iati_files import DEFAULT_NAMESPACE, IATIFile
 from ckanext.iati_generator.models.enums import IATIFileTypes
@@ -502,9 +504,38 @@ def iati_generate_activities_xml(context, data_dict):
 
     output_path = tmp_dir + "/activity.xml"
     converter = IatiMultiCsvConverter()
-    converter.csv_folder_to_xml(csv_folder=tmp_dir, xml_output=output_path, validate_output=True)
+    success = converter.csv_folder_to_xml(csv_folder=tmp_dir, xml_output=output_path, validate_output=True)
 
-    # TODO: Create a CKAN resource for the activity.xml file if it doesn't exist or update the existing one.
-    # The resource should live in the same dataset as all the other IATI csv and must be of type: ACTIVITY_MAIN_FILE.
+    if not success:
+        log.warning(f"Could not generate activity file for dataset {dataset['name']} ({dataset['id']})")
+        # TODO: return proper error
+        return
+
+    activity_resource = None
+    for res in dataset["resources"]:
+        if int(res["iati_file_type"]) == IATIFileTypes.FINAL_ACTIVITY_FILE.value:
+            activity_resource = res
+            break
+
+    # Using werkzeug FileStorage is the only way I found to get the resource_create action working.
+    with open(output_path, "rb") as f:
+        stream = io.BytesIO(f.read())
+    upload = FileStorage(stream=stream, filename="activity.xml")
+
+    res_dict = {
+        "name": "activity.xml",
+        "url_type": "upload",
+        "upload": upload,
+        "iati_file_type": IATIFileTypes.FINAL_ACTIVITY_FILE.value,
+        "format": "XML",
+    }
+    if activity_resource:
+        res_dict["id"] = activity_resource["id"]
+        toolkit.get_action("resource_patch")({}, res_dict)
+        log.info(f"Patched activity.xml resource {activity_resource['id']}.")
+    else:
+        res_dict["package_id"] = dataset["id"]
+        created = toolkit.get_action("resource_create")({}, res_dict)
+        log.info(f"Created new activity.xml resource with id {created['id']}.")
 
     shutil.rmtree(tmp_dir)
