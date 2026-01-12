@@ -462,12 +462,10 @@ def _prepare_activities_csv_folder(dataset, tmp_dir):
     log.info(f"Finished preparing the CSV folder for the IATI converter. (Path: {tmp_dir})")
 
 
-# TODO: remove decorator once integrated with the UI.
-@toolkit.side_effect_free
 def iati_generate_activities_xml(context, data_dict):
     """Generates the xml of Activities from a multi-csv structure."""
 
-    # TODO: Add authorization, cannot sysadmin since it is reserved for IT personel.
+    toolkit.check_access("iati_generate_activities_xml", context, data_dict)
 
     package_id = toolkit.get_or_bust(data_dict, "package_id")
     dataset = toolkit.get_action('package_show')({}, {"id": package_id})
