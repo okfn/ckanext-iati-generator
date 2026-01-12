@@ -152,7 +152,9 @@ def generate_organization_xml(context, data_dict):
     Authorization for generating organization XML.
     Only sysadmins or organization admins can generate XML for their organization.
     """
+    # TODO: Namespace is not necessary.
     namespace = data_dict.get("namespace") or DEFAULT_NAMESPACE
+    # TODO: Refactor para que el package_id venga del data_dict.
     package_id = _resolve_package_id_from_final_org_file(namespace)
 
     if not package_id:
