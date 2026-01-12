@@ -344,112 +344,68 @@ def iati_resources_list(context, data_dict=None):
         "results": results,
     }
 
+def _prepare_organisation_csv_folder(dataset, tmp_dir):
+    """Copy IATI CSV files required to generate organisation.xml into a folder.
 
-# TODO: Refactor this function to mimic iati_generate_activities_xml function.
-def generate_organization_xml(context, data_dict):
+    TODO: This method only works if files are hosted in the same webserver (single VM deployments).
+    For other architectures (K8s, AWS, etc) will need to be extended/reimplemented.
     """
-    Generate IATI Organization XML for a given organization.
 
-    Parameters (data_dict keys):
-      - namespace (str, optional): Namespace for the IATI file. Default: DEFAULT_NAMESPACE.
+    mapping = {
+        "100": "organisations.csv",
+        "110": "names.csv",
+        "120": "budgets.csv",
+        "130": "expenditures.csv",
+        "140": "documents.csv",
+    }
 
-    Behavior:
-      - Fetch all organization IATIFiles for the given owner_org+namespace.
-      - Include the `FINAL_ORGANIZATION_FILE`. If not exist, raise an error
-      - Download the CSVs to a temporary folder org-<namespace>.
-      - Run IatiOrganisationMultiCsvConverter.csv_folder_to_xml on that folder.
-      - Update the resource related to the FINAL_ORGANIZATION_FILE with the final XML.
-    Returns:
-      dict: {
-        "success": <bool>,
-        "message": <str>,
-        "files_processed": <int> (number of CSV files processed)
-      }
-    """
+    for resource in dataset["resources"]:
+        key = resource.get("iati_file_type", "")
+        if key and key in mapping.keys():
+            ru = ResourceUpload({"id": resource["id"]})
+            filepath = ru.get_path(resource["id"])
+            destination = tmp_dir + "/" + mapping[key]
+            shutil.copy(filepath, destination)
+    log.info(f"Finished preparing the CSV folder for the IATI Organisation converter. (Path: {tmp_dir})")
+
+
+# TODO: remove side_effect_free when integrating it with the UI.
+@toolkit.side_effect_free
+def iati_generate_organisation_xml(context, data_dict):
+    """ Compile all organisation related CSVs into the organisation.xml file."""
     # Permissions: iati_auth.generate_organization_xml
     toolkit.check_access('generate_organization_xml', context, data_dict)
 
-    namespace = data_dict.get('namespace', DEFAULT_NAMESPACE)
-
-    log.info(f"Generating IATI Organization XML with namespace {namespace}")
-
     # Create temporary folder for CSVs
-    with tempfile.TemporaryDirectory() as tmp_dir:
-        org_folder = Path(tmp_dir) / f"org-{namespace}"
-        org_folder.mkdir(parents=True, exist_ok=True)
+    package_id = toolkit.get_or_bust(data_dict, "package_id")
+    dataset = toolkit.get_action('package_show')({}, {"id": package_id})
 
-        # Processed organization file types
-        file_types_mapping = {
-            IATIFileTypes.ORGANIZATION_MAIN_FILE: ("organization.csv", True, 1),
-            IATIFileTypes.ORGANIZATION_NAMES_FILE: ("names.csv", False, 1),
-            IATIFileTypes.ORGANIZATION_BUDGET_FILE: ("budgets.csv", False, None),
-            IATIFileTypes.ORGANIZATION_EXPENDITURE_FILE: ("expenditures.csv", False, None),
-            IATIFileTypes.ORGANIZATION_DOCUMENT_FILE: ("documents.csv", False, None),
-        }
+    tmp_dir = tempfile.mkdtemp()
 
-        files_processed = 0
+    _prepare_organisation_csv_folder(dataset, tmp_dir)
 
-        # Process each file type
-        for file_type, (filename, required, max_files) in file_types_mapping.items():
-            try:
-                count = h.process_org_file_type(
-                    context=context,
-                    output_folder=org_folder,
-                    filename=filename,
-                    file_type=file_type,
-                    namespace=namespace,
-                    required=required,
-                    max_files=max_files,
-                )
-                files_processed += count
-                log.info(f"Processed {count} file(s) for {file_type.name}")
-            except Exception as e:
-                # If required, abort
-                log.error(f"Error processing {file_type.name}: {e}")
-                if required:
-                    raise
+    if not Path(tmp_dir + "/organisations.csv").exists():
+        # IatiOrganisationMultiCsvConverter will produce an empty organisation.xml file if the input_folder is empty.
+        # This it not what we want because the file is useless. For activities this validation is handled by the converter.
+        # We check and return error to be coherent with IatiMultiCsvConverter.
+        raise toolkit.ValidationError("No organisations.csv file provided. IATI organisation.xml file cannot be generated.")
 
-        if files_processed == 0:
-            return {
-                'success': False,
-                'message': f'No organization files found with namespace {namespace}'
-            }
+    output_path = tmp_dir + "/organisation.xml"
+    converter = IatiOrganisationMultiCsvConverter()
+    success = converter.csv_folder_to_xml(input_folder=tmp_dir, xml_output=output_path)
 
-        # Convert CSV → XML
-        converter = IatiOrganisationMultiCsvConverter()
+    if not success:
+        log.warning("Error when generating the organisation.xml file.")
+        raise toolkit.ValidationError("Error when generating the organisation.xml file.")
 
-        if namespace == DEFAULT_NAMESPACE:
-            xml_filename = org_folder / "iati-organization.xml"
-        else:
-            xml_filename = org_folder / f"iati-organization-{namespace}.xml"
+    # TODO: Create a CKAN resource for the organization.xml file if it doesn't exist or update the existing one.
+    # The resource should live in the same dataset as all the other IATI csv and must be of type: ACTIVITY_MAIN_FILE.
 
-        log.info(f"Converting CSV files to IATI XML: {xml_filename}")
-        converted = converter.csv_folder_to_xml(
-            input_folder=str(org_folder),
-            xml_output=str(xml_filename),
-        )
-
-        if not converted or not xml_filename.exists():
-            return {
-                'success': False,
-                'message': 'Failed to generate XML file'
-            }
-
-        # Read the generated XML content
-        with open(xml_filename, 'r', encoding='utf-8') as f:
-            xml_content = f.read()
-
-        log.info(f"Successfully generated IATI Organization XML ({len(xml_content)} bytes)")
-
-        return {
-            'success': True,
-            'message': 'XML generated successfully',
-            'files_processed': files_processed,
-        }
+    shutil.rmtree(tmp_dir)
 
 
 def _prepare_activities_csv_folder(dataset, tmp_dir):
-    """Copy all IATI CSV files into a folder for okfn_iati to process.
+    """Copy IATI CSV files required to create activity.xml into a folder.
 
     The okfn_iati tool expects all the csv files to live in a folder.
 

@@ -40,7 +40,7 @@ class IatiGeneratorPlugin(p.SingletonPlugin, DefaultTranslation):
             'iati_file_show': iati_actions.iati_file_show,
             'iati_file_list': iati_actions.iati_file_list,
             'iati_resources_list': iati_actions.iati_resources_list,
-            'generate_organization_xml': iati_actions.generate_organization_xml,
+            'iati_generate_organisation_xml': iati_actions.iati_generate_organisation_xml,
             'iati_generate_activity_xml': iati_actions.iati_generate_activities_xml,
             # Chain to CKAN core actions
             # 'resource_create': resources_actions.resource_create,
