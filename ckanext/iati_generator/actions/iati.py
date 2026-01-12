@@ -508,8 +508,8 @@ def iati_generate_activities_xml(context, data_dict):
 
     if not success:
         log.warning(f"Could not generate activity file for dataset {dataset['name']} ({dataset['id']})")
-        # TODO: return proper error
-        return
+        # Is this the best way to handle this scenario?
+        raise toolkit.ValidationError("Activity.xml file could not be created probably due to missing mandatory files or corrupted data.")
 
     activity_resource = None
     for res in dataset["resources"]:
