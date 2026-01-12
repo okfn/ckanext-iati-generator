@@ -1,19 +1,18 @@
 import logging
-import tempfile
 import shutil
+import tempfile
 from pathlib import Path
 
-from ckan.plugins import toolkit
-from ckan.lib.uploader import ResourceUpload
 from ckan import model
-from sqlalchemy import func
-from okfn_iati.organisation_xml_generator import IatiOrganisationMultiCsvConverter
+from ckan.lib.uploader import ResourceUpload
+from ckan.plugins import toolkit
 from okfn_iati import IatiMultiCsvConverter
+from okfn_iati.organisation_xml_generator import IatiOrganisationMultiCsvConverter
+from sqlalchemy import func
 
-from ckanext.iati_generator.models.iati_files import DEFAULT_NAMESPACE, IATIFile
-from ckanext.iati_generator.models.enums import IATIFileTypes
 from ckanext.iati_generator import helpers as h
-
+from ckanext.iati_generator.models.enums import IATIFileTypes
+from ckanext.iati_generator.models.iati_files import DEFAULT_NAMESPACE, IATIFile
 
 log = logging.getLogger(__name__)
 
@@ -343,6 +342,7 @@ def iati_resources_list(context, data_dict=None):
         "count": len(results),
         "results": results,
     }
+
 
 def _prepare_organisation_csv_folder(dataset, tmp_dir):
     """Copy IATI CSV files required to generate organisation.xml into a folder.
