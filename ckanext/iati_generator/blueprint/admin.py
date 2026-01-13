@@ -25,7 +25,11 @@ def iati_files_index():
     iati_datasets = [dataset for dataset in search.get("results", [])]
     package_id = request.args.get("package_id")
     if not package_id:
-        return toolkit.render("iati/iati_files.html", {"package_id": "", "iati_datasets": iati_datasets})
+        return toolkit.render("iati/iati_files.html", {
+            "package_id": "",
+            "iati_datasets": iati_datasets,
+            "pending_files": {"organization": [], "activity": []}
+        })
 
     dataset = toolkit.get_action('package_show')({}, {"id": package_id})
 
