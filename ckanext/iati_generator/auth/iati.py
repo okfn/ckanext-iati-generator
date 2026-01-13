@@ -167,3 +167,22 @@ def generate_organization_xml(context, data_dict):
         }
 
     return _allow_if_sysadmin_or_org_admin(context, package_id)
+
+
+def iati_generate_activities_xml(context, data_dict):
+    """
+    Authorization for generating activities XML.
+    Only sysadmins or organization admins can generate XML for their organization.
+    """
+    package_id = getattr(data_dict, "package_id", None)
+
+    if not package_id:
+        return {
+            "success": False,
+            "msg": toolkit._(
+                "Cannot resolve dataset for activities XML generation "
+                "(missing package_id)."
+            ),
+        }
+
+    return _allow_if_sysadmin_or_org_admin(context, package_id)
