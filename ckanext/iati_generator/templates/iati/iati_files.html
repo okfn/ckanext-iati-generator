@@ -69,10 +69,10 @@
 
     {% if package_id and (not pending_files.organization and not pending_files.activity)%}
       <div class="alert alert-info">
-        _("This dataset contains all the required files to generate IATI files.")
+        {{ _("This dataset contains all the required files to generate IATI files.") }}
       </div>
       <form action="{{ h.url_for("iati_generator_admin_files.generate_iati_files", package_id=package_id) }}" method="post">
-        <button class="btn btn-primary" type="submit">_("Generate IATI Files")</button>
+        <button class="btn btn-primary" type="submit">{{ _("Generate IATI Files") }}</button>
       </form>
     {% endif %}
 
