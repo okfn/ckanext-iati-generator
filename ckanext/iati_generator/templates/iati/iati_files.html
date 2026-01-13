@@ -71,8 +71,7 @@
       <div class="alert alert-info">
         This dataset contains all the required files to generate IATI files.
       </div>
-      <form action="{{ h.url_for("iati_generator_admin_files.generate_iati_files", package_id=package_id) }}">
-        <input type="hidden" name="package_id" value="{{package_id}}">
+      <form action="{{ h.url_for("iati_generator_admin_files.generate_iati_files", package_id=package_id) }}" method="post">
         <button class="btn btn-primary" type="submit">Generate IATI Files</button>
       </form>
     {% endif %}

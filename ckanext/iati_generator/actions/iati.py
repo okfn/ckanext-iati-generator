@@ -505,11 +505,12 @@ def iati_generate_activities_xml(context, data_dict):
     }
     if activity_resource:
         res_dict["id"] = activity_resource["id"]
-        toolkit.get_action("resource_patch")({}, res_dict)
-        log.info(f"Patched activity.xml resource {activity_resource['id']}.")
+        result = toolkit.get_action("resource_patch")({}, res_dict)
+        log.info(f"Patched activity.xml resource {result['id']}.")
     else:
         res_dict["package_id"] = dataset["id"]
-        created = toolkit.get_action("resource_create")({}, res_dict)
-        log.info(f"Created new activity.xml resource with id {created['id']}.")
+        result = toolkit.get_action("resource_create")({}, res_dict)
+        log.info(f"Created new activity.xml resource with id {result['id']}.")
 
     shutil.rmtree(tmp_dir)
+    return result
