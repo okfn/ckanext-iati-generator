@@ -1,10 +1,20 @@
 from ckan.plugins import toolkit
 from flask import Blueprint, request
 
-from ckanext.iati_generator.decorators import require_sysadmin_user
 from ckanext.iati_generator import helpers as h
+from ckanext.iati_generator.decorators import require_sysadmin_user
+from ckanext.iati_generator.models.enums import IATIFileTypes
 
 iati_file_admin = Blueprint("iati_generator_admin_files", __name__, url_prefix="/ckan-admin/list-iati-files")
+
+
+def _get_iati_display_name(code):
+    name = ""
+    try:
+        name = IATIFileTypes(int(code)).name
+    except ValueError:
+        name = "Wrong code name"
+    return name.replace("_", " ").title()
 
 
 @iati_file_admin.route("/iati-files")
@@ -23,7 +33,7 @@ def iati_files_index():
     for resource in dataset["resources"]:
         url = toolkit.url_for("resource.read", package_type=dataset["type"], id=dataset["id"], resource_id=resource["id"])
         rows_out.append({
-            "file_type": resource.get("iati_file_type"),
+            "file_type": _get_iati_display_name(resource.get("iati_file_type")),
             "resource_name": resource.get("name") or resource.get("id"),
             "resource_url": url,
         })
