@@ -54,6 +54,7 @@ def iati_files_index():
         },
     )
 
+
 @iati_file_admin.route("/generate-iati-files/<package_id>", methods=["POST"])
 @require_sysadmin_user
 def generate_iati_files(package_id):
@@ -69,8 +70,9 @@ def generate_iati_files(package_id):
     except toolkit.ObjectNotFound:
         toolkit.h.flash_error(toolkit._(f"The dataset with id {package_id} does not exist."))
     except toolkit.ValidationError:
-        toolkit.h.flash_error(toolkit._("There was an error generating the IATI file probably due to missing on wrong-formatted files."))
+        toolkit.h.flash_error(
+            toolkit._("There was an error generating the IATI file probably due to missing on wrong-formatted files.")
+        )
 
     redirect_url = toolkit.url_for("iati_generator_admin_files.iati_files_index", package_id=package_id)
     return toolkit.redirect_to(redirect_url)
-
