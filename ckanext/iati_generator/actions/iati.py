@@ -389,8 +389,6 @@ def _prepare_organisation_csv_folder(dataset, tmp_dir):
     log.info(f"Finished preparing the CSV folder for the IATI Organisation converter. (Path: {tmp_dir})")
 
 
-# TODO: remove side_effect_free when integrating it with the UI.
-@toolkit.side_effect_free
 def iati_generate_organisation_xml(context, data_dict):
     """ Compile all organisation related CSVs into the organisation.xml file."""
     # Permissions: iati_auth.generate_organization_xml
@@ -418,7 +416,34 @@ def iati_generate_organisation_xml(context, data_dict):
         log.warning("Error when generating the organisation.xml file.")
         raise toolkit.ValidationError("Error when generating the organisation.xml file.")
 
-    # TODO: Create a CKAN resource for the organization.xml file if it doesn't exist or update the existing one.
+    org_resource = None
+    for res in dataset.get("resources", []):
+        if int(res.get("iati_file_type") or 0) == IATIFileTypes.FINAL_ORGANIZATION_FILE.value:
+            org_resource = res
+            break
+
+    # Using werkzeug FileStorage is the only way to get resource_create working (same as activities)
+    with open(output_path, "rb") as f:
+        stream = io.BytesIO(f.read())
+    upload = FileStorage(stream=stream, filename="organisation.xml")
+
+    res_dict = {
+        "name": "organisation.xml",
+        "url_type": "upload",
+        "upload": upload,
+        "iati_file_type": IATIFileTypes.FINAL_ORGANIZATION_FILE.value,
+        "format": "XML",
+    }
+
+    if org_resource:
+        res_dict["id"] = org_resource["id"]
+        toolkit.get_action("resource_patch")({}, res_dict)
+        log.info(f"Patched organisation.xml resource {org_resource['id']}.")
+    else:
+        res_dict["package_id"] = dataset["id"]
+        created = toolkit.get_action("resource_create")({}, res_dict)
+        log.info(f"Created new organisation.xml resource with id {created['id']}.")
+
     # The resource should live in the same dataset as all the other IATI csv and must be of type: ACTIVITY_MAIN_FILE.
 
     shutil.rmtree(tmp_dir)
