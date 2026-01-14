@@ -31,49 +31,66 @@
       </div>
     {% endif %}
 
-    {% if pending_files.organization or pending_files.activity %}
+    {% if pending_files.organization %}
         <div class="alert alert-warning">
           <details class="missing-files-details">
             <summary class="missing-files-summary">
-              {{ _("Show missing files") }}
+              {{ _("Files missing for organisation.xml file") }}
             </summary>
-
-            {% if pending_files.organization %}
-              <div class="missing-files-category">
-                <strong>{{ _("Files missing for organisation.xml file:") }}</strong>
-                <ul class="missing-files-list">
-                  {% for ft in pending_files.organization %}
-                    <li>
-                      {{ ft.name.replace("_", " ").title() }}
-                    </li>
-                  {% endfor %}
-                </ul>
-              </div>
-            {% endif %}
-
-            {% if pending_files.activity %}
-              <div class="missing-files-category">
-                <strong>{{ _("Files missing for activity.xml file:") }}</strong>
-                <ul class="missing-files-list">
-                  {% for ft in pending_files.activity %}
-                    <li>
-                      {{ ft.name.replace("_", " ").title() }}
-                    </li>
-                  {% endfor %}
-                </ul>
-              </div>
-            {% endif %}
+            <div class="missing-files-category">
+              <ul class="missing-files-list">
+                {% for ft in pending_files.organization %}
+                  <li>
+                    {{ ft.name.replace("_", " ").title() }}
+                  </li>
+                {% endfor %}
+              </ul>
+            </div>
           </details>
         </div>
      {% endif %}
 
-    {% if package_id and (not pending_files.organization and not pending_files.activity)%}
-      <div class="alert alert-info">
-        {{ _("This dataset contains all the required files to generate IATI files.") }}
+    {% if pending_files.activity %}
+        <div class="alert alert-warning">
+          <details class="missing-files-details">
+            <summary class="missing-files-summary">
+              {{ _("Files missing for activity.xml file") }}
+            </summary>
+            <div class="missing-files-category">
+              <ul class="missing-files-list">
+                {% for ft in pending_files.activity %}
+                  <li>
+                    {{ ft.name.replace("_", " ").title() }}
+                  </li>
+                {% endfor %}
+              </ul>
+            </div>
+          </details>
+        </div>
+    {% endif %}
+
+    {% if package_id and not pending_files.activity %}
+      <div class="alert alert-info d-flex flex-row justify-content-between">
+        <div class="p-2">
+          {{ _("This dataset contains all the required files to generate the activity.xml file.") }}
+        </div>
+        <div>
+          <form action="{{ h.url_for("iati_generator_admin_files.generate_iati_files", package_id=package_id) }}" method="post">
+            <button class="btn btn-primary" type="submit">{{ _("Generate activity.xml") }}</button>
+          </form>
+        </div>
       </div>
-      <form action="{{ h.url_for("iati_generator_admin_files.generate_iati_files", package_id=package_id) }}" method="post">
-        <button class="btn btn-primary" type="submit">{{ _("Generate IATI Files") }}</button>
-      </form>
+    {% endif %}
+
+    {% if package_id and (not pending_files.organization and not pending_files.activity)%}
+      <div class="alert alert-info d-flex flex-row justify-content-between">
+        <div class="p-2">
+          {{ _("This dataset contains all the required files to generate the organisation.xml file.") }}
+        </div>
+        <div>
+            <button class="btn btn-primary" type="submit" disabled>{{ _("Generate organisation.xml") }}</button>
+        </div>
+      </div>
     {% endif %}
 
   {% if iati_files %}
