@@ -39,7 +39,6 @@ class IatiGeneratorPlugin(p.SingletonPlugin, DefaultTranslation):
             'iati_file_delete': iati_actions.iati_file_delete,
             'iati_file_show': iati_actions.iati_file_show,
             'iati_file_list': iati_actions.iati_file_list,
-            'iati_resources_list': iati_actions.iati_resources_list,
             'iati_generate_organisation_xml': iati_actions.iati_generate_organisation_xml,
             'iati_generate_activity_xml': iati_actions.iati_generate_activities_xml,
             # Chain to CKAN core actions
@@ -57,7 +56,6 @@ class IatiGeneratorPlugin(p.SingletonPlugin, DefaultTranslation):
             'iati_file_delete': iati_auth.iati_file_delete,
             'iati_file_show': iati_auth.iati_file_show,
             'iati_file_list': iati_auth.iati_file_list,
-            'iati_resources_list': iati_auth.iati_file_list,
             'generate_organization_xml': iati_auth.generate_organization_xml,
             'iati_generate_activities_xml': iati_auth.iati_generate_activities_xml,
         }
