@@ -55,9 +55,9 @@ def iati_files_index():
     )
 
 
-@iati_file_admin.route("/generate-iati-files/<package_id>", methods=["POST"])
+@iati_file_admin.route("/generate-iati-activity_file/<package_id>", methods=["POST"])
 @require_sysadmin_user
-def generate_iati_files(package_id):
+def generate_iati_activity_file(package_id):
     ctx = {"user": toolkit.c.user}
     data_dict = {"package_id": package_id}
 

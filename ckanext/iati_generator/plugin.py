@@ -54,7 +54,7 @@ class IatiGeneratorPlugin(p.SingletonPlugin, DefaultTranslation):
             'iati_file_update': iati_auth.iati_file_update,
             'iati_file_delete': iati_auth.iati_file_delete,
             'iati_file_show': iati_auth.iati_file_show,
-            'generate_organization_xml': iati_auth.generate_organization_xml,
+            'generate_organization_xml': iati_auth.iati_generate_organization_xml,
             'iati_generate_activities_xml': iati_auth.iati_generate_activities_xml,
         }
 
