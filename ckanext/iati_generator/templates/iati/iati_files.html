@@ -88,7 +88,9 @@
           {{ _("This dataset contains all the required files to generate the organisation.xml file.") }}
         </div>
         <div>
-            <button class="btn btn-primary" type="submit" disabled>{{ _("Generate organisation.xml") }}</button>
+          <form action="{{ h.url_for("iati_generator_admin_files.generate_iati_organisation_file", package_id=package_id) }}" method="post">
+            <button class="btn btn-primary" type="submit">{{ _("Generate organisation.xml") }}</button>
+          </form>
         </div>
       </div>
     {% endif %}
