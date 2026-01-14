@@ -147,7 +147,7 @@ def _resolve_package_id_from_final_org_file(namespace):
     return _resolve_package_id_from_resource_id(iati_file.resource_id)
 
 
-def generate_organization_xml(context, data_dict):
+def iati_generate_organization_xml(context, data_dict):
     """
     Authorization for generating organization XML.
     Only sysadmins or organization admins can generate XML for their organization.
