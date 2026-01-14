@@ -40,7 +40,7 @@
 
             {% if pending_files.organization %}
               <div class="missing-files-category">
-                <strong>{{ _("Organization") }}</strong>
+                <strong>{{ _("Files missing for organisation.xml file:") }}</strong>
                 <ul class="missing-files-list">
                   {% for ft in pending_files.organization %}
                     <li>
@@ -53,7 +53,7 @@
 
             {% if pending_files.activity %}
               <div class="missing-files-category">
-                <strong>{{ _("Activities") }}</strong>
+                <strong>{{ _("Files missing for activity.xml file:") }}</strong>
                 <ul class="missing-files-list">
                   {% for ft in pending_files.activity %}
                     <li>
