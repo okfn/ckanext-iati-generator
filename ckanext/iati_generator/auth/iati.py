@@ -117,16 +117,6 @@ def iati_file_show(context, data_dict):
     return {"success": True}
 
 
-def iati_file_list(context, data_dict):
-    # Global listing: only sysadmins (API equivalent of the /ckan-admin/list-iati-files view)
-    if _is_sysadmin(context):
-        return {"success": True}
-    return {
-        "success": False,
-        "msg": toolkit._("Only sysadmins can list IATI files.")
-    }
-
-
 def _resolve_package_id_from_final_org_file(namespace):
     """
     Look for the IATIFile with FINAL_ORGANIZATION_FILE for the given namespace
