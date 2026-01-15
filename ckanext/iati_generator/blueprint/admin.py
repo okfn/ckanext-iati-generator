@@ -26,13 +26,19 @@ def iati_files_index(package_id):
 
     rows_out = []
     for resource in dataset["resources"]:
-        # TODO: maybe not all resources are IATI. Check if has iati_file_type before url and row append
-        url = toolkit.url_for("resource.read", package_type=dataset["type"], id=dataset["id"], resource_id=resource["id"])
-        rows_out.append({
-            "file_type": _get_iati_display_name(resource.get("iati_file_type")),
-            "resource_name": resource.get("name") or resource.get("id"),
-            "resource_url": url,
-        })
+        iati_file_type = resource.get("iati_file_type", "")
+        if iati_file_type:
+            url = toolkit.url_for(
+                "resource.read",
+                package_type=dataset["type"],
+                id=dataset["id"],
+                resource_id=resource["id"]
+            )
+            rows_out.append({
+                "file_type": _get_iati_display_name(iati_file_type),
+                "resource_name": resource.get("name") or resource.get("id"),
+                "resource_url": url,
+            })
 
     pending_files = h.get_pending_mandatory_files(dataset["id"])
 
