@@ -5,7 +5,7 @@ from ckanext.iati_generator import helpers as h
 from ckanext.iati_generator.decorators import require_sysadmin_user
 from ckanext.iati_generator.models.enums import IATIFileTypes
 
-iati_file_admin = Blueprint("iati_generator_admin_files", __name__, url_prefix="/ckan-admin/list-iati-files")
+iati_file_admin = Blueprint("iati_generator_admin_files", __name__)
 
 
 def _get_iati_display_name(code):
@@ -17,24 +17,16 @@ def _get_iati_display_name(code):
     return name.replace("_", " ").title()
 
 
-@iati_file_admin.route("/iati-files")
-@require_sysadmin_user
-def iati_files_index():
+@iati_file_admin.route("/dataset/iati-files/<package_id>")
+def iati_files_index(package_id):
     """List IATI files and missing files for the selected dataset."""
-    search = toolkit.get_action('package_search')({}, {'fq': 'iati_namespace:[* TO *]'})
-    iati_datasets = [dataset for dataset in search.get("results", [])]
-    package_id = request.args.get("package_id")
-    if not package_id:
-        return toolkit.render("iati/iati_files.html", {
-            "package_id": "",
-            "iati_datasets": iati_datasets,
-            "pending_files": {"organization": [], "activity": []}
-        })
+    toolkit.check_access("iati_generate_activities_xml", {"user": toolkit.c.user}, {"package_id": package_id})
 
     dataset = toolkit.get_action('package_show')({}, {"id": package_id})
 
     rows_out = []
     for resource in dataset["resources"]:
+        # TODO: maybe not all resources are IATI. Check if has iati_file_type before url and row append
         url = toolkit.url_for("resource.read", package_type=dataset["type"], id=dataset["id"], resource_id=resource["id"])
         rows_out.append({
             "file_type": _get_iati_display_name(resource.get("iati_file_type")),
@@ -45,9 +37,9 @@ def iati_files_index():
     pending_files = h.get_pending_mandatory_files(dataset["id"])
 
     return toolkit.render(
-        "iati/iati_files.html",
+        "package/iati_files.html",
         {
-            "iati_datasets": iati_datasets,
+            "pkg_dict": dataset,  # Required for package/read_base.html
             "package_id": package_id,
             "iati_files": rows_out,
             "pending_files": pending_files,

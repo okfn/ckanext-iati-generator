@@ -1,35 +1,7 @@
-{% extends "admin/base.html" %}
+{% extends "package/read.html" %}
 
 {% block primary_content_inner %}
   <h1>{{ _("IATI files") }}</h1>
-
-    <form method="get" class="form-inline mb-3">
-      <label for="namespace" class="mr-2">
-        {{ _("Namespace") }}
-      </label>
-
-      <select name="package_id" id="package_id" class="form-select mr-2"
-              onchange="this.form.submit()">
-        <option value="">{{ _("Select a namespace to start...") }}</option>
-        {% for dataset in iati_datasets %}
-          <option value="{{ dataset.id }}" {% if dataset.id == package_id %}selected{% endif %}>
-            {{ dataset.name }} ({{ dataset.iati_namespace }})
-          </option>
-        {% endfor %}
-      </select>
-    </form>
-
-    {% if not package_id %}
-      <div class="alert alert-warning">
-        <h4>{{ _("Getting Started") }}</h4>
-        <ol>
-          <li>{{ _("Create a dataset and fill the namespace value (so it gets identified as an IATI file)") }}</li>
-          <li>{{ _("For each IATI CSV file you have, create a resource on the dataset and upload the file to it.") }}</li>
-          <li>{{ _("To each created resource, assign the corresponding IATI file type (it will be available in the resource form).") }}</li>
-          <li>{{ _("Once all mandatory files exist, XML generation will be enabled on this page.") }}</li>
-        </ol>
-      </div>
-    {% endif %}
 
     {% if pending_files.organization %}
         <div class="alert alert-warning">
@@ -116,6 +88,16 @@
         {% endfor %}
       </tbody>
     </table>
+  {% else %}
+    <div class="alert alert-warning">
+      <h4>{{ _("Getting Started") }}</h4>
+      <ol>
+        <li>{{ _("Create a dataset and fill the namespace value (so it gets identified as an IATI file)") }}</li>
+        <li>{{ _("For each IATI CSV file you have, create a resource on the dataset and upload the file to it.") }}</li>
+        <li>{{ _("To each created resource, assign the corresponding IATI file type (it will be available in the resource form).") }}</li>
+        <li>{{ _("Once all mandatory files exist, XML generation will be enabled on this page.") }}</li>
+      </ol>
+    </div>
   {% endif %}
 
 {% endblock %}

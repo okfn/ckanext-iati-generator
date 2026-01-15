@@ -12,6 +12,13 @@ from ckanext.iati_generator.iati.resource import save_resource_data
 log = logging.getLogger(__name__)
 
 
+def is_iati_dataset(pkg_dict):
+    namespace = pkg_dict.get("iati_namespace", None)
+    if namespace:
+        return True
+    return False
+
+
 def iati_file_types(field=None):
     """
     Returns options (value/label) for the Scheming select.
