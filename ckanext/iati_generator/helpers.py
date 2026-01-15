@@ -12,6 +12,13 @@ from ckanext.iati_generator.iati.resource import save_resource_data
 log = logging.getLogger(__name__)
 
 
+def is_iati_dataset(pkg_dict):
+    namespace = pkg_dict.get("iati_namespace", None)
+    if namespace:
+        return True
+    return False
+
+
 def iati_file_types(field=None):
     """
     Returns options (value/label) for the Scheming select.
@@ -236,13 +243,13 @@ def normalize_namespace(ns):
 
 
 def get_iati_files(package_id):
-    """Get a list of the existing IATIFileTypes for a specific namespace."""
+    """Get a list of the existing IATIFileTypes for a specific package."""
     ctx = {"user": toolkit.g.user}
 
     dataset = toolkit.get_action("package_show")(ctx, {"id": package_id})
 
     iati_types = [res.get("iati_file_type", "") for res in dataset.get("resources", [])]
-    iati_enums = [IATIFileTypes(int(key)) for key in iati_types]
+    iati_enums = [IATIFileTypes(int(key)) for key in iati_types if key]
 
     return set(iati_enums)
 
