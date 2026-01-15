@@ -1,5 +1,5 @@
 from ckan.plugins import toolkit
-from flask import Blueprint, request
+from flask import Blueprint
 
 from ckanext.iati_generator import helpers as h
 from ckanext.iati_generator.decorators import require_sysadmin_user
