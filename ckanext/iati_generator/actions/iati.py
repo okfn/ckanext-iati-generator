@@ -208,16 +208,17 @@ def iati_generate_organisation_xml(context, data_dict):
 
     if org_resource:
         res_dict["id"] = org_resource["id"]
-        toolkit.get_action("resource_patch")({}, res_dict)
+        result = toolkit.get_action("resource_patch")({}, res_dict)
         log.info(f"Patched organisation.xml resource {org_resource['id']}.")
     else:
         res_dict["package_id"] = dataset["id"]
-        created = toolkit.get_action("resource_create")({}, res_dict)
-        log.info(f"Created new organisation.xml resource with id {created['id']}.")
+        result = toolkit.get_action("resource_create")({}, res_dict)
+        log.info(f"Created new organisation.xml resource with id {result['id']}.")
 
     # The resource should live in the same dataset as all the other IATI csv and must be of type: ACTIVITY_MAIN_FILE.
 
     shutil.rmtree(tmp_dir)
+    return result
 
 
 def _prepare_activities_csv_folder(dataset, tmp_dir):
