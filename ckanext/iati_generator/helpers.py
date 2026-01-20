@@ -288,10 +288,55 @@ def get_pending_mandatory_files(package_id):
 
 def update_iati_file_log(resource_id, success, error_message=None):
     """
-    Helper para buscar el registro en la tabla iati_files y actualizar su estado.
+    Helper to find the record in the iati_files table and update its status.
+    If the record does not exist (desynchronization), attempts to create it automatically.
     """
-
+    # Search for the record
     iati_file = model.Session.query(IATIFile).filter_by(resource_id=resource_id).first()
+
+    # AUTO-REPAIR: If it doesn't exist, create it now
+    if not iati_file:
+        log.warning(f"IATIFile record missing for resource {resource_id}. Attempting auto-creation...")
+        try:
+            res = model.Resource.get(resource_id)
+            if res:
+                # Look for file type in resource extras
+                ft_val = res.extras.get("iati_file_type")
+                # If not in extras, try direct access (depends on CKAN version)
+                if not ft_val:
+                    ft_val = getattr(res, "iati_file_type", None)
+
+                ns_val = res.extras.get("iati_namespace") or getattr(res, "iati_namespace", DEFAULT_NAMESPACE)
+
+                if ft_val:
+                    iati_file = IATIFile(
+                        resource_id=resource_id,
+                        file_type=int(ft_val),
+                        namespace=ns_val
+                    )
+                    model.Session.add(iati_file)
+                    model.Session.commit()
+                    log.info(f"IATIFile record auto-created for {resource_id}")
+                else:
+                    log.error(f"Cannot auto-create: Resource {resource_id} has no 'iati_file_type'.")
+                    return
+            else:
+                log.error(f"Resource {resource_id} does not exist in CKAN.")
+                return
+        except Exception as e:
+            log.error(f"Auto-creation failed: {e}")
+            model.Session.rollback()
+            return
+
+    # Save the log (Now iati_file exists for sure)
     if iati_file:
         iati_file.track_processing(success=success, error_message=error_message)
-        log.debug(f"IATI log updated for resource {resource_id}. Success: {success}")
+
+        # Commit
+        if not success:
+            try:
+                model.Session.commit()
+                log.info(f"IATI Error Log saved successfully for {resource_id}")
+            except Exception as e:
+                log.error(f"Failed to commit error log: {e}")
+                model.Session.rollback()
