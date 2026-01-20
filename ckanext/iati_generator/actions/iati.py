@@ -169,56 +169,75 @@ def iati_generate_organisation_xml(context, data_dict):
     package_id = toolkit.get_or_bust(data_dict, "package_id")
     dataset = toolkit.get_action('package_show')({}, {"id": package_id})
 
-    tmp_dir = tempfile.mkdtemp()
-
-    _prepare_organisation_csv_folder(dataset, tmp_dir)
-
-    if not Path(tmp_dir + "/organisations.csv").exists():
-        # IatiOrganisationMultiCsvConverter will produce an empty organisation.xml file if the input_folder is empty.
-        # This it not what we want because the file is useless. For activities this validation is handled by the converter.
-        # We check and return error to be coherent with IatiMultiCsvConverter.
-        raise toolkit.ValidationError("No organisations.csv file provided. IATI organisation.xml file cannot be generated.")
-
-    output_path = tmp_dir + "/organisation.xml"
-    converter = IatiOrganisationMultiCsvConverter()
-    success = converter.csv_folder_to_xml(input_folder=tmp_dir, xml_output=output_path)
-
-    if not success:
-        log.warning("Error when generating the organisation.xml file.")
-        raise toolkit.ValidationError("Error when generating the organisation.xml file.")
-
+    # Identify if the final resource already exists for error logging
     org_resource = None
     for res in dataset.get("resources", []):
-        if int(res.get("iati_file_type") or 0) == IATIFileTypes.FINAL_ORGANIZATION_FILE.value:
+        if res.get("iati_file_type") and int(res.get("iati_file_type") or 0) == IATIFileTypes.FINAL_ORGANIZATION_FILE.value:
             org_resource = res
             break
 
-    # Using werkzeug FileStorage is the only way to get resource_create working (same as activities)
-    with open(output_path, "rb") as f:
-        stream = io.BytesIO(f.read())
-    upload = FileStorage(stream=stream, filename="organisation.xml")
+    tmp_dir = tempfile.mkdtemp()
 
-    res_dict = {
-        "name": "organisation.xml",
-        "url_type": "upload",
-        "upload": upload,
-        "iati_file_type": IATIFileTypes.FINAL_ORGANIZATION_FILE.value,
-        "format": "XML",
-    }
+    try:
+        # Prepare temporary folder
+        _prepare_organisation_csv_folder(dataset, tmp_dir)
 
-    if org_resource:
-        res_dict["id"] = org_resource["id"]
-        result = toolkit.get_action("resource_patch")({}, res_dict)
-        log.info(f"Patched organisation.xml resource {org_resource['id']}.")
-    else:
-        res_dict["package_id"] = dataset["id"]
-        result = toolkit.get_action("resource_create")({}, res_dict)
-        log.info(f"Created new organisation.xml resource with id {result['id']}.")
+        # Manual validation required by the organisation process
+        if not Path(tmp_dir + "/organisations.csv").exists():
+            raise toolkit.ValidationError("No organisations.csv file provided. IATI organisation.xml file cannot be generated.")
 
-    # The resource should live in the same dataset as all the other IATI csv and must be of type: ACTIVITY_MAIN_FILE.
+        output_path = tmp_dir + "/organisation.xml"
+        converter = IatiOrganisationMultiCsvConverter()
+        success = converter.csv_folder_to_xml(input_folder=tmp_dir, xml_output=output_path)
 
-    shutil.rmtree(tmp_dir)
-    return result
+        if not success:
+            raise Exception("Error when generating the organisation.xml file via the converter.")
+
+        # Prepare file for CKAN
+        with open(output_path, "rb") as f:
+            stream = io.BytesIO(f.read())
+        upload = FileStorage(stream=stream, filename="organisation.xml")
+
+        res_dict = {
+            "name": "organisation.xml",
+            "url_type": "upload",
+            "upload": upload,
+            "iati_file_type": IATIFileTypes.FINAL_ORGANIZATION_FILE.value,
+            "format": "XML",
+        }
+
+        # Save to CKAN
+        if org_resource:
+            res_dict["id"] = org_resource["id"]
+            result = toolkit.get_action("resource_patch")(context, res_dict)
+            log.info(f"Patched organisation.xml resource {org_resource['id']}.")
+        else:
+            res_dict["package_id"] = dataset["id"]
+            result = toolkit.get_action("resource_create")(context, res_dict)
+            log.info(f"Created new organisation.xml resource with id {result['id']}.")
+
+        # SUCCESS LOG: Update the log in the DB
+        h.update_iati_file_log(result['id'], success=True)
+
+        return result
+
+    except Exception as e:
+        error_msg = str(e)
+        log.error(f"Error in iati_generate_organisation_xml: {error_msg}")
+
+        # ERROR LOG: Persist in the iati_files table
+        if org_resource:
+            h.update_iati_file_log(org_resource['id'], success=False, error_message=error_msg)
+
+        # Propagate error for the interface
+        if not isinstance(e, toolkit.ValidationError):
+            raise toolkit.ValidationError(f"Organisation Generation Error: {error_msg}")
+        raise e
+
+    finally:
+        # Absolute cleanup of temporary files
+        if Path(tmp_dir).exists():
+            shutil.rmtree(tmp_dir)
 
 
 def _prepare_activities_csv_folder(dataset, tmp_dir):
@@ -267,47 +286,71 @@ def iati_generate_activities_xml(context, data_dict):
     package_id = toolkit.get_or_bust(data_dict, "package_id")
     dataset = toolkit.get_action('package_show')({}, {"id": package_id})
 
-    tmp_dir = tempfile.mkdtemp()
-
-    _prepare_activities_csv_folder(dataset, tmp_dir)
-
-    output_path = tmp_dir + "/activity.xml"
-    converter = IatiMultiCsvConverter()
-    success = converter.csv_folder_to_xml(csv_folder=tmp_dir, xml_output=output_path, validate_output=True)
-
-    if not success:
-        log.warning(f"Could not generate activity file for dataset {dataset['name']} ({dataset['id']})")
-        # Is this the best way to handle this scenario?
-        raise toolkit.ValidationError(
-            "Activity.xml file could not be created probably due to missing mandatory files or corrupted data."
-        )
-
+    # Identify if the final XML resource already exists to update its error log later
     activity_resource = None
-    for res in dataset["resources"]:
-        if int(res["iati_file_type"]) == IATIFileTypes.FINAL_ACTIVITY_FILE.value:
+    for res in dataset.get("resources", []):
+        if res.get("iati_file_type") and int(res["iati_file_type"]) == IATIFileTypes.FINAL_ACTIVITY_FILE.value:
             activity_resource = res
             break
 
-    # Using werkzeug FileStorage is the only way I found to get the resource_create action working.
-    with open(output_path, "rb") as f:
-        stream = io.BytesIO(f.read())
-    upload = FileStorage(stream=stream, filename="activity.xml")
+    tmp_dir = tempfile.mkdtemp()
 
-    res_dict = {
-        "name": "activity.xml",
-        "url_type": "upload",
-        "upload": upload,
-        "iati_file_type": IATIFileTypes.FINAL_ACTIVITY_FILE.value,
-        "format": "XML",
-    }
-    if activity_resource:
-        res_dict["id"] = activity_resource["id"]
-        result = toolkit.get_action("resource_patch")({}, res_dict)
-        log.info(f"Patched activity.xml resource {result['id']}.")
-    else:
-        res_dict["package_id"] = dataset["id"]
-        result = toolkit.get_action("resource_create")({}, res_dict)
-        log.info(f"Created new activity.xml resource with id {result['id']}.")
+    try:
+        # Prepare files
+        _prepare_activities_csv_folder(dataset, tmp_dir)
 
-    shutil.rmtree(tmp_dir)
-    return result
+        output_path = tmp_dir + "/activity.xml"
+        converter = IatiMultiCsvConverter()
+
+        # Execute conversion
+        success = converter.csv_folder_to_xml(csv_folder=tmp_dir, xml_output=output_path, validate_output=True)
+
+        if not success:
+            raise toolkit.ValidationError(
+                "Activity.xml file could not be created probably due to missing mandatory files or corrupted data."
+            )
+
+        # If we reach here, the conversion was successful. Prepare the upload.
+        with open(output_path, "rb") as f:
+            stream = io.BytesIO(f.read())
+        upload = FileStorage(stream=stream, filename="activity.xml")
+
+        res_dict = {
+            "name": "activity.xml",
+            "url_type": "upload",
+            "upload": upload,
+            "iati_file_type": IATIFileTypes.FINAL_ACTIVITY_FILE.value,
+            "format": "XML",
+        }
+
+        if activity_resource:
+            res_dict["id"] = activity_resource["id"]
+            result = toolkit.get_action("resource_patch")(context, res_dict)
+            log.info(f"Patched activity.xml resource {result['id']}.")
+        else:
+            res_dict["package_id"] = dataset["id"]
+            result = toolkit.get_action("resource_create")(context, res_dict)
+            log.info(f"Created new activity.xml resource with id {result['id']}.")
+
+        # SUCCESS LOG: Update the IATIFile model for this resource
+        h.update_iati_file_log(result['id'], success=True)
+
+        return result
+
+    except Exception as e:
+        error_msg = str(e)
+        log.error(f"Error in iati_generate_activities_xml: {error_msg}")
+
+        # ERROR LOG: If the resource already exists, save the error in the DB
+        if activity_resource:
+            h.update_iati_file_log(activity_resource['id'], success=False, error_message=error_msg)
+
+        # Propagate error for the interface
+        if not isinstance(e, toolkit.ValidationError):
+            raise toolkit.ValidationError(f"IATI Generation Error: {error_msg}")
+        raise e
+
+    finally:
+        # Clean up the temporary folder
+        if Path(tmp_dir).exists():
+            shutil.rmtree(tmp_dir)
