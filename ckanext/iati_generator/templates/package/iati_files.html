@@ -69,27 +69,39 @@
 
     {% if generation_errors %}
       <div class="module-content">
-        <h3 class="text-danger"><i class="fa fa-exclamation-triangle"></i> {{ _("Generation Errors") }}</h3>
         <div class="alert alert-danger">
-            <p>{{ _("The following errors occurred during the last XML generation attempt:") }}</p>
-            <table class="table table-condensed table-bordered" style="background: white;">
-              <thead>
-                <tr class="danger">
-                  <th>{{ _("Output File Type") }}</th>
-                  <th>{{ _("Last Attempt") }}</th>
-                  <th>{{ _("Error Detail") }}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {% for err in generation_errors %}
-                  <tr>
-                    <td><strong>{{ err.file_type }}</strong></td>
-                    <td><small>{{ err.date }}</small></td>
-                    <td class="text-danger"><code>{{ err.error }}</code></td>
-                  </tr>
-                {% endfor %}
-              </tbody>
-            </table>
+          <details open> {# Quita la palabra 'open' si quieres que empiece cerrado por defecto #}
+            
+            {# El summary actúa como el título/botón #}
+            <summary class="text-danger h3" style="cursor: pointer; outline: none; list-style: none;">
+              <i class="fa fa-exclamation-triangle"></i> {{ _("Generation Errors") }}
+              <span class="pull-right"><i class="fa fa-chevron-down"></i></span> {# Icono opcional #}
+            </summary>
+            
+            {# Contenido ocultable #}
+            <div style="margin-top: 15px;">
+                <p>{{ _("The following errors occurred during the last XML generation attempt:") }}</p>
+                <table class="table table-condensed table-bordered bg-white">
+                  <thead>
+                    <tr class="danger">
+                      <th>{{ _("Output File Type") }}</th>
+                      <th>{{ _("Last Attempt") }}</th>
+                      <th>{{ _("Error Detail") }}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for err in generation_errors %}
+                      <tr>
+                        <td><strong>{{ err.file_type }}</strong></td>
+                        <td><small>{{ err.date }}</small></td>
+                        <td class="text-danger"><code>{{ err.error }}</code></td>
+                      </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+            </div>
+
+          </details>
         </div>
       </div>
     {% endif %}
