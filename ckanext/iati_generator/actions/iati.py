@@ -1,4 +1,5 @@
 import io
+import contextlib
 import logging
 import shutil
 import tempfile
@@ -288,10 +289,13 @@ def iati_generate_activities_xml(context, data_dict):
 
     # Identify if the final XML resource already exists to update its error log later
     activity_resource = None
+    main_csv_resource = None
     for res in dataset.get("resources", []):
-        if res.get("iati_file_type") and int(res["iati_file_type"]) == IATIFileTypes.FINAL_ACTIVITY_FILE.value:
+        file_type = int(res.get("iati_file_type") or 0)
+        if file_type == IATIFileTypes.FINAL_ACTIVITY_FILE.value:
             activity_resource = res
-            break
+        if file_type == IATIFileTypes.ACTIVITY_MAIN_FILE.value:
+            main_csv_resource = res
 
     tmp_dir = tempfile.mkdtemp()
 
@@ -302,13 +306,30 @@ def iati_generate_activities_xml(context, data_dict):
         output_path = tmp_dir + "/activity.xml"
         converter = IatiMultiCsvConverter()
 
-        # Execute conversion
-        success = converter.csv_folder_to_xml(csv_folder=tmp_dir, xml_output=output_path, validate_output=True)
+        # --- CAPTURE REAL ERRORS (STDOUT/STDERR) ---
+        # The okfn_iati library prints validation errors (e.g., "Invalid organization type")
+        # instead of raising exceptions. We use this to capture them.
+        log_capture_string = io.StringIO()
+        with contextlib.redirect_stdout(log_capture_string), contextlib.redirect_stderr(log_capture_string):
+            success = converter.csv_folder_to_xml(csv_folder=tmp_dir, xml_output=output_path, validate_output=True)
+
+        captured_logs = log_capture_string.getvalue()
 
         if not success:
-            raise toolkit.ValidationError(
-                "Activity.xml file could not be created probably due to missing mandatory files or corrupted data."
-            )
+            # If conversion failed, use captured logs. If empty, use generic message.
+            error_msg = captured_logs if captured_logs.strip() else "Unknown error"
+            log.error(f"IATI Conversion Failed: {error_msg}")
+
+            # 2. LOG ERROR SAVING
+            # We do this here directly, WITHOUT waiting for the 'except' block.
+            target_res_id = (activity_resource['id'] if activity_resource
+                             else (main_csv_resource['id'] if main_csv_resource else None))
+            if target_res_id:
+                # This calls our helper which also attempts auto-repair if needed
+                h.update_iati_file_log(target_res_id, success=False, error_message=error_msg)
+
+            # 3. NOW we raise the error so CKAN shows the red alert
+            raise toolkit.ValidationError(f"Generation Failed: {error_msg}")
 
         # If we reach here, the conversion was successful. Prepare the upload.
         with open(output_path, "rb") as f:
@@ -338,16 +359,19 @@ def iati_generate_activities_xml(context, data_dict):
         return result
 
     except Exception as e:
+        # This block captures SYSTEM errors (code bugs, full disk, permissions),
+        # NOT data validation errors that we handle above in the 'if not success'.
         error_msg = str(e)
-        log.error(f"Error in iati_generate_activities_xml: {error_msg}")
+        log.error(f"System Error in iati_generate_activities_xml: {error_msg}")
 
-        # ERROR LOG: If the resource already exists, save the error in the DB
-        if activity_resource:
-            h.update_iati_file_log(activity_resource['id'], success=False, error_message=error_msg)
-
-        # Propagate error for the interface
+        # We only attempt to save if it's not a ValidationError that we just raised ourselves
         if not isinstance(e, toolkit.ValidationError):
-            raise toolkit.ValidationError(f"IATI Generation Error: {error_msg}")
+            target_res_id = (activity_resource['id'] if activity_resource
+                             else (main_csv_resource['id'] if main_csv_resource else None))
+            if target_res_id:
+                h.update_iati_file_log(target_res_id, success=False, error_message=error_msg)
+            raise toolkit.ValidationError(f"System Error: {error_msg}")
+
         raise e
 
     finally:
