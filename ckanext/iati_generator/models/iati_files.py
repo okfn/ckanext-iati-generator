@@ -59,6 +59,7 @@ class IATIFile(toolkit.BaseModel, ActiveRecordMixin):
         self.is_valid = success
         if success:
             self.last_processed_success = self.last_processed
+            self.last_error = None
         else:
             self.last_error = error_message
 
