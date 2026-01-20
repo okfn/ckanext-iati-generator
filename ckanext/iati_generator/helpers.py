@@ -284,3 +284,14 @@ def get_pending_mandatory_files(package_id):
     }
 
     return result
+
+
+def update_iati_file_log(resource_id, success, error_message=None):
+    """
+    Helper para buscar el registro en la tabla iati_files y actualizar su estado.
+    """
+
+    iati_file = model.Session.query(IATIFile).filter_by(resource_id=resource_id).first()
+    if iati_file:
+        iati_file.track_processing(success=success, error_message=error_message)
+        log.debug(f"IATI log updated for resource {resource_id}. Success: {success}")
