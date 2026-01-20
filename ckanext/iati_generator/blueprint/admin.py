@@ -25,20 +25,28 @@ def iati_files_index(package_id):
     dataset = toolkit.get_action('package_show')({}, {"id": package_id})
 
     rows_out = []
+    iati_files_dict = h.iati_files_by_resource()
+    errors = []
     for resource in dataset["resources"]:
-        iati_file_type = resource.get("iati_file_type", "")
-        if iati_file_type:
-            url = toolkit.url_for(
-                "resource.read",
-                package_type=dataset["type"],
-                id=dataset["id"],
-                resource_id=resource["id"]
-            )
-            rows_out.append({
-                "file_type": _get_iati_display_name(iati_file_type),
+        url = toolkit.url_for("resource.read", package_type=dataset["type"], id=dataset["id"], resource_id=resource["id"])
+
+        # Get the DB record for this resource if it exists
+        db_record = iati_files_dict.get(resource["id"])
+
+        # If the file has a registered error, add it to our list of errors
+        if db_record and db_record.last_error:
+            errors.append({
+                "file_type": _get_iati_display_name(resource.get("iati_file_type")),
                 "resource_name": resource.get("name") or resource.get("id"),
-                "resource_url": url,
+                "error": db_record.last_error,
+                "date": db_record.last_processed.strftime('%Y-%m-%d %H:%M') if db_record.last_processed else "N/A"
             })
+
+        rows_out.append({
+            "file_type": _get_iati_display_name(resource.get("iati_file_type")),
+            "resource_name": resource.get("name") or resource.get("id"),
+            "resource_url": url,
+        })
 
     pending_files = h.get_pending_mandatory_files(dataset["id"])
 
@@ -49,6 +57,7 @@ def iati_files_index(package_id):
             "package_id": package_id,
             "iati_files": rows_out,
             "pending_files": pending_files,
+            "generation_errors": errors
         },
     )
 
