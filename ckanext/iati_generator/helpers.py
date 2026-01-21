@@ -286,6 +286,47 @@ def get_pending_mandatory_files(package_id):
     return result
 
 
+def _auto_create_iati_file(resource_id):
+    """
+    Attempt to auto-create an IATIFile record for a resource.
+
+    Returns:
+        IATIFile: The created IATIFile record.
+
+    Raises:
+        toolkit.ObjectNotFound: If the resource doesn't exist.
+        Exception: If auto-creation fails (e.g., missing iati_file_type).
+    """
+    log.warning(f"IATIFile record missing for resource {resource_id}. Attempting auto-creation...")
+
+    res = model.Resource.get(resource_id)
+    if not res:
+        raise toolkit.ObjectNotFound(f"Resource {resource_id} does not exist")
+
+    # Look for file type in resource extras
+    ft_val = res.extras.get("iati_file_type")
+
+    if not ft_val:
+        raise Exception(f"Resource {resource_id} has no 'iati_file_type'")
+
+    # Get namespace from the package (dataset level)
+    package = model.Package.get(res.package_id)
+    if not package:
+        raise Exception(f"Package for resource {resource_id} not found")
+
+    ns_val = package.extras.get("iati_namespace", DEFAULT_NAMESPACE)
+
+    iati_file = IATIFile(
+        resource_id=resource_id,
+        file_type=int(ft_val),
+        namespace=ns_val,
+    )
+    iati_file.save()
+    log.info(f"IATIFile record auto-created for {resource_id}")
+
+    return iati_file
+
+
 def update_iati_file_log(resource_id, success, error_message=None):
     """
     Helper to find the record in the iati_files table and update its status.
@@ -296,47 +337,12 @@ def update_iati_file_log(resource_id, success, error_message=None):
 
     # AUTO-REPAIR: If it doesn't exist, create it now
     if not iati_file:
-        log.warning(f"IATIFile record missing for resource {resource_id}. Attempting auto-creation...")
         try:
-            res = model.Resource.get(resource_id)
-            if res:
-                # Look for file type in resource extras
-                ft_val = res.extras.get("iati_file_type")
-                # If not in extras, try direct access (depends on CKAN version)
-                if not ft_val:
-                    ft_val = getattr(res, "iati_file_type", None)
-
-                ns_val = res.extras.get("iati_namespace") or getattr(res, "iati_namespace", DEFAULT_NAMESPACE)
-
-                if ft_val:
-                    iati_file = IATIFile(
-                        resource_id=resource_id,
-                        file_type=int(ft_val),
-                        namespace=ns_val
-                    )
-                    model.Session.add(iati_file)
-                    model.Session.commit()
-                    log.info(f"IATIFile record auto-created for {resource_id}")
-                else:
-                    log.error(f"Cannot auto-create: Resource {resource_id} has no 'iati_file_type'.")
-                    return
-            else:
-                log.error(f"Resource {resource_id} does not exist in CKAN.")
-                return
+            iati_file = _auto_create_iati_file(resource_id)
         except Exception as e:
-            log.error(f"Auto-creation failed: {e}")
-            model.Session.rollback()
+            log.error(f"Auto-creation failed for resource {resource_id}: {e}")
             return
 
-    # Save the log (Now iati_file exists for sure)
-    if iati_file:
-        iati_file.track_processing(success=success, error_message=error_message)
-
-        # Commit
-        if not success:
-            try:
-                model.Session.commit()
-                log.info(f"IATI Error Log saved successfully for {resource_id}")
-            except Exception as e:
-                log.error(f"Failed to commit error log: {e}")
-                model.Session.rollback()
+    # Save the log (iati_file.save() will handle the commit)
+    iati_file.track_processing(success=success, error_message=error_message)
+    log.info(f"IATI file log updated for resource {resource_id} (success={success})")
