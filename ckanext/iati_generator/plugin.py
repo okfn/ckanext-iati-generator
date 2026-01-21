@@ -39,7 +39,7 @@ class IatiGeneratorPlugin(p.SingletonPlugin, DefaultTranslation):
             'iati_file_delete': iati_actions.iati_file_delete,
             'iati_file_show': iati_actions.iati_file_show,
             'iati_generate_organisation_xml': iati_actions.iati_generate_organisation_xml,
-            'iati_generate_activity_xml': iati_actions.iati_generate_activities_xml,
+            'iati_generate_activities_xml': iati_actions.iati_generate_activities_xml,
             # Chain to CKAN core actions
             # 'resource_create': resources_actions.resource_create,
             # 'resource_update': resources_actions.resource_update,
@@ -54,8 +54,7 @@ class IatiGeneratorPlugin(p.SingletonPlugin, DefaultTranslation):
             'iati_file_update': iati_auth.iati_file_update,
             'iati_file_delete': iati_auth.iati_file_delete,
             'iati_file_show': iati_auth.iati_file_show,
-            'generate_organization_xml': iati_auth.iati_generate_organization_xml,
-            'iati_generate_activities_xml': iati_auth.iati_generate_activities_xml,
+            'iati_generate_xml_files': iati_auth.iati_generate_xml_files,
         }
 
     def i18n_locales(self):
