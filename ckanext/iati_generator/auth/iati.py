@@ -1,7 +1,6 @@
 from ckan import model
 from ckan.plugins import toolkit
-from ckanext.iati_generator.models.iati_files import IATIFile, DEFAULT_NAMESPACE
-from ckanext.iati_generator.models.enums import IATIFileTypes
+from ckanext.iati_generator.models.iati_files import IATIFile
 
 
 def _is_sysadmin(context):
@@ -65,9 +64,15 @@ def _user_is_org_admin_for_package(context, package_id):
     return any(o.get("id") == org_id and o.get("capacity") == "admin" for o in user_orgs)
 
 
-def _allow_if_sysadmin_or_org_admin(context, package_id):
+def _allow_if_sysadmin_or_org_admin(context, data_dict):
+    """
+    Allow if sysadmin OR org-admin of the dataset (owner_org) referenced by data_dict['package_id'].
+    Kept as a single entry-point to keep auth API coherent across actions.
+    """
     if _is_sysadmin(context):
         return {"success": True}
+
+    package_id = toolkit.get_or_bust(data_dict, "package_id")
 
     if _user_is_org_admin_for_package(context, package_id):
         return {"success": True}
@@ -87,7 +92,7 @@ def iati_file_create(context, data_dict):
             "success": False,
             "msg": toolkit._("Missing or invalid resource_id; cannot resolve dataset for IATI file creation."),
         }
-    return _allow_if_sysadmin_or_org_admin(context, package_id)
+    return _allow_if_sysadmin_or_org_admin(context, {"package_id": package_id})
 
 
 def iati_file_update(context, data_dict):
@@ -98,7 +103,7 @@ def iati_file_update(context, data_dict):
             "success": False,
             "msg": toolkit._("Cannot resolve dataset for IATI file update (need valid id or resource_id)."),
         }
-    return _allow_if_sysadmin_or_org_admin(context, package_id)
+    return _allow_if_sysadmin_or_org_admin(context, {"package_id": package_id})
 
 
 def iati_file_delete(context, data_dict):
@@ -109,7 +114,7 @@ def iati_file_delete(context, data_dict):
             "success": False,
             "msg": toolkit._("Cannot resolve dataset for IATI file deletion (need valid id or resource_id)."),
         }
-    return _allow_if_sysadmin_or_org_admin(context, package_id)
+    return _allow_if_sysadmin_or_org_admin(context, {"package_id": package_id})
 
 
 def iati_file_show(context, data_dict):
@@ -117,41 +122,9 @@ def iati_file_show(context, data_dict):
     return {"success": True}
 
 
-def _resolve_package_id_from_final_org_file(namespace):
+def iati_generate_xml_files(context, data_dict):
     """
-    Look for the IATIFile with FINAL_ORGANIZATION_FILE for the given namespace
-    and return its package_id (via resource_id), or None.
+    Unified auth for generating IATI XML (organization or activities).
+    Business logic is identical: sysadmin OR org-admin of the dataset owner_org.
     """
-    ns = namespace or DEFAULT_NAMESPACE
-
-    session = model.Session
-    iati_file = (
-        session.query(IATIFile)
-        .filter(IATIFile.namespace == ns)
-        .filter(IATIFile.file_type == IATIFileTypes.FINAL_ORGANIZATION_FILE.value)
-        .first()
-    )
-    if not iati_file:
-        return None
-
-    return _resolve_package_id_from_resource_id(iati_file.resource_id)
-
-
-def iati_generate_organization_xml(context, data_dict):
-    """
-    Authorization for generating organization XML.
-    Only sysadmins or organization admins can generate XML for their organization.
-    """
-    package_id = toolkit.get_or_bust(data_dict, "package_id")
-
-    return _allow_if_sysadmin_or_org_admin(context, package_id)
-
-
-def iati_generate_activities_xml(context, data_dict):
-    """
-    Authorization for generating activities XML.
-    Only sysadmins or organization admins can generate XML for their organization.
-    """
-    package_id = toolkit.get_or_bust(data_dict, "package_id")
-
-    return _allow_if_sysadmin_or_org_admin(context, package_id)
+    return _allow_if_sysadmin_or_org_admin(context, data_dict)
