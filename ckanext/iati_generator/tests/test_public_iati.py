@@ -11,7 +11,7 @@ from ckanext.iati_generator.tests.factories import create_iati_file
 class TestPublicIatiEndpoints:
     def test_org_redirects_to_latest_valid_file(self, app):
         """
-        /iati/<namespace>/organization.xml should redirect to the
+        /iati/<namespace>/organisation.xml should redirect to the
         most recent (last_processed_success) and valid (is_valid=True) resource.
         """
         namespace = "test-namespace-org"
@@ -26,7 +26,7 @@ class TestPublicIatiEndpoints:
         create_iati_file(
             resource_id=older_res["id"],
             namespace=namespace,
-            file_type=IATIFileTypes.ORGANIZATION_MAIN_FILE,
+            file_type=IATIFileTypes.FINAL_ORGANIZATION_FILE,
             is_valid=True,
             last_processed_success=base_time,
         )
@@ -35,14 +35,14 @@ class TestPublicIatiEndpoints:
         create_iati_file(
             resource_id=newer_res["id"],
             namespace=namespace,
-            file_type=IATIFileTypes.ORGANIZATION_MAIN_FILE,
+            file_type=IATIFileTypes.FINAL_ORGANIZATION_FILE,
             is_valid=True,
             last_processed_success=base_time + timedelta(days=1),
         )
 
         # Call the public endpoint (without authentication)
         res = app.get(
-            f"/iati/{namespace}/organization.xml",
+            f"/iati/{namespace}/organisation.xml",
             status=302,
             follow_redirects=False,
         )
@@ -65,7 +65,7 @@ class TestPublicIatiEndpoints:
         create_iati_file(
             resource_id=invalid_res["id"],
             namespace=namespace,
-            file_type=IATIFileTypes.ORGANIZATION_MAIN_FILE,
+            file_type=IATIFileTypes.FINAL_ORGANIZATION_FILE,
             is_valid=False,
             last_processed_success=base_time + timedelta(days=2),
         )
@@ -74,13 +74,13 @@ class TestPublicIatiEndpoints:
         create_iati_file(
             resource_id=valid_res["id"],
             namespace=namespace,
-            file_type=IATIFileTypes.ORGANIZATION_MAIN_FILE,
+            file_type=IATIFileTypes.FINAL_ORGANIZATION_FILE,
             is_valid=True,
             last_processed_success=base_time,
         )
 
         res = app.get(
-            f"/iati/{namespace}/organization.xml",
+            f"/iati/{namespace}/organisation.xml",
             status=302,
             follow_redirects=False,
         )
@@ -93,13 +93,13 @@ class TestPublicIatiEndpoints:
         If there is no IATIFile for that namespace+type, should return 404.
         """
         namespace = "no-such-namespace"
-        res = app.get(f"/iati/{namespace}/organization.xml", status=404)
+        res = app.get(f"/iati/{namespace}/organisation.xml", status=404)
         assert "No organization XML" in res.body
 
     def test_activities_redirects_to_latest_valid_file(self, app):
         """
-        /iati/<namespace>/activities.xml should redirect to the last
-        valid IATIFile of type ACTIVITY_MAIN_FILE.
+        /iati/<namespace>/activity.xml should redirect to the last
+        valid IATIFile of type FINAL_ACTIVITY_FILE.
         """
         namespace = "test-namespace-act"
 
@@ -111,7 +111,7 @@ class TestPublicIatiEndpoints:
         create_iati_file(
             resource_id=older_res["id"],
             namespace=namespace,
-            file_type=IATIFileTypes.ACTIVITY_MAIN_FILE,
+            file_type=IATIFileTypes.FINAL_ACTIVITY_FILE,
             is_valid=True,
             last_processed_success=base_time,
         )
@@ -119,13 +119,13 @@ class TestPublicIatiEndpoints:
         create_iati_file(
             resource_id=newer_res["id"],
             namespace=namespace,
-            file_type=IATIFileTypes.ACTIVITY_MAIN_FILE,
+            file_type=IATIFileTypes.FINAL_ACTIVITY_FILE,
             is_valid=True,
             last_processed_success=base_time + timedelta(days=1),
         )
 
         res = app.get(
-            f"/iati/{namespace}/activities.xml",
+            f"/iati/{namespace}/activity.xml",
             status=302,
             follow_redirects=False,
         )
@@ -139,7 +139,7 @@ class TestPublicIatiEndpoints:
         """
         namespace = "no-such-namespace-act"
         res = app.get(
-            f"/iati/{namespace}/activities.xml",
+            f"/iati/{namespace}/activity.xml",
             status=404,
         )
         assert "No activities XML" in res.body
@@ -159,7 +159,7 @@ class TestPublicIatiEndpoints:
         create_iati_file(
             resource_id=invalid_res["id"],
             namespace=namespace,
-            file_type=IATIFileTypes.ACTIVITY_MAIN_FILE,
+            file_type=IATIFileTypes.FINAL_ACTIVITY_FILE,
             is_valid=False,
             last_processed_success=base_time + timedelta(days=2),
         )
@@ -168,13 +168,13 @@ class TestPublicIatiEndpoints:
         create_iati_file(
             resource_id=valid_res["id"],
             namespace=namespace,
-            file_type=IATIFileTypes.ACTIVITY_MAIN_FILE,
+            file_type=IATIFileTypes.FINAL_ACTIVITY_FILE,
             is_valid=True,
             last_processed_success=base_time,
         )
 
         res = app.get(
-            f"/iati/{namespace}/activities.xml",
+            f"/iati/{namespace}/activity.xml",
             status=302,
             follow_redirects=False,
         )
