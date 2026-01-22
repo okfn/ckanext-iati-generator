@@ -46,27 +46,17 @@ def _find_latest_resource_url(namespace, file_type):
         return None
 
 
-@iati_public.route("/<namespace>/organization.xml")
+@iati_public.route("/<namespace>/organisation.xml")
 def public_org(namespace):
-    """
-    Public endpoint to serve the latest valid organization XML file for a given namespace.
-
-    :param namespace: The namespace identifier for the IATI organization.
-    """
-    url = _find_latest_resource_url(namespace, IATIFileTypes.ORGANIZATION_MAIN_FILE.value)
+    url = _find_latest_resource_url(namespace, IATIFileTypes.FINAL_ORGANIZATION_FILE.value)
     if not url:
         return toolkit.abort(404, f"No organization XML for namespace: {namespace}")
     return redirect(url, code=302)
 
 
-@iati_public.route("/<namespace>/activities.xml")
+@iati_public.route("/<namespace>/activity.xml")
 def public_act(namespace):
-    """
-    Public endpoint to serve the latest valid activities XML file for a given namespace.
-
-    :param namespace: The namespace identifier for the IATI activities.
-    """
-    url = _find_latest_resource_url(namespace, IATIFileTypes.ACTIVITY_MAIN_FILE.value)
+    url = _find_latest_resource_url(namespace, IATIFileTypes.FINAL_ACTIVITY_FILE.value)
     if not url:
         return toolkit.abort(404, f"No activities XML for namespace: {namespace}")
     return redirect(url, code=302)
