@@ -162,8 +162,8 @@ def _prepare_organisation_csv_folder(dataset, tmp_dir):
 
 def iati_generate_organisation_xml(context, data_dict):
     """ Compile all organisation related CSVs into the organisation.xml file."""
-    # Permissions: iati_auth.generate_organization_xml
-    toolkit.check_access('generate_organization_xml', context, data_dict)
+    # Permissions: iati_auth.iati_generate_xml_files
+    toolkit.check_access('iati_generate_xml_files', context, data_dict)
 
     # Create temporary folder for CSVs
     package_id = toolkit.get_or_bust(data_dict, "package_id")
@@ -262,7 +262,7 @@ def _prepare_activities_csv_folder(dataset, tmp_dir):
 def iati_generate_activities_xml(context, data_dict):
     """Generates the xml of Activities from a multi-csv structure."""
 
-    toolkit.check_access("iati_generate_activities_xml", context, data_dict)
+    toolkit.check_access("iati_generate_xml_files", context, data_dict)
 
     package_id = toolkit.get_or_bust(data_dict, "package_id")
     dataset = toolkit.get_action('package_show')({}, {"id": package_id})

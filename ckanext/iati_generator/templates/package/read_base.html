@@ -2,7 +2,7 @@
 
 {% block content_primary_nav %}
   {{ super() }}
-  {% if h.check_access("iati_generate_activities_xml", {"package_id": pkg.id}) %}
+  {% if h.check_access("iati_generate_xml_files", {"package_id": pkg.id}) %}
     {{ h.build_nav_icon('iati_generator_admin_files.iati_files_index', _('IATI Files'), package_id=pkg.id, icon='fa-solid fa-file') }}
   {% endif %}
 {% endblock %}

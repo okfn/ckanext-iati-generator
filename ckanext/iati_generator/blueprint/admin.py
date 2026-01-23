@@ -20,7 +20,7 @@ def _get_iati_display_name(code):
 @iati_file_admin.route("/dataset/iati-files/<package_id>")
 def iati_files_index(package_id):
     """List IATI files and missing files for the selected dataset."""
-    toolkit.check_access("iati_generate_activities_xml", {"user": toolkit.c.user}, {"package_id": package_id})
+    toolkit.check_access("iati_generate_xml_files", {"user": toolkit.c.user}, {"package_id": package_id})
 
     dataset = toolkit.get_action('package_show')({}, {"id": package_id})
 
@@ -59,9 +59,9 @@ def generate_iati_activity_file(package_id):
     ctx = {"user": toolkit.c.user}
     data_dict = {"package_id": package_id}
 
-    toolkit.check_access("iati_generate_activities_xml", ctx, data_dict)
+    toolkit.check_access("iati_generate_xml_files", ctx, data_dict)
     try:
-        resource = toolkit.get_action("iati_generate_activity_xml")(ctx, data_dict)
+        resource = toolkit.get_action("iati_generate_activities_xml")(ctx, data_dict)
         res_url = toolkit.url_for("resource.read", package_type="dataset", id=resource["package_id"], resource_id=resource["id"])
         msg = toolkit._(f"IATI File generated successfully, you can <a href={res_url}>click here to go to the resource.</a>")
         toolkit.h.flash_success(msg, allow_html=True)
@@ -82,7 +82,7 @@ def generate_iati_organisation_file(package_id):
     ctx = {"user": toolkit.c.user}
     data_dict = {"package_id": package_id}
 
-    toolkit.check_access("generate_organization_xml", ctx, data_dict)
+    toolkit.check_access("iati_generate_xml_files", ctx, data_dict)
     try:
         resource = toolkit.get_action("iati_generate_organisation_xml")(ctx, data_dict)
         res_url = toolkit.url_for("resource.read", package_type="dataset", id=resource["package_id"], resource_id=resource["id"])
