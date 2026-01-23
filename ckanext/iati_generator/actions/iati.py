@@ -184,8 +184,10 @@ def iati_generate_organisation_xml(context, data_dict):
     success = converter.csv_folder_to_xml(input_folder=tmp_dir, xml_output=output_path)
 
     if not success:
+        # Use the CKAN ValidationError formar for errors
+        validation_errors = {'Organizacion XML errors': converter.latest_errors}
         log.warning("Error when generating the organisation.xml file.")
-        raise toolkit.ValidationError("Error when generating the organisation.xml file.")
+        raise toolkit.ValidationError("Error when generating the organisation.xml file.", errors=validation_errors)
 
     org_resource = None
     for res in dataset.get("resources", []):
@@ -277,9 +279,11 @@ def iati_generate_activities_xml(context, data_dict):
 
     if not success:
         log.warning(f"Could not generate activity file for dataset {dataset['name']} ({dataset['id']})")
+        validation_errors = {'Activity XML errors': converter.latest_errors}
         # Is this the best way to handle this scenario?
         raise toolkit.ValidationError(
-            "Activity.xml file could not be created probably due to missing mandatory files or corrupted data."
+            "Activity.xml file could not be created probably due to missing mandatory files or corrupted data.",
+            errors=validation_errors
         )
 
     activity_resource = None
