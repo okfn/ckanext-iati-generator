@@ -2,183 +2,165 @@ from datetime import datetime, timedelta
 
 import pytest
 from ckan.tests import factories
-
 from ckanext.iati_generator.models.enums import IATIFileTypes
-from ckanext.iati_generator.tests.factories import create_iati_file
 
 
 @pytest.mark.usefixtures("with_plugins", "clean_db")
 class TestPublicIatiEndpoints:
-    def test_org_redirects_to_latest_valid_file(self, app):
+    
+    def test_org_redirects_to_final_org_file(self, app):
         """
         /iati/<namespace>/organisation.xml should redirect to the
-        most recent (last_processed_success) and valid (is_valid=True) resource.
+        resource with iati_file_type=FINAL_ORGANIZATION_FILE.
         """
         namespace = "test-namespace-org"
-
-        # Create two resources with different URLs
-        older_res = factories.Resource(url="http://example.org/old_org.xml")
-        newer_res = factories.Resource(url="http://example.org/new_org.xml")
-
-        base_time = datetime(2025, 1, 1)
-
-        # Older IATIFile
-        create_iati_file(
-            resource_id=older_res["id"],
-            namespace=namespace,
-            file_type=IATIFileTypes.FINAL_ORGANIZATION_FILE,
-            is_valid=True,
-            last_processed_success=base_time,
+        
+        # Create a dataset with the namespace
+        dataset = factories.Dataset(
+            extras=[{"key": "iati_namespace", "value": namespace}]
         )
-
-        # Newer IATIFile
-        create_iati_file(
-            resource_id=newer_res["id"],
-            namespace=namespace,
-            file_type=IATIFileTypes.FINAL_ORGANIZATION_FILE,
-            is_valid=True,
-            last_processed_success=base_time + timedelta(days=1),
+        
+        # Create resources - only the FINAL should be returned
+        factories.Resource(
+            package_id=dataset["id"],
+            url="http://example.org/organisations.csv",
+            iati_file_type=str(IATIFileTypes.ORGANIZATION_MAIN_FILE.value)
         )
-
-        # Call the public endpoint (without authentication)
+        
+        final_org_res = factories.Resource(
+            package_id=dataset["id"],
+            url="http://example.org/organisation.xml",
+            iati_file_type=str(IATIFileTypes.FINAL_ORGANIZATION_FILE.value)
+        )
+        
+        # Call the public endpoint
         res = app.get(
             f"/iati/{namespace}/organisation.xml",
             status=302,
             follow_redirects=False,
         )
+        
         assert res.status_code == 302
-        # Should redirect to the newest resource
-        assert res.headers["Location"] == newer_res["url"]
+        assert res.headers["Location"] == final_org_res["url"]
 
-    def test_org_ignores_invalid_files(self, app):
+    def test_org_returns_404_when_no_final_file(self, app):
         """
-        Should ignore records with is_valid=False.
+        Should return 404 when dataset exists but has no FINAL_ORGANIZATION_FILE resource.
         """
-        namespace = "test-namespace-org-invalid"
-
-        invalid_res = factories.Resource(url="http://example.org/invalid_org.xml")
-        valid_res = factories.Resource(url="http://example.org/valid_org.xml")
-
-        base_time = datetime(2025, 1, 1)
-
-        # INVALID file with newer date
-        create_iati_file(
-            resource_id=invalid_res["id"],
-            namespace=namespace,
-            file_type=IATIFileTypes.FINAL_ORGANIZATION_FILE,
-            is_valid=False,
-            last_processed_success=base_time + timedelta(days=2),
+        namespace = "test-namespace-org-no-final"
+        
+        dataset = factories.Dataset(
+            extras=[{"key": "iati_namespace", "value": namespace}]
         )
-
-        # VALID file with older date
-        create_iati_file(
-            resource_id=valid_res["id"],
-            namespace=namespace,
-            file_type=IATIFileTypes.FINAL_ORGANIZATION_FILE,
-            is_valid=True,
-            last_processed_success=base_time,
+        
+        # Create only a non-final resource
+        factories.Resource(
+            package_id=dataset["id"],
+            url="http://example.org/organisations.csv",
+            iati_file_type=str(IATIFileTypes.ORGANIZATION_MAIN_FILE.value)
         )
-
+        
         res = app.get(
             f"/iati/{namespace}/organisation.xml",
-            status=302,
-            follow_redirects=False,
+            status=404,
         )
-        assert res.status_code == 302
-        # Should choose the valid one, even though the invalid is newer
-        assert res.headers["Location"] == valid_res["url"]
+        assert res.status_code == 404
 
-    def test_org_returns_404_when_no_files(self, app):
+    def test_org_returns_404_when_no_dataset(self, app):
         """
-        If there is no IATIFile for that namespace+type, should return 404.
+        Should return 404 when no dataset exists for the namespace.
         """
         namespace = "no-such-namespace"
         res = app.get(f"/iati/{namespace}/organisation.xml", status=404)
-        assert "No organization XML" in res.body
+        assert res.status_code == 404
 
-    def test_activities_redirects_to_latest_valid_file(self, app):
+    def test_activities_redirects_to_final_activity_file(self, app):
         """
-        /iati/<namespace>/activity.xml should redirect to the last
-        valid IATIFile of type FINAL_ACTIVITY_FILE.
+        /iati/<namespace>/activity.xml should redirect to the
+        resource with iati_file_type=FINAL_ACTIVITY_FILE.
         """
         namespace = "test-namespace-act"
-
-        older_res = factories.Resource(url="http://example.org/old_act.xml")
-        newer_res = factories.Resource(url="http://example.org/new_act.xml")
-
-        base_time = datetime(2025, 1, 1)
-
-        create_iati_file(
-            resource_id=older_res["id"],
-            namespace=namespace,
-            file_type=IATIFileTypes.FINAL_ACTIVITY_FILE,
-            is_valid=True,
-            last_processed_success=base_time,
+        
+        dataset = factories.Dataset(
+            extras=[{"key": "iati_namespace", "value": namespace}]
         )
-
-        create_iati_file(
-            resource_id=newer_res["id"],
-            namespace=namespace,
-            file_type=IATIFileTypes.FINAL_ACTIVITY_FILE,
-            is_valid=True,
-            last_processed_success=base_time + timedelta(days=1),
+        
+        # Create various activity resources
+        factories.Resource(
+            package_id=dataset["id"],
+            url="http://example.org/activities.csv",
+            iati_file_type=str(IATIFileTypes.ACTIVITY_MAIN_FILE.value)
         )
-
+        
+        final_act_res = factories.Resource(
+            package_id=dataset["id"],
+            url="http://example.org/activity.xml",
+            iati_file_type=str(IATIFileTypes.FINAL_ACTIVITY_FILE.value)
+        )
+        
         res = app.get(
             f"/iati/{namespace}/activity.xml",
             status=302,
             follow_redirects=False,
         )
-
+        
         assert res.status_code == 302
-        assert res.headers["Location"] == newer_res["url"]
+        assert res.headers["Location"] == final_act_res["url"]
 
-    def test_activities_returns_404_when_no_files(self, app):
+    def test_activities_returns_404_when_no_final_file(self, app):
         """
-        Should return 404 when no activity files exist for the namespace.
+        Should return 404 when dataset exists but has no FINAL_ACTIVITY_FILE resource.
+        """
+        namespace = "test-namespace-act-no-final"
+        
+        dataset = factories.Dataset(
+            extras=[{"key": "iati_namespace", "value": namespace}]
+        )
+        
+        factories.Resource(
+            package_id=dataset["id"],
+            url="http://example.org/activities.csv",
+            iati_file_type=str(IATIFileTypes.ACTIVITY_MAIN_FILE.value)
+        )
+        
+        res = app.get(
+            f"/iati/{namespace}/activity.xml",
+            status=404,
+        )
+        assert res.status_code == 404
+
+    def test_activities_returns_404_when_no_dataset(self, app):
+        """
+        Should return 404 when no dataset exists for the namespace.
         """
         namespace = "no-such-namespace-act"
         res = app.get(
             f"/iati/{namespace}/activity.xml",
             status=404,
         )
-        assert "No activities XML" in res.body
+        assert res.status_code == 404
 
-    def test_activities_ignores_invalid_files(self, app):
+    def test_namespace_with_spaces(self, app):
         """
-        Should ignore records with is_valid=False for activities endpoint.
+        Should work with namespaces that contain spaces.
         """
-        namespace = "test-namespace-act-invalid"
-
-        invalid_res = factories.Resource(url="http://example.org/invalid_act.xml")
-        valid_res = factories.Resource(url="http://example.org/valid_act.xml")
-
-        base_time = datetime(2025, 1, 1)
-
-        # INVALID file with newer date
-        create_iati_file(
-            resource_id=invalid_res["id"],
-            namespace=namespace,
-            file_type=IATIFileTypes.FINAL_ACTIVITY_FILE,
-            is_valid=False,
-            last_processed_success=base_time + timedelta(days=2),
+        namespace = "test namespace with spaces"
+        
+        dataset = factories.Dataset(
+            extras=[{"key": "iati_namespace", "value": namespace}]
         )
-
-        # VALID file with older date
-        create_iati_file(
-            resource_id=valid_res["id"],
-            namespace=namespace,
-            file_type=IATIFileTypes.FINAL_ACTIVITY_FILE,
-            is_valid=True,
-            last_processed_success=base_time,
+        
+        final_act_res = factories.Resource(
+            package_id=dataset["id"],
+            url="http://example.org/activity.xml",
+            iati_file_type=str(IATIFileTypes.FINAL_ACTIVITY_FILE.value)
         )
-
+        
         res = app.get(
             f"/iati/{namespace}/activity.xml",
             status=302,
             follow_redirects=False,
         )
-
+        
         assert res.status_code == 302
-        # Should choose the valid one, even though the invalid is newer
-        assert res.headers["Location"] == valid_res["url"]
+        assert res.headers["Location"] == final_act_res["url"]
