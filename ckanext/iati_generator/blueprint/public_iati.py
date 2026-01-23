@@ -1,62 +1,97 @@
+import logging
 from flask import Blueprint, redirect
 from ckan.plugins import toolkit
 from ckan import model
-from ckanext.iati_generator.models.iati_files import IATIFile
+from ckanext.iati_generator import helpers as h
 from ckanext.iati_generator.models.enums import IATIFileTypes
-from sqlalchemy import and_
+
+log = logging.getLogger(__name__)
 
 iati_public = Blueprint("iati_public", __name__, url_prefix="/iati")
 
 
-def _find_latest_resource_url(namespace, file_type):
-    """
-    Find the latest valid IATI file for a given namespace and file type.
+def _dataset_for_namespace(namespace: str):
+    session = model.Session
 
-    :param namespace: The IATI namespace identifier.
-    :param file_type: The IATI file type (enum value).
-    :return: The resource URL, or None if no valid file is found.
-    """
-
-    Session = model.Session
-    q = (
-        Session.query(IATIFile)
-        .filter(
-            and_(
-                IATIFile.namespace == namespace,
-                IATIFile.file_type == file_type,
-                IATIFile.is_valid.is_(True),
-                IATIFile.last_processed_success.isnot(None),
-            )
-        )
-        .order_by(IATIFile.last_processed_success.desc())
-        .first()
-    )
-
-    # No valid file found
-    if not q:
-        return None
-
-    # get full CKAN resource dict
-    context = {"ignore_auth": True}
     try:
-        res_dict = toolkit.get_action("resource_show")(context, {"id": q.resource_id})
-        return res_dict.get("url")
-    except toolkit.ObjectNotFound:
-        # Resource was deleted, but IATIFile record still exists
-        return None
+        packages = session.query(model.Package).filter(
+            model.Package.state == 'active'
+        ).all()
+
+        log.debug("Searching for namespace=%r among %d active packages", namespace, len(packages))
+
+        for pkg in packages:
+            try:
+                ctx = {"ignore_auth": True, "user": ""}
+                dataset = toolkit.get_action("package_show")(ctx, {"id": pkg.id})
+
+                dataset_ns = dataset.get("iati_namespace", "")
+                if not dataset_ns:
+                    for extra in dataset.get("extras", []):
+                        if extra.get("key") == "iati_namespace":
+                            dataset_ns = extra.get("value", "")
+                            break
+
+                if dataset_ns and (
+                    dataset_ns == namespace or
+                    dataset_ns == h.normalize_namespace(namespace) or
+                    h.normalize_namespace(dataset_ns) == h.normalize_namespace(namespace)
+                ):
+                    log.info("Found dataset %r for namespace=%r", pkg.name, namespace)
+                    return dataset
+
+            except Exception as e:
+                log.warning("Error getting package %r: %s", pkg.name, str(e))
+                continue
+
+        log.warning("No dataset found for namespace=%r", namespace)
+
+    except Exception as e:
+        log.error("Error in _dataset_for_namespace: %s", str(e), exc_info=True)
+
+    return None
+
+
+def _find_final_resource(dataset: dict, file_type_value: int):
+    for res in dataset.get("resources", []):
+        ft = res.get("iati_file_type")
+
+        if ft:
+            try:
+                if int(ft) == file_type_value:
+                    url = res.get("url")
+                    log.info("Found resource %r (type=%d) in dataset %r",
+                             res.get("name"), file_type_value, dataset.get("name"))
+                    return url
+            except (ValueError, TypeError):
+                continue
+
+    log.warning("No resource with file_type=%d found in dataset %r",
+                file_type_value, dataset.get("name"))
+    return None
 
 
 @iati_public.route("/<namespace>/organisation.xml")
 def public_org(namespace):
-    url = _find_latest_resource_url(namespace, IATIFileTypes.FINAL_ORGANIZATION_FILE.value)
+    dataset = _dataset_for_namespace(namespace)
+    if not dataset:
+        return toolkit.abort(404, f"No dataset found for namespace: {namespace}")
+
+    url = _find_final_resource(dataset, IATIFileTypes.FINAL_ORGANIZATION_FILE.value)
     if not url:
-        return toolkit.abort(404, f"No organization XML for namespace: {namespace}")
+        return toolkit.abort(404, f"No organisation.xml found for namespace: {namespace}")
+
     return redirect(url, code=302)
 
 
 @iati_public.route("/<namespace>/activity.xml")
 def public_act(namespace):
-    url = _find_latest_resource_url(namespace, IATIFileTypes.FINAL_ACTIVITY_FILE.value)
+    dataset = _dataset_for_namespace(namespace)
+    if not dataset:
+        return toolkit.abort(404, f"No dataset found for namespace: {namespace}")
+
+    url = _find_final_resource(dataset, IATIFileTypes.FINAL_ACTIVITY_FILE.value)
     if not url:
-        return toolkit.abort(404, f"No activities XML for namespace: {namespace}")
+        return toolkit.abort(404, f"No activity.xml found for namespace: {namespace}")
+
     return redirect(url, code=302)
