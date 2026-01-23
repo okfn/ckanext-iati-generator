@@ -3,23 +3,26 @@
 {% block primary_content_inner %}
   <h1>Errores al compilar IATI</h1>
 
-        <div class="alert alert-warning">
-          <a href="{{ iati_files_url }}">Volver a archivos IATI</a>
-          <details class="missing-files-details">
-            <summary class="missing-files-summary">
-              Errores
-            </summary>
-            <div class="missing-files-category">
-              <ul class="missing-files-list">
-                {% for error in errors %}
-                  <li>
-                    {{ error }}
-                  </li>
-                {% endfor %}
-              </ul>
-            </div>
-          </details>
+    <p>
+      <a href="{{ iati_files_url }}">Volver a archivos IATI</a>
+    </p>
+    <div class="alert alert-warning">
+      
+      <details class="missing-files-details">
+        <summary class="missing-files-summary">
+          Errores
+        </summary>
+        <div class="missing-files-category">
+          <ul class="missing-files-list">
+            {% for k, error in errors.items() %}
+              <li>
+                {{ error }}
+              </li>
+            {% endfor %}
+          </ul>
         </div>
+      </details>
+    </div>
 
 {% endblock %}
 
