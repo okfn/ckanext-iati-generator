@@ -24,21 +24,32 @@ def iati_files_index(package_id):
 
     dataset = toolkit.get_action('package_show')({}, {"id": package_id})
 
-    rows_out = []
+    org_rows = []
+    act_rows = []
     for resource in dataset["resources"]:
         iati_file_type = resource.get("iati_file_type", "")
         if iati_file_type:
+            try:
+                code = int(iati_file_type)
+            except (ValueError, TypeError):
+                code = None
+
             url = toolkit.url_for(
                 "resource.read",
                 package_type=dataset["type"],
                 id=dataset["id"],
                 resource_id=resource["id"]
             )
-            rows_out.append({
+            row = {
                 "file_type": _get_iati_display_name(iati_file_type),
                 "resource_name": resource.get("name") or resource.get("id"),
                 "resource_url": url,
-            })
+            }
+
+            if code is not None and 100 <= code < 200:
+                org_rows.append(row)
+            elif code is not None and 200 <= code < 400:
+                act_rows.append(row)
 
     pending_files = h.get_pending_mandatory_files(dataset["id"])
 
@@ -47,7 +58,8 @@ def iati_files_index(package_id):
         {
             "pkg_dict": dataset,  # Required for package/read_base.html
             "package_id": package_id,
-            "iati_files": rows_out,
+            "org_files": org_rows,
+            "act_files": act_rows,
             "pending_files": pending_files,
         },
     )
