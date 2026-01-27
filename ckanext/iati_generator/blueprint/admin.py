@@ -2,7 +2,6 @@ from ckan.plugins import toolkit
 from flask import Blueprint
 
 from ckanext.iati_generator import helpers as h
-from ckanext.iati_generator.decorators import require_sysadmin_user
 from ckanext.iati_generator.models.enums import IATIFileTypes
 
 iati_file_admin = Blueprint("iati_generator_admin_files", __name__)
@@ -65,47 +64,73 @@ def iati_files_index(package_id):
     )
 
 
+def iati_files_errors(package_id, errors):
+    """Render the list of IATI errors for the selected dataset while generating IATI XML file."""
+    pkg_dict = toolkit.get_action('package_show')({}, {"id": package_id})
+    return toolkit.render(
+        "package/iati_errors.html", {
+            "pkg_dict": pkg_dict,
+            "errors": errors,
+            "iati_files_url": toolkit.url_for("iati_generator_admin_files.iati_files_index", package_id=package_id),
+        },
+    )
+
+
 @iati_file_admin.route("/generate-iati-activity_file/<package_id>", methods=["POST"])
-@require_sysadmin_user
 def generate_iati_activity_file(package_id):
     ctx = {"user": toolkit.c.user}
     data_dict = {"package_id": package_id}
 
     toolkit.check_access("iati_generate_xml_files", ctx, data_dict)
+    errors = None
     try:
         resource = toolkit.get_action("iati_generate_activities_xml")(ctx, data_dict)
-        res_url = toolkit.url_for("resource.read", package_type="dataset", id=resource["package_id"], resource_id=resource["id"])
-        msg = toolkit._(f"IATI File generated successfully, you can <a href={res_url}>click here to go to the resource.</a>")
-        toolkit.h.flash_success(msg, allow_html=True)
-    except toolkit.ObjectNotFound:
-        toolkit.h.flash_error(toolkit._(f"The dataset with id {package_id} does not exist."))
-    except toolkit.ValidationError:
+    except toolkit.ValidationError as e:
+        errors = e.error_dict if hasattr(e, 'error_dict') else None
         toolkit.h.flash_error(
             toolkit._("There was an error generating the IATI file probably due to missing on wrong-formatted files.")
         )
+        return iati_files_errors(package_id, errors)
+
+    try:
+        res_url = toolkit.url_for("resource.read", package_type="dataset", id=resource["package_id"], resource_id=resource["id"])
+    except toolkit.ObjectNotFound:
+        errors = ['The dataset does not exist']
+        toolkit.h.flash_error(toolkit._(f"The dataset with id {package_id} does not exist."))
+        return iati_files_errors(package_id, errors)
+
+    msg = toolkit._(f"IATI File generated successfully, you can <a href={res_url}>click here to go to the resource.</a>")
+    toolkit.h.flash_success(msg, allow_html=True)
 
     redirect_url = toolkit.url_for("iati_generator_admin_files.iati_files_index", package_id=package_id)
     return toolkit.redirect_to(redirect_url)
 
 
 @iati_file_admin.route("/generate-iati-organisation_file/<package_id>", methods=["POST"])
-@require_sysadmin_user
 def generate_iati_organisation_file(package_id):
     ctx = {"user": toolkit.c.user}
     data_dict = {"package_id": package_id}
 
     toolkit.check_access("iati_generate_xml_files", ctx, data_dict)
+    errors = None
     try:
         resource = toolkit.get_action("iati_generate_organisation_xml")(ctx, data_dict)
-        res_url = toolkit.url_for("resource.read", package_type="dataset", id=resource["package_id"], resource_id=resource["id"])
-        msg = toolkit._(f"IATI File generated successfully, you can <a href={res_url}>click here to go to the resource.</a>")
-        toolkit.h.flash_success(msg, allow_html=True)
-    except toolkit.ObjectNotFound:
-        toolkit.h.flash_error(toolkit._(f"The dataset with id {package_id} does not exist."))
-    except toolkit.ValidationError:
+    except toolkit.ValidationError as e:
+        errors = e.error_dict if hasattr(e, 'error_dict') else None
         toolkit.h.flash_error(
             toolkit._("There was an error generating the IATI file probably due to missing on wrong-formatted files.")
         )
+        return iati_files_errors(package_id, errors)
+
+    try:
+        res_url = toolkit.url_for("resource.read", package_type="dataset", id=resource["package_id"], resource_id=resource["id"])
+    except toolkit.ObjectNotFound:
+        errors = ['The dataset does not exist']
+        toolkit.h.flash_error(toolkit._(f"The dataset with id {package_id} does not exist."))
+        return iati_files_errors(package_id, errors)
+
+    msg = toolkit._(f"IATI File generated successfully, you can <a href={res_url}>click here to go to the resource.</a>")
+    toolkit.h.flash_success(msg, allow_html=True)
 
     redirect_url = toolkit.url_for("iati_generator_admin_files.iati_files_index", package_id=package_id)
     return toolkit.redirect_to(redirect_url)
