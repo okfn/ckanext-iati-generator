@@ -32,7 +32,7 @@ def iati_files_index(package_id):
             try:
                 code = int(iati_file_type)
             except (ValueError, TypeError):
-                code = None
+                code = 0
 
             url = toolkit.url_for(
                 "resource.read",
