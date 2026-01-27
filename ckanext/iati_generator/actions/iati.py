@@ -333,3 +333,28 @@ def iati_generate_activities_xml(context, data_dict):
 
     shutil.rmtree(tmp_dir)
     return result
+
+
+def iati_get_dataset_by_namespace(context, data_dict):
+    """
+    Get the dataset associated with the given IATI namespace.
+    """
+    namespace = toolkit.get_or_bust(data_dict, "namespace")
+    ns = h.normalize_namespace(namespace)
+
+    context = dict(context or {})
+    context.setdefault("ignore_auth", True)
+    context.setdefault("user", "")
+
+    search = toolkit.get_action("package_search")(context, {
+        "fq": f'iati_namespace:"{ns}"',
+        "rows": 2,
+    })
+    results = search.get("results", [])
+
+    if not results:
+        return None
+    if len(results) > 1:
+        raise toolkit.ValidationError({"namespace": f"Multiple datasets found for namespace={ns}"})
+
+    return results[0]
