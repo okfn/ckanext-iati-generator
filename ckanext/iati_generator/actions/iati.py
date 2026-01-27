@@ -340,21 +340,29 @@ def iati_get_dataset_by_namespace(context, data_dict):
     Get the dataset associated with the given IATI namespace.
     """
     namespace = toolkit.get_or_bust(data_dict, "namespace")
-    ns = h.normalize_namespace(namespace)
+
+    ns_raw = str(namespace).strip()
+    ns_norm = h.normalize_namespace(ns_raw)
 
     context = dict(context or {})
     context.setdefault("ignore_auth", True)
     context.setdefault("user", "")
 
-    search = toolkit.get_action("package_search")(context, {
-        "fq": f'iati_namespace:"{ns}"',
-        "rows": 2,
-    })
-    results = search.get("results", [])
+    fq = (
+        f'(iati_namespace:"{ns_raw}" OR iati_namespace:"{ns_norm}" '
+        f'OR extras_iati_namespace:"{ns_raw}" OR extras_iati_namespace:"{ns_norm}")'
+    )
 
+    search = toolkit.get_action("package_search")(context, {
+        "fq": fq,
+        "rows": 2,
+        "include_private": True,
+    })
+    results = search.get("results", []) or []
+
+    log.info("package_search returned %d results", len(results))
     if not results:
         return None
     if len(results) > 1:
-        raise toolkit.ValidationError({"namespace": f"Multiple datasets found for namespace={ns}"})
-
+        raise toolkit.ValidationError({"namespace": f"Multiple datasets found for namespace={ns_norm}"})
     return results[0]
