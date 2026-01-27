@@ -355,14 +355,30 @@ def iati_get_dataset_by_namespace(context, data_dict):
 
     search = toolkit.get_action("package_search")(context, {
         "fq": fq,
-        "rows": 2,
+        "rows": 10,
         "include_private": True,
+        "sort": "metadata_created asc",
     })
+
     results = search.get("results", []) or []
 
-    log.info("package_search returned %d results", len(results))
-    if not results:
+    # Ensure uniqueness by ID
+    unique = []
+    seen = set()
+    for r in results:
+        rid = r.get("id")
+        if rid and rid not in seen:
+            unique.append(r)
+            seen.add(rid)
+
+    log.info("package_search returned %d results (%d unique) for fq=%s",
+             len(results), len(unique), fq)
+
+    if not unique:
         return None
-    if len(results) > 1:
-        raise toolkit.ValidationError({"namespace": f"Multiple datasets found for namespace={ns_norm}"})
-    return results[0]
+
+    if len(unique) > 1:
+        log.warning("Multiple datasets found for namespace=%s (returning first): %s",
+                    ns_norm, [r.get("name") or r.get("id") for r in unique])
+
+    return unique[0]
