@@ -219,6 +219,14 @@ def iati_generate_organisation_xml(context, data_dict):
         result = toolkit.get_action("resource_create")({}, res_dict)
         log.info(f"Created new organisation.xml resource with id {result['id']}.")
 
+    namespace = h.normalize_namespace(dataset.get("iati_namespace", DEFAULT_NAMESPACE))
+    h.upsert_final_iati_file(
+        resource_id=result["id"],
+        namespace=namespace,
+        file_type=IATIFileTypes.FINAL_ORGANIZATION_FILE.value,
+        success=True,
+    )
+
     # The resource should live in the same dataset as all the other IATI csv and must be of type: ACTIVITY_MAIN_FILE.
 
     shutil.rmtree(tmp_dir)
@@ -314,5 +322,63 @@ def iati_generate_activities_xml(context, data_dict):
         result = toolkit.get_action("resource_create")({}, res_dict)
         log.info(f"Created new activity.xml resource with id {result['id']}.")
 
+    namespace = h.normalize_namespace(dataset.get("iati_namespace", DEFAULT_NAMESPACE))
+
+    h.upsert_final_iati_file(
+        resource_id=result["id"],
+        namespace=namespace,
+        file_type=IATIFileTypes.FINAL_ACTIVITY_FILE.value,
+        success=True,
+    )
+
     shutil.rmtree(tmp_dir)
     return result
+
+
+def iati_get_dataset_by_namespace(context, data_dict):
+    """
+    Get the dataset associated with the given IATI namespace.
+    """
+    namespace = toolkit.get_or_bust(data_dict, "namespace")
+
+    ns_raw = str(namespace).strip()
+    ns_norm = h.normalize_namespace(ns_raw)
+
+    context = dict(context or {})
+    context.setdefault("ignore_auth", True)
+    context.setdefault("user", "")
+
+    fq = (
+        f'(iati_namespace:"{ns_raw}" OR iati_namespace:"{ns_norm}" '
+        f'OR extras_iati_namespace:"{ns_raw}" OR extras_iati_namespace:"{ns_norm}")'
+    )
+
+    search = toolkit.get_action("package_search")(context, {
+        "fq": fq,
+        "rows": 10,
+        "include_private": True,
+        "sort": "metadata_created asc",
+    })
+
+    results = search.get("results", []) or []
+
+    # Ensure uniqueness by ID
+    unique = []
+    seen = set()
+    for r in results:
+        rid = r.get("id")
+        if rid and rid not in seen:
+            unique.append(r)
+            seen.add(rid)
+
+    log.info("package_search returned %d results (%d unique) for fq=%s",
+             len(results), len(unique), fq)
+
+    if not unique:
+        return None
+
+    if len(unique) > 1:
+        log.warning("Multiple datasets found for namespace=%s (returning first): %s",
+                    ns_norm, [r.get("name") or r.get("id") for r in unique])
+
+    return unique[0]

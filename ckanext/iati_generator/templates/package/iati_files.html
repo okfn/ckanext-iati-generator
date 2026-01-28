@@ -158,4 +158,27 @@
       </p>
     </div>
   </section>
+
+  {% if pkg_dict and pkg_dict.get('iati_namespace') %}
+
+      <h2 class="module-heading"><i class="fa fa-link"></i> {{ _("Public IATI links") }}</h2>
+      <div class="module-content">
+        <ul class="list-unstyled">
+          <li>
+            <i class="fa fa-external-link"></i>
+            <a href="{{ h.url_for('iati_public.public_act', namespace=pkg_dict.get('iati_namespace')) }}"
+              target="_blank" rel="noopener">
+              {{ _("View activity.xml") }}
+            </a>
+          </li>
+          <li>
+            <i class="fa fa-external-link"></i>
+            <a href="{{ h.url_for('iati_public.public_org', namespace=pkg_dict.get('iati_namespace')) }}"
+              target="_blank" rel="noopener">
+              {{ _("View organisation.xml") }}
+            </a>
+          </li>
+        </ul>
+      </div>
+  {% endif %}
 {% endblock %}
