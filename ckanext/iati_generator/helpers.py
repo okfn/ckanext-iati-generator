@@ -19,8 +19,14 @@ def iati_file_types(field=None):
     So the Scheming extension call this helper with `field`, although we don't use it.
     """
     options = []
+    exclude_final = False
+    if field:
+        exclude_final = field.get("exclude_final", False)
+
     # optional: sorted by value
     for item in sorted(IATIFileTypes, key=lambda e: e.value):
+        if exclude_final and item.name.startswith("FINAL_"):
+            continue
         label = item.name.replace("_", " ").title()
         options.append({
             "value": str(item.value),  # Scheming expects a string
