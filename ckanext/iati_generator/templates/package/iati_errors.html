@@ -1,16 +1,16 @@
 {% extends "package/read.html" %}
 
 {% block primary_content_inner %}
-  <h1>Errores al compilar IATI</h1>
+  <h1>{{ _("IATI Compilation Errors") }}</h1>
 
     <p>
-      <a href="{{ iati_files_url }}">Volver a archivos IATI</a>
+      <a href="{{ iati_files_url }}">{{ _("Back to IATI files") }}</a>
     </p>
     <div class="alert alert-warning">
       
       <details class="missing-files-details">
         <summary class="missing-files-summary">
-          Errores
+          {{ _("Errors") }}
         </summary>
         <div class="missing-files-category">
           <ul class="missing-files-list">
@@ -28,11 +28,10 @@
 
 {% block secondary_content %}
   <section class="module module-narrow module-shallow">
-    <h2 class="module-heading"><i class="fa fa-info-circle"></i> Errores al compilar archivo IATI</h2>
+    <h2 class="module-heading"><i class="fa fa-info-circle"></i> {{ _("IATI File Compilation Errors") }}</h2>
     <div class="module-content">
       <p>
-        No se ha sobreescrito el archivo IATI debido a errores en los archivos fuente.
-        Por favor, revise los errores listados arriba y corrija los archivos correspondientes antes de intentar generar el archivo IATI nuevamente.
+        {{ _("The IATI file was not overwritten due to errors in the source files. Please review the errors listed above and correct the corresponding files before attempting to generate the IATI file again.") }}
       </p>
     </div>
   </section>
