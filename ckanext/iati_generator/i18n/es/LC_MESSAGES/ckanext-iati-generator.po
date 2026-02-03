@@ -187,3 +187,7 @@ msgstr "Biblioteca IATI de OKFN:"
 #: ckanext/iati_generator/templates/package/read_base.html:6
 msgid "IATI Files"
 msgstr "Archivos IATI"
+
+#: ckanext/iati_generator/templates/package/iati_files.html:154
+msgid "You can view the IATI documentation at the following link:"
+msgstr "Puede ver la documentación de IATI en el siguiente enlace:"
