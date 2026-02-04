@@ -173,3 +173,6 @@ msgstr ""
 msgid "IATI Files"
 msgstr ""
 
+#: ckanext/iati_generator/templates/package/iati_files.html:154
+msgid "You can view the IATI documentation at the following link:"
+msgstr ""
