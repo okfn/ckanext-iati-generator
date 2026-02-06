@@ -165,4 +165,57 @@
       </p>
     </div>
   </section>
+
+  {% set has_final_activity = h.has_final_iati_resource(pkg_dict, "FINAL_ACTIVITY_FILE") %}
+  {% set has_final_org = h.has_final_iati_resource(pkg_dict, "FINAL_ORGANIZATION_FILE") %}
+
+  {% if pkg_dict and pkg_dict.get('iati_namespace') and (has_final_activity or has_final_org) %}
+
+    {% set act_url = h.url_for('iati_public.public_act', namespace=pkg_dict.get('iati_namespace'), _external=True) %}
+    {% set org_url = h.url_for('iati_public.public_org', namespace=pkg_dict.get('iati_namespace'), _external=True) %}
+
+    <h2 class="module-heading"><i class="fa fa-link"></i> {{ _("Public IATI links") }}</h2>
+    <div class="module-content">
+      <ul class="list-unstyled iati-public-links">
+        {% if has_final_activity %}
+        <li class="iati-public-link-item">
+          <i class="fa fa-external-link"></i>
+          <a href="{{ act_url }}" target="_blank" rel="noopener">
+            {{ _("View activity.xml") }}
+          </a>
+
+          <a href="javascript:void(0);"
+            class="copy-link-btn copy-url-link"
+            data-url="{{ act_url }}">
+            <i class="fa fa-copy"></i>
+          </a>
+
+          <span class="copy-message" style="display:none;">
+            {{ _("Link copied!") }}
+          </span>
+        </li>
+        {% endif %}
+
+        {% if has_final_org %}
+        <li class="iati-public-link-item">
+          <i class="fa fa-external-link"></i>
+          <a href="{{ org_url }}" target="_blank" rel="noopener">
+            {{ _("View organisation.xml") }}
+          </a>
+
+          <a href="javascript:void(0);"
+            class="copy-link-btn copy-url-link"
+            data-url="{{ org_url }}">
+            <i class="fa fa-copy"></i>
+          </a>
+
+          <span class="copy-message" style="display:none;">
+            {{ _("Link copied!") }}
+          </span>
+        </li>
+        {% endif %}
+      </ul>
+    </div>
+
+  {% endif %}
 {% endblock %}

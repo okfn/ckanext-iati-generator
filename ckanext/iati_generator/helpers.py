@@ -284,3 +284,58 @@ def get_pending_mandatory_files(package_id):
     }
 
     return result
+
+
+def upsert_final_iati_file(resource_id, namespace, file_type, success=True, error_message=None):
+    """
+    Ensure there is an IATIFile row for the FINAL xml resource and track processing result.
+    This is required so the public /iati/<ns>/*.xml endpoints can resolve the latest valid file.
+    """
+    session = model.Session
+
+    iati_file = session.query(IATIFile).filter(IATIFile.resource_id == resource_id).first()
+    if not iati_file:
+        iati_file = IATIFile(
+            namespace=namespace,
+            file_type=file_type,
+            resource_id=resource_id,
+        )
+        session.add(iati_file)
+        session.commit()
+
+    iati_file.namespace = namespace
+    iati_file.file_type = file_type
+
+    iati_file.track_processing(success=success, error_message=error_message)
+
+    return iati_file
+
+
+def has_final_iati_resource(pkg_dict, final_type_name: str) -> bool:
+    """
+    Check if the package has a resource of the specified final IATI type.
+    Used to show or hide public download links for the final XML in the dataset's IATI files view.
+    """
+    final_value = int(getattr(IATIFileTypes, final_type_name).value)
+
+    for res in (pkg_dict or {}).get("resources", []) or []:
+        ft = res.get("iati_file_type")
+
+        # sometimes it may come from extras list
+        if not ft:
+            for extra in res.get("extras", []) or []:
+                if extra.get("key") == "iati_file_type":
+                    ft = extra.get("value")
+                    break
+
+        if ft is None:
+            continue
+
+        # normalize to int if possible
+        try:
+            if int(ft) == final_value:
+                return True
+        except (ValueError, TypeError):
+            continue
+
+    return False

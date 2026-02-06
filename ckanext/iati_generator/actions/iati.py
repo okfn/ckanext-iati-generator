@@ -219,6 +219,14 @@ def iati_generate_organisation_xml(context, data_dict):
         result = toolkit.get_action("resource_create")({}, res_dict)
         log.info(f"Created new organisation.xml resource with id {result['id']}.")
 
+    namespace = h.normalize_namespace(dataset.get("iati_namespace", DEFAULT_NAMESPACE))
+    h.upsert_final_iati_file(
+        resource_id=result["id"],
+        namespace=namespace,
+        file_type=IATIFileTypes.FINAL_ORGANIZATION_FILE.value,
+        success=True,
+    )
+
     # The resource should live in the same dataset as all the other IATI csv and must be of type: ACTIVITY_MAIN_FILE.
 
     shutil.rmtree(tmp_dir)
@@ -314,5 +322,51 @@ def iati_generate_activities_xml(context, data_dict):
         result = toolkit.get_action("resource_create")({}, res_dict)
         log.info(f"Created new activity.xml resource with id {result['id']}.")
 
+    namespace = h.normalize_namespace(dataset.get("iati_namespace", DEFAULT_NAMESPACE))
+
+    h.upsert_final_iati_file(
+        resource_id=result["id"],
+        namespace=namespace,
+        file_type=IATIFileTypes.FINAL_ACTIVITY_FILE.value,
+        success=True,
+    )
+
     shutil.rmtree(tmp_dir)
     return result
+
+
+def iati_get_dataset_by_namespace(context, data_dict):
+    """
+    Get the dataset associated with the given IATI namespace.
+    """
+    namespace = toolkit.get_or_bust(data_dict, "namespace")
+
+    ns_raw = str(namespace).strip()
+    ns_norm = h.normalize_namespace(ns_raw)
+
+    context = dict(context or {})
+    context.setdefault("ignore_auth", True)
+    context.setdefault("user", "")
+
+    session = model.Session
+
+    q = (
+        session.query(model.Package)
+        .join(model.PackageExtra, model.PackageExtra.package_id == model.Package.id)
+        .filter(model.Package.state == "active")
+        .filter(model.PackageExtra.key == "iati_namespace")
+        .filter(model.PackageExtra.value.in_([ns_raw, ns_norm]))
+        .order_by(model.Package.metadata_created.asc())
+    )
+
+    pkgs = q.limit(2).all()
+
+    if not pkgs:
+        return None
+
+    if len(pkgs) > 1:
+        # “first wins” (coincide con tus tests que esperan eso)
+        names = [p.name for p in pkgs]
+        log.warning("Multiple datasets found for namespace=%s: %s. Using first one.", ns_norm, names)
+
+    return toolkit.get_action("package_show")(context, {"id": pkgs[0].id})
