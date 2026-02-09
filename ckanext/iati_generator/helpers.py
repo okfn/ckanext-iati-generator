@@ -637,7 +637,7 @@ def _generate_summary(package_id: Optional[str]) -> Optional[str]:
     """Generate summary message with pending files count."""
     if not package_id:
         return None
-    
+
     pending = get_pending_mandatory_files(package_id)
     missing_count = len(pending.get("organization", [])) + len(pending.get("activity", []))
     if missing_count > 0:
