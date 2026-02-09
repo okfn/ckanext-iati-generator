@@ -9,6 +9,7 @@ from ckanext.iati_generator.models.enums import IATIFileTypes
 iati_file_admin = Blueprint("iati_generator_admin_files", __name__)
 log = logging.getLogger(__name__)
 
+
 def _get_iati_display_name(code):
     name = ""
     try:
