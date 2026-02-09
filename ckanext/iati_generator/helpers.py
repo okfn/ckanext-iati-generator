@@ -481,6 +481,170 @@ def _flatten_error_dict(errors: Any) -> List[str]:
     return raw_lines
 
 
+def _process_element_ordering_error(msg_clean: str, item: Dict[str, Any]) -> bool:
+    """Process element ordering errors. Returns True if matched."""
+    m = _RE_ELEMENT_NOT_EXPECTED.search(msg_clean)
+    if m:
+        element = m.group("element")
+        expected = m.group("expected")
+        expected_list = _to_pretty_element_list(expected)
+        item.update({
+            "category": "schema",
+            "title": "Elemento fuera de orden",
+            "element": element,
+            "expected": expected_list,
+            "csv_file": _guess_csv_from_element(element),
+            "suggestion": _make_suggestion_for_ordering(element, expected),
+        })
+        return True
+    return False
+
+
+def _process_missing_children_error(msg_clean: str, item: Dict[str, Any]) -> bool:
+    """Process missing children errors. Returns True if matched."""
+    m = _RE_ELEMENT_MISSING.search(msg_clean)
+    if m:
+        element = m.group("element")
+        expected = m.group("expected")
+        expected_list = _to_pretty_element_list(expected)
+        csv_guess = _guess_csv_from_element(element) or _guess_csv_from_element(expected_list[0] if expected_list else None)
+        item.update({
+            "category": "schema",
+            "title": "Faltan elementos requeridos",
+            "element": element,
+            "expected": expected_list,
+            "csv_file": csv_guess,
+            "suggestion": (
+                f"Faltan elementos hijos obligatorios dentro de '{element}'. "
+                f"Verificá que los CSV que generan {expected_list} existan y tengan filas válidas."
+            ),
+        })
+        return True
+    return False
+
+
+def _process_invalid_value_error(msg_clean: str, item: Dict[str, Any]) -> bool:
+    """Process invalid value (pattern) errors. Returns True if matched."""
+    m = _RE_INVALID_VALUE.search(msg_clean)
+    if m:
+        element = m.group("element")
+        value = m.group("value")
+        item.update({
+            "category": "value",
+            "title": "Valor inválido",
+            "element": element,
+            "value": value,
+            "csv_file": _guess_csv_from_element(element),
+            "suggestion": f"El valor '{value}' no cumple el formato esperado para '{element}'.",
+        })
+        return True
+    return False
+
+
+def _process_enum_error(msg_clean: str, item: Dict[str, Any]) -> bool:
+    """Process enumeration errors. Returns True if matched."""
+    m = _RE_ENUM.search(msg_clean)
+    if m:
+        element = m.group("element")
+        value = m.group("value")
+        item.update({
+            "category": "value",
+            "title": "Código no permitido",
+            "element": element,
+            "value": value,
+            "csv_file": _guess_csv_from_element(element),
+            "suggestion": f"El valor '{value}' no está permitido para '{element}'. Revisá los códigos válidos.",
+        })
+        return True
+    return False
+
+
+def _process_type_error(msg_clean: str, item: Dict[str, Any]) -> bool:
+    """Process invalid type errors. Returns True if matched."""
+    m = _RE_SIMPLE_TYPE.search(msg_clean)
+    if m:
+        element = m.group("element")
+        value = m.group("value")
+        item.update({
+            "category": "value",
+            "title": "Tipo de dato inválido",
+            "element": element,
+            "value": value,
+            "csv_file": _guess_csv_from_element(element),
+            "suggestion": f"El valor '{value}' no es del tipo correcto para '{element}'.",
+        })
+        return True
+    return False
+
+
+def _process_fallback_error(msg_clean: str, item: Dict[str, Any]) -> None:
+    """Extract element from error message as fallback."""
+    m_el = re.search(r"Element\s+'([^']+)'", msg_clean)
+    if m_el:
+        element = m_el.group(1)
+        item["element"] = element
+        item["csv_file"] = _guess_csv_from_element(element)
+        item["category"] = "schema"
+
+
+def _normalize_single_error(raw: str, parsed: Dict[str, Any]) -> Dict[str, Any]:
+    """Normalize a single error line into structured format."""
+    msg = parsed.get("msg", raw)
+    msg_clean = msg.strip()
+
+    item: Dict[str, Any] = {
+        "severity": "error",
+        "category": "unknown",
+        "title": "Error de validación",
+        "details": msg_clean,
+        "suggestion": "Revisá los archivos CSV requeridos y su formato.",
+        "raw": raw,
+    }
+
+    if "line" in parsed and "col" in parsed:
+        item["location"] = {"line": parsed["line"], "col": parsed["col"]}
+
+    # Try to match specific error patterns
+    if _process_element_ordering_error(msg_clean, item):
+        return item
+    if _process_missing_children_error(msg_clean, item):
+        return item
+    if _process_invalid_value_error(msg_clean, item):
+        return item
+    if _process_enum_error(msg_clean, item):
+        return item
+    if _process_type_error(msg_clean, item):
+        return item
+
+    # Fallback: try to extract element
+    _process_fallback_error(msg_clean, item)
+    return item
+
+
+def _deduplicate_errors(normalized: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Deduplicate error items based on key fields."""
+    seen = set()
+    deduped = []
+    for it in normalized:
+        key = (it.get("title"), it.get("details"), it.get("element"), str(it.get("location")))
+        if key not in seen:
+            seen.add(key)
+            deduped.append(it)
+    return deduped
+
+
+def _generate_summary(package_id: Optional[str]) -> Optional[str]:
+    """Generate summary message with pending files count."""
+    if not package_id:
+        return None
+    
+    pending = get_pending_mandatory_files(package_id)
+    missing_count = len(pending.get("organization", [])) + len(pending.get("activity", []))
+    if missing_count > 0:
+        return f"No se pudo generar el XML porque faltan o están mal formados {missing_count} archivo(s) CSV obligatorios."
+    return None
+
+
 def normalize_iati_errors(error_dict: Any, package_id: Optional[str] = None) -> Dict[str, Any]:
     """
     Normalize IATI XSD errors into user-friendly structure.
@@ -511,133 +675,11 @@ def normalize_iati_errors(error_dict: Any, package_id: Optional[str] = None) -> 
     normalized = []
     for raw in raw_lines:
         parsed = _parse_schema_error_line(raw)
-        msg = parsed.get("msg", raw)
-        msg_clean = msg.strip()
-
-        item: Dict[str, Any] = {
-            "severity": "error",
-            "category": "unknown",
-            "title": "Error de validación",
-            "details": msg_clean,
-            "suggestion": "Revisá los archivos CSV requeridos y su formato.",
-            "raw": raw,
-        }
-
-        if "line" in parsed and "col" in parsed:
-            item["location"] = {"line": parsed["line"], "col": parsed["col"]}
-
-        # Element ordering error
-        m = _RE_ELEMENT_NOT_EXPECTED.search(msg_clean)
-        if m:
-            element = m.group("element")
-            expected = m.group("expected")
-            expected_list = _to_pretty_element_list(expected)
-            item.update({
-                "category": "schema",
-                "title": "Elemento fuera de orden",
-                "element": element,
-                "expected": expected_list,
-                "csv_file": _guess_csv_from_element(element),
-                "suggestion": _make_suggestion_for_ordering(element, expected),
-            })
-            normalized.append(item)
-            continue
-
-        # Missing children
-        m = _RE_ELEMENT_MISSING.search(msg_clean)
-        if m:
-            element = m.group("element")
-            expected = m.group("expected")
-            expected_list = _to_pretty_element_list(expected)
-            csv_guess = _guess_csv_from_element(element) or _guess_csv_from_element(expected_list[0] if expected_list else None)
-            item.update({
-                "category": "schema",
-                "title": "Faltan elementos requeridos",
-                "element": element,
-                "expected": expected_list,
-                "csv_file": csv_guess,
-                "suggestion": (
-                    f"Faltan elementos hijos obligatorios dentro de '{element}'. "
-                    f"Verificá que los CSV que generan {expected_list} existan y tengan filas válidas."
-                ),
-            })
-            normalized.append(item)
-            continue
-
-        # Invalid value (pattern)
-        m = _RE_INVALID_VALUE.search(msg_clean)
-        if m:
-            element = m.group("element")
-            value = m.group("value")
-            item.update({
-                "category": "value",
-                "title": "Valor inválido",
-                "element": element,
-                "value": value,
-                "csv_file": _guess_csv_from_element(element),
-                "suggestion": f"El valor '{value}' no cumple el formato esperado para '{element}'.",
-            })
-            normalized.append(item)
-            continue
-
-        # Invalid enumeration
-        m = _RE_ENUM.search(msg_clean)
-        if m:
-            element = m.group("element")
-            value = m.group("value")
-            item.update({
-                "category": "value",
-                "title": "Código no permitido",
-                "element": element,
-                "value": value,
-                "csv_file": _guess_csv_from_element(element),
-                "suggestion": f"El valor '{value}' no está permitido para '{element}'. Revisá los códigos válidos.",
-            })
-            normalized.append(item)
-            continue
-
-        # Invalid type
-        m = _RE_SIMPLE_TYPE.search(msg_clean)
-        if m:
-            element = m.group("element")
-            value = m.group("value")
-            item.update({
-                "category": "value",
-                "title": "Tipo de dato inválido",
-                "element": element,
-                "value": value,
-                "csv_file": _guess_csv_from_element(element),
-                "suggestion": f"El valor '{value}' no es del tipo correcto para '{element}'.",
-            })
-            normalized.append(item)
-            continue
-
-        # Fallback: extract element if possible
-        m_el = re.search(r"Element\s+'([^']+)'", msg_clean)
-        if m_el:
-            element = m_el.group(1)
-            item["element"] = element
-            item["csv_file"] = _guess_csv_from_element(element)
-            item["category"] = "schema"
-
+        item = _normalize_single_error(raw, parsed)
         normalized.append(item)
 
-    # Deduplicate
-    seen = set()
-    deduped = []
-    for it in normalized:
-        key = (it.get("title"), it.get("details"), it.get("element"), str(it.get("location")))
-        if key not in seen:
-            seen.add(key)
-            deduped.append(it)
-
-    # Generate summary with pending files
-    summary = None
-    if package_id:
-        pending = get_pending_mandatory_files(package_id)
-        missing_count = len(pending.get("organization", [])) + len(pending.get("activity", []))
-        if missing_count > 0:
-            summary = f"No se pudo generar el XML porque faltan o están mal formados {missing_count} archivo(s) CSV obligatorios."
+    deduped = _deduplicate_errors(normalized)
+    summary = _generate_summary(package_id)
 
     return {
         "summary": summary,
