@@ -1,5 +1,6 @@
 import logging
 from pathlib import Path
+from typing import Any, Dict, List, Optional
 
 import re
 from ckan.plugins import toolkit
@@ -339,3 +340,307 @@ def has_final_iati_resource(pkg_dict, final_type_name: str) -> bool:
             continue
 
     return False
+
+
+# XML element → CSV file mapping
+XML_TO_CSV_MAP: Dict[str, str] = {
+    # Activities
+    "iati-activity": "activities.csv",
+    "activity-date": "activity_date.csv",
+    "contact-info": "contact_info.csv",
+    "transaction": "transactions.csv",
+    "sector": "sectors.csv",
+    "location": "locations.csv",
+    "document-link": "documents.csv",
+    "result": "results.csv",
+    "indicator": "indicators.csv",
+    "period": "indicator_periods.csv",
+    "condition": "conditions.csv",
+    "description": "descriptions.csv",
+    "country-budget-items": "country_budget_items.csv",
+    "participating-org": "participating_orgs.csv",
+    "budget": "budgets.csv",
+    "transaction-sector": "transaction_sectors.csv",
+    # Organisations
+    "iati-organisation": "organisations.csv",
+    "organisation": "organisations.csv",
+    "organization": "organisations.csv",
+    "name": "names.csv",
+    "expenditure": "expenditures.csv",
+}
+
+# Regex patterns for XSD errors
+_RE_SCHEMA_POS = re.compile(
+    r"<string>:(?P<line>\d+):(?P<col>\d+):(?P<level>[A-Z]+):(?P<domain>[^:]+):(?P<code>[^:]+):\s*(?P<msg>.*)$"
+)
+_RE_ELEMENT_NOT_EXPECTED = re.compile(
+    r"Element\s+'(?P<element>[^']+)':\s+This element is not expected\.\s+Expected is\s+\(\s*(?P<expected>[^)]+)\s*\)\.",
+    re.IGNORECASE,
+)
+_RE_ELEMENT_MISSING = re.compile(
+    r"Element\s+'(?P<element>[^']+)':\s+Missing child element\(s\)\.\s+Expected is\s+\(\s*(?P<expected>[^)]+)\s*\)\.",
+    re.IGNORECASE,
+)
+_RE_INVALID_VALUE = re.compile(
+    r"Element\s+'(?P<element>[^']+)':\s+\[facet\s+'(?P<facet>[^']+)'\]\s+The value\s+'(?P<value>[^']*)'\s+is\s+not\s+accepted",
+    re.IGNORECASE,
+)
+_RE_ENUM = re.compile(
+    r"Element\s+'(?P<element>[^']+)':\s+\[facet\s+'enumeration'\]\s+The value\s+'(?P<value>[^']*)'\s+is\s+not\s+an\s+element",
+    re.IGNORECASE,
+)
+_RE_SIMPLE_TYPE = re.compile(
+    r"Element\s+'(?P<element>[^']+)':\s+'(?P<value>[^']*)'\s+is\s+not\s+a\s+valid\s+value\s+of\s+the\s+atomic\s+type",
+    re.IGNORECASE,
+)
+
+
+def _guess_csv_from_element(element: Optional[str]) -> Optional[str]:
+    if not element:
+        return None
+    if element in XML_TO_CSV_MAP:
+        return XML_TO_CSV_MAP[element]
+    normalized = element.split(":")[-1]
+    if normalized in XML_TO_CSV_MAP:
+        return XML_TO_CSV_MAP[normalized]
+    if normalized.startswith("transaction"):
+        return "transactions.csv"
+    if normalized.startswith("activity-date"):
+        return "activity_date.csv"
+    if normalized.startswith("contact"):
+        return "contact_info.csv"
+    return None
+
+
+def _parse_schema_error_line(raw: str) -> Dict[str, Any]:
+    # Strip common prefixes added by converters
+    cleaned = raw.strip()
+    if cleaned.startswith("Schema: "):
+        cleaned = cleaned[8:]  # Remove "Schema: " prefix
+
+    m = _RE_SCHEMA_POS.match(cleaned)
+    if not m:
+        return {"raw": raw}
+    d = m.groupdict()
+    d["line"] = int(d["line"])
+    d["col"] = int(d["col"])
+    return d
+
+
+def _make_suggestion_for_ordering(element: str, expected: str) -> str:
+    """
+    Suggestion based ONLY on what the XSD error says (expected elements),
+    without hardcoding ordering rules beyond the schema-provided expectation.
+    """
+    expected_list = _to_pretty_element_list(expected)
+    expected_first = expected_list[0] if expected_list else None
+
+    # Try to map expected element to CSV (more useful than mapping the found element)
+    expected_csv = _guess_csv_from_element(expected_first) if expected_first else None
+
+    if expected_first:
+        if expected_csv:
+            return (
+                f"El esquema esperaba <{expected_first}> antes de <{element}>. "
+                f"Revisá que {expected_csv} exista y tenga datos válidos para estas actividades."
+            )
+        return (
+            f"El esquema esperaba <{expected_first}> antes de <{element}>. "
+            "Revisá los CSV que generan esos elementos."
+        )
+
+    # Fallback if we couldn't parse expected
+    return (
+        "El orden/estructura XML no coincide con el esquema. "
+        f"Revisá los CSV relacionados con '{element}' y los elementos esperados: ({expected})."
+    )
+
+
+def _to_pretty_element_list(expected: str) -> List[str]:
+    return [p.strip() for p in expected.split(",") if p.strip()]
+
+
+def _flatten_error_dict(errors: Any) -> List[str]:
+    """Flatten nested error dict/list into list of strings."""
+    raw_lines = []
+
+    def _walk(obj):
+        if obj is None:
+            return
+        if isinstance(obj, str):
+            raw_lines.append(obj)
+        elif isinstance(obj, list):
+            for it in obj:
+                _walk(it)
+        elif isinstance(obj, dict):
+            for v in obj.values():
+                _walk(v)
+        else:
+            raw_lines.append(str(obj))
+    _walk(errors)
+    return raw_lines
+
+
+def normalize_iati_errors(error_dict: Any, package_id: Optional[str] = None) -> Dict[str, Any]:
+    """
+    Normalize IATI XSD errors into user-friendly structure.
+    Returns:
+        {
+            "summary": str | None,
+            "items": [
+                {
+                    "severity": "error",
+                    "category": "schema" | "value" | "unknown",
+                    "title": "...",
+                    "element": "contact-info",
+                    "csv_file": "contact_info.csv",
+                    "location": {"line": 19, "col": 0},
+                    "details": "...",
+                    "suggestion": "...",
+                    "raw": "..."
+                }
+            ],
+            "raw": [original error strings]
+        }
+    """
+    raw_lines = _flatten_error_dict(error_dict)
+    log.debug(f"normalize_iati_errors: Processing {len(raw_lines)} raw error lines")
+    if raw_lines:
+        log.debug(f"Sample error: {raw_lines[0][:150]}")
+
+    normalized = []
+    for raw in raw_lines:
+        parsed = _parse_schema_error_line(raw)
+        msg = parsed.get("msg", raw)
+        msg_clean = msg.strip()
+
+        item: Dict[str, Any] = {
+            "severity": "error",
+            "category": "unknown",
+            "title": "Error de validación",
+            "details": msg_clean,
+            "suggestion": "Revisá los archivos CSV requeridos y su formato.",
+            "raw": raw,
+        }
+
+        if "line" in parsed and "col" in parsed:
+            item["location"] = {"line": parsed["line"], "col": parsed["col"]}
+
+        # Element ordering error
+        m = _RE_ELEMENT_NOT_EXPECTED.search(msg_clean)
+        if m:
+            element = m.group("element")
+            expected = m.group("expected")
+            expected_list = _to_pretty_element_list(expected)
+            item.update({
+                "category": "schema",
+                "title": "Elemento fuera de orden",
+                "element": element,
+                "expected": expected_list,
+                "csv_file": _guess_csv_from_element(element),
+                "suggestion": _make_suggestion_for_ordering(element, expected),
+            })
+            normalized.append(item)
+            continue
+
+        # Missing children
+        m = _RE_ELEMENT_MISSING.search(msg_clean)
+        if m:
+            element = m.group("element")
+            expected = m.group("expected")
+            expected_list = _to_pretty_element_list(expected)
+            csv_guess = _guess_csv_from_element(element) or _guess_csv_from_element(expected_list[0] if expected_list else None)
+            item.update({
+                "category": "schema",
+                "title": "Faltan elementos requeridos",
+                "element": element,
+                "expected": expected_list,
+                "csv_file": csv_guess,
+                "suggestion": (
+                    f"Faltan elementos hijos obligatorios dentro de '{element}'. "
+                    f"Verificá que los CSV que generan {expected_list} existan y tengan filas válidas."
+                ),
+            })
+            normalized.append(item)
+            continue
+
+        # Invalid value (pattern)
+        m = _RE_INVALID_VALUE.search(msg_clean)
+        if m:
+            element = m.group("element")
+            value = m.group("value")
+            item.update({
+                "category": "value",
+                "title": "Valor inválido",
+                "element": element,
+                "value": value,
+                "csv_file": _guess_csv_from_element(element),
+                "suggestion": f"El valor '{value}' no cumple el formato esperado para '{element}'.",
+            })
+            normalized.append(item)
+            continue
+
+        # Invalid enumeration
+        m = _RE_ENUM.search(msg_clean)
+        if m:
+            element = m.group("element")
+            value = m.group("value")
+            item.update({
+                "category": "value",
+                "title": "Código no permitido",
+                "element": element,
+                "value": value,
+                "csv_file": _guess_csv_from_element(element),
+                "suggestion": f"El valor '{value}' no está permitido para '{element}'. Revisá los códigos válidos.",
+            })
+            normalized.append(item)
+            continue
+
+        # Invalid type
+        m = _RE_SIMPLE_TYPE.search(msg_clean)
+        if m:
+            element = m.group("element")
+            value = m.group("value")
+            item.update({
+                "category": "value",
+                "title": "Tipo de dato inválido",
+                "element": element,
+                "value": value,
+                "csv_file": _guess_csv_from_element(element),
+                "suggestion": f"El valor '{value}' no es del tipo correcto para '{element}'.",
+            })
+            normalized.append(item)
+            continue
+
+        # Fallback: extract element if possible
+        m_el = re.search(r"Element\s+'([^']+)'", msg_clean)
+        if m_el:
+            element = m_el.group(1)
+            item["element"] = element
+            item["csv_file"] = _guess_csv_from_element(element)
+            item["category"] = "schema"
+
+        normalized.append(item)
+
+    # Deduplicate
+    seen = set()
+    deduped = []
+    for it in normalized:
+        key = (it.get("title"), it.get("details"), it.get("element"), str(it.get("location")))
+        if key not in seen:
+            seen.add(key)
+            deduped.append(it)
+
+    # Generate summary with pending files
+    summary = None
+    if package_id:
+        pending = get_pending_mandatory_files(package_id)
+        missing_count = len(pending.get("organization", [])) + len(pending.get("activity", []))
+        if missing_count > 0:
+            summary = f"No se pudo generar el XML porque faltan o están mal formados {missing_count} archivo(s) CSV obligatorios."
+
+    return {
+        "summary": summary,
+        "items": deduped,
+        "raw": raw_lines,
+    }
