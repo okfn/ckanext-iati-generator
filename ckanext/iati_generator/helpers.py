@@ -9,6 +9,9 @@ from ckanext.iati_generator.models.enums import IATIFileTypes
 from ckanext.iati_generator.models.iati_files import DEFAULT_NAMESPACE, IATIFile
 from ckanext.iati_generator.iati.resource import save_resource_data
 
+from okfn_iati import IatiMultiCsvConverter
+from okfn_iati.organisation_xml_generator import IatiOrganisationMultiCsvConverter
+
 
 log = logging.getLogger(__name__)
 
@@ -342,7 +345,8 @@ def has_final_iati_resource(pkg_dict, final_type_name: str) -> bool:
     return False
 
 
-# XML element → CSV file mapping
+# XML element → CSV file mapping (solo para mejorar sugerencias en XSD errors)
+# OJO: esto NO define "required files". La fuente de verdad de required files es okfn_iati.required_csv_files().
 XML_TO_CSV_MAP: Dict[str, str] = {
     # Activities
     "iati-activity": "activities.csv",
@@ -369,7 +373,98 @@ XML_TO_CSV_MAP: Dict[str, str] = {
     "expenditure": "expenditures.csv",
 }
 
-# Regex patterns for XSD errors
+
+def required_activity_csv_files() -> List[str]:
+    """
+    Fuente de verdad: okfn_iati.IatiMultiCsvConverter.required_csv_files()
+    Retorna los nombres canónicos (ej: activities.csv) esperados en la carpeta temporal.
+    """
+    return list(IatiMultiCsvConverter.required_csv_files())
+
+
+def required_organisation_csv_files() -> List[str]:
+    """
+    Fuente de verdad: okfn_iati.IatiOrganisationMultiCsvConverter.required_csv_files()
+    """
+    return list(IatiOrganisationMultiCsvConverter.required_csv_files())
+
+
+def validate_required_csv_folder(
+    folder: Path,
+    required_files: List[str],
+    *,
+    require_data_rows: bool = False,
+) -> Dict[str, Any]:
+    """
+    Pre-check de CSVs obligatorios ANTES de ejecutar el converter.
+
+    - missing: el archivo no existe en la carpeta
+    - invalid: vacío / ilegible / sin header (y opcionalmente: sin data rows)
+
+    Devuelve {} si está OK.
+    Si hay problemas, devuelve un dict YA normalizado con la misma estructura que normalize_iati_errors().
+    """
+    missing: List[str] = []
+    invalid: List[str] = []
+
+    for fname in required_files:
+        p = folder / fname
+        if not p.exists():
+            missing.append(fname)
+            continue
+
+        try:
+            text = p.read_text(encoding="utf-8", errors="replace")
+        except Exception:
+            invalid.append(fname)
+            continue
+
+        # líneas no vacías
+        lines = [ln for ln in text.splitlines() if ln.strip()]
+
+        # header requerido
+        if len(lines) < 1:
+            invalid.append(fname)
+            continue
+
+        # si querés obligar 1 data row:
+        if require_data_rows and len(lines) < 2:
+            invalid.append(fname)
+
+    if not missing and not invalid:
+        return {}
+
+    items: List[Dict[str, Any]] = []
+
+    for f in missing:
+        items.append({
+            "severity": "error",
+            "category": "missing-file",
+            "title": "Archivo CSV obligatorio faltante",
+            "csv_file": f,
+            "details": f"No se encontró {f} en la carpeta de compilación.",
+            "suggestion": f"Subí {f} como recurso del dataset (tipo de archivo IATI correcto) y reintentá.",
+            "raw": f"missing:{f}",
+        })
+
+    for f in invalid:
+        items.append({
+            "severity": "error",
+            "category": "invalid-file",
+            "title": "Archivo CSV obligatorio vacío o inválido",
+            "csv_file": f,
+            "details": f"{f} está vacío, no tiene header, o no se pudo leer.",
+            "suggestion": f"Verificá que {f} tenga un header válido (y filas si corresponde) y reintentá.",
+            "raw": f"invalid:{f}",
+        })
+
+    return {
+        "summary": "No se pudo generar el XML porque faltan o están mal formados archivos CSV obligatorios.",
+        "items": items,
+        "raw": [it["raw"] for it in items],
+    }
+
+
 _RE_SCHEMA_POS = re.compile(
     r"<string>:(?P<line>\d+):(?P<col>\d+):(?P<level>[A-Z]+):(?P<domain>[^:]+):(?P<code>[^:]+):\s*(?P<msg>.*)$"
 )
@@ -398,22 +493,26 @@ _RE_SIMPLE_TYPE = re.compile(
 def _guess_csv_from_element(element: Optional[str]) -> Optional[str]:
     if not element:
         return None
+
     if element in XML_TO_CSV_MAP:
         return XML_TO_CSV_MAP[element]
+
     normalized = element.split(":")[-1]
     if normalized in XML_TO_CSV_MAP:
         return XML_TO_CSV_MAP[normalized]
+
+    # heurísticas mínimas
     if normalized.startswith("transaction"):
         return "transactions.csv"
     if normalized.startswith("activity-date"):
         return "activity_date.csv"
     if normalized.startswith("contact"):
         return "contact_info.csv"
+
     return None
 
 
 def _parse_schema_error_line(raw: str) -> Dict[str, Any]:
-    # Strip common prefixes added by converters
     cleaned = raw.strip()
     if cleaned.startswith("Schema: "):
         cleaned = cleaned[8:]  # Remove "Schema: " prefix
@@ -427,15 +526,13 @@ def _parse_schema_error_line(raw: str) -> Dict[str, Any]:
     return d
 
 
+def _to_pretty_element_list(expected: str) -> List[str]:
+    return [p.strip() for p in expected.split(",") if p.strip()]
+
+
 def _make_suggestion_for_ordering(element: str, expected: str) -> str:
-    """
-    Suggestion based ONLY on what the XSD error says (expected elements),
-    without hardcoding ordering rules beyond the schema-provided expectation.
-    """
     expected_list = _to_pretty_element_list(expected)
     expected_first = expected_list[0] if expected_list else None
-
-    # Try to map expected element to CSV (more useful than mapping the found element)
     expected_csv = _guess_csv_from_element(expected_first) if expected_first else None
 
     if expected_first:
@@ -449,20 +546,14 @@ def _make_suggestion_for_ordering(element: str, expected: str) -> str:
             "Revisá los CSV que generan esos elementos."
         )
 
-    # Fallback if we couldn't parse expected
     return (
         "El orden/estructura XML no coincide con el esquema. "
         f"Revisá los CSV relacionados con '{element}' y los elementos esperados: ({expected})."
     )
 
 
-def _to_pretty_element_list(expected: str) -> List[str]:
-    return [p.strip() for p in expected.split(",") if p.strip()]
-
-
 def _flatten_error_dict(errors: Any) -> List[str]:
-    """Flatten nested error dict/list into list of strings."""
-    raw_lines = []
+    raw_lines: List[str] = []
 
     def _walk(obj):
         if obj is None:
@@ -477,108 +568,116 @@ def _flatten_error_dict(errors: Any) -> List[str]:
                 _walk(v)
         else:
             raw_lines.append(str(obj))
+
     _walk(errors)
     return raw_lines
 
 
 def _process_element_ordering_error(msg_clean: str, item: Dict[str, Any]) -> bool:
-    """Process element ordering errors. Returns True if matched."""
     m = _RE_ELEMENT_NOT_EXPECTED.search(msg_clean)
-    if m:
-        element = m.group("element")
-        expected = m.group("expected")
-        expected_list = _to_pretty_element_list(expected)
-        item.update({
-            "category": "schema",
-            "title": "Elemento fuera de orden",
-            "element": element,
-            "expected": expected_list,
-            "csv_file": _guess_csv_from_element(element),
-            "suggestion": _make_suggestion_for_ordering(element, expected),
-        })
-        return True
-    return False
+    if not m:
+        return False
+
+    element = m.group("element")
+    expected = m.group("expected")
+    expected_list = _to_pretty_element_list(expected)
+
+    # preferir CSV del expected (más útil que el element encontrado)
+    csv_expected = _guess_csv_from_element(expected_list[0] if expected_list else None)
+
+    item.update({
+        "category": "schema",
+        "title": "Elemento fuera de orden",
+        "element": element,
+        "expected": expected_list,
+        "csv_file": csv_expected or _guess_csv_from_element(element),
+        "suggestion": _make_suggestion_for_ordering(element, expected),
+    })
+    return True
 
 
 def _process_missing_children_error(msg_clean: str, item: Dict[str, Any]) -> bool:
-    """Process missing children errors. Returns True if matched."""
     m = _RE_ELEMENT_MISSING.search(msg_clean)
-    if m:
-        element = m.group("element")
-        expected = m.group("expected")
-        expected_list = _to_pretty_element_list(expected)
-        csv_guess = _guess_csv_from_element(element) or _guess_csv_from_element(expected_list[0] if expected_list else None)
-        item.update({
-            "category": "schema",
-            "title": "Faltan elementos requeridos",
-            "element": element,
-            "expected": expected_list,
-            "csv_file": csv_guess,
-            "suggestion": (
-                f"Faltan elementos hijos obligatorios dentro de '{element}'. "
-                f"Verificá que los CSV que generan {expected_list} existan y tengan filas válidas."
-            ),
-        })
-        return True
-    return False
+    if not m:
+        return False
+
+    element = m.group("element")
+    expected = m.group("expected")
+    expected_list = _to_pretty_element_list(expected)
+    csv_guess = (
+        _guess_csv_from_element(element)
+        or _guess_csv_from_element(expected_list[0] if expected_list else None)
+    )
+
+    item.update({
+        "category": "schema",
+        "title": "Faltan elementos requeridos",
+        "element": element,
+        "expected": expected_list,
+        "csv_file": csv_guess,
+        "suggestion": (
+            f"Faltan elementos hijos obligatorios dentro de '{element}'. "
+            f"Verificá que los CSV que generan {expected_list} existan y tengan filas válidas."
+        ),
+    })
+    return True
 
 
 def _process_invalid_value_error(msg_clean: str, item: Dict[str, Any]) -> bool:
-    """Process invalid value (pattern) errors. Returns True if matched."""
     m = _RE_INVALID_VALUE.search(msg_clean)
-    if m:
-        element = m.group("element")
-        value = m.group("value")
-        item.update({
-            "category": "value",
-            "title": "Valor inválido",
-            "element": element,
-            "value": value,
-            "csv_file": _guess_csv_from_element(element),
-            "suggestion": f"El valor '{value}' no cumple el formato esperado para '{element}'.",
-        })
-        return True
-    return False
+    if not m:
+        return False
+
+    element = m.group("element")
+    value = m.group("value")
+    item.update({
+        "category": "value",
+        "title": "Valor inválido",
+        "element": element,
+        "value": value,
+        "csv_file": _guess_csv_from_element(element),
+        "suggestion": f"El valor '{value}' no cumple el formato esperado para '{element}'.",
+    })
+    return True
 
 
 def _process_enum_error(msg_clean: str, item: Dict[str, Any]) -> bool:
-    """Process enumeration errors. Returns True if matched."""
     m = _RE_ENUM.search(msg_clean)
-    if m:
-        element = m.group("element")
-        value = m.group("value")
-        item.update({
-            "category": "value",
-            "title": "Código no permitido",
-            "element": element,
-            "value": value,
-            "csv_file": _guess_csv_from_element(element),
-            "suggestion": f"El valor '{value}' no está permitido para '{element}'. Revisá los códigos válidos.",
-        })
-        return True
-    return False
+    if not m:
+        return False
+
+    element = m.group("element")
+    value = m.group("value")
+    item.update({
+        "category": "value",
+        "title": "Código no permitido",
+        "element": element,
+        "value": value,
+        "csv_file": _guess_csv_from_element(element),
+        "suggestion": f"El valor '{value}' no está permitido para '{element}'. Revisá los códigos válidos.",
+    })
+    return True
 
 
 def _process_type_error(msg_clean: str, item: Dict[str, Any]) -> bool:
-    """Process invalid type errors. Returns True if matched."""
     m = _RE_SIMPLE_TYPE.search(msg_clean)
-    if m:
-        element = m.group("element")
-        value = m.group("value")
-        item.update({
-            "category": "value",
-            "title": "Tipo de dato inválido",
-            "element": element,
-            "value": value,
-            "csv_file": _guess_csv_from_element(element),
-            "suggestion": f"El valor '{value}' no es del tipo correcto para '{element}'.",
-        })
-        return True
-    return False
+    if not m:
+        return False
+
+    element = m.group("element")
+    value = m.group("value")
+    item.update({
+        "category": "value",
+        "title": "Tipo de dato inválido",
+        "element": element,
+        "value": value,
+        "csv_file": _guess_csv_from_element(element),
+        "suggestion": f"El valor '{value}' no es del tipo correcto para '{element}'.",
+    })
+    return True
 
 
 def _process_fallback_error(msg_clean: str, item: Dict[str, Any]) -> None:
-    """Extract element from error message as fallback."""
     m_el = re.search(r"Element\s+'([^']+)'", msg_clean)
     if m_el:
         element = m_el.group(1)
@@ -588,7 +687,6 @@ def _process_fallback_error(msg_clean: str, item: Dict[str, Any]) -> None:
 
 
 def _normalize_single_error(raw: str, parsed: Dict[str, Any]) -> Dict[str, Any]:
-    """Normalize a single error line into structured format."""
     msg = parsed.get("msg", raw)
     msg_clean = msg.strip()
 
@@ -604,7 +702,6 @@ def _normalize_single_error(raw: str, parsed: Dict[str, Any]) -> Dict[str, Any]:
     if "line" in parsed and "col" in parsed:
         item["location"] = {"line": parsed["line"], "col": parsed["col"]}
 
-    # Try to match specific error patterns
     if _process_element_ordering_error(msg_clean, item):
         return item
     if _process_missing_children_error(msg_clean, item):
@@ -616,13 +713,11 @@ def _normalize_single_error(raw: str, parsed: Dict[str, Any]) -> Dict[str, Any]:
     if _process_type_error(msg_clean, item):
         return item
 
-    # Fallback: try to extract element
     _process_fallback_error(msg_clean, item)
     return item
 
 
 def _deduplicate_errors(normalized: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    """Deduplicate error items based on key fields."""
     seen = set()
     deduped = []
     for it in normalized:
@@ -633,44 +728,20 @@ def _deduplicate_errors(normalized: List[Dict[str, Any]]) -> List[Dict[str, Any]
     return deduped
 
 
-def _generate_summary(package_id: Optional[str]) -> Optional[str]:
-    """Generate summary message with pending files count."""
-    if not package_id:
-        return None
-
-    pending = get_pending_mandatory_files(package_id)
-    missing_count = len(pending.get("organization", [])) + len(pending.get("activity", []))
-    if missing_count > 0:
-        return f"No se pudo generar el XML porque faltan o están mal formados {missing_count} archivo(s) CSV obligatorios."
-    return None
-
-
 def normalize_iati_errors(error_dict: Any, package_id: Optional[str] = None) -> Dict[str, Any]:
     """
-    Normalize IATI XSD errors into user-friendly structure.
-    Returns:
-        {
-            "summary": str | None,
-            "items": [
-                {
-                    "severity": "error",
-                    "category": "schema" | "value" | "unknown",
-                    "title": "...",
-                    "element": "contact-info",
-                    "csv_file": "contact_info.csv",
-                    "location": {"line": 19, "col": 0},
-                    "details": "...",
-                    "suggestion": "...",
-                    "raw": "..."
-                }
-            ],
-            "raw": [original error strings]
-        }
+    Normaliza errores del converter (XSD / latest_errors) a una estructura amigable.
+
+    También soporta estructuras YA normalizadas (ej: salida de validate_required_csv_folder()).
     """
+    # Si ya viene normalizado (pre-check), devolverlo tal cual
+    if isinstance(error_dict, dict) and "items" in error_dict and "raw" in error_dict:
+        # aseguramos summary si no viene
+        if "summary" not in error_dict or error_dict["summary"] is None:
+            error_dict["summary"] = "No se pudo generar el XML debido a errores en los CSV fuente."
+        return error_dict
+
     raw_lines = _flatten_error_dict(error_dict)
-    log.debug(f"normalize_iati_errors: Processing {len(raw_lines)} raw error lines")
-    if raw_lines:
-        log.debug(f"Sample error: {raw_lines[0][:150]}")
 
     normalized = []
     for raw in raw_lines:
@@ -679,7 +750,8 @@ def normalize_iati_errors(error_dict: Any, package_id: Optional[str] = None) -> 
         normalized.append(item)
 
     deduped = _deduplicate_errors(normalized)
-    summary = _generate_summary(package_id)
+
+    summary = "No se pudo generar el XML debido a errores de validación en los CSV fuente." if deduped else None
 
     return {
         "summary": summary,
