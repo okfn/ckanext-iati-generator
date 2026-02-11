@@ -1,14 +1,15 @@
-iati_generator-css:
-  filter: cssrewrite
-  output: iati_generator/%(version)s-main.css
-  contents:
-    - css/main.css
-
 iati_generator-js:
   filter: rjsmin
   output: iati_generator/%(version)s-main.js
   contents:
     - js/main.js
+    - js/copy_link.js
   extra:
     preload:
       - base/main
+
+iati_generator-css:
+  filter: cssrewrite
+  output: iati_generator/%(version)s-main.css
+  contents:
+    - css/main.css
