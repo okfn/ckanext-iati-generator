@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-01-27 16:26+0000\n"
+"POT-Creation-Date: 2026-02-12 15:34+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -16,6 +16,126 @@ msgstr ""
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.15.0\n"
+
+#: ckanext/iati_generator/helpers.py:171
+#, python-format
+msgid "No organization IATI files of type %(file_type)s found."
+msgstr ""
+
+#: ckanext/iati_generator/helpers.py:182
+#, python-format
+msgid ""
+"Expected no more than %(max_files)s organization IATI file(s) of type "
+"%(file_type)s, found %(count)s."
+msgstr ""
+
+#: ckanext/iati_generator/helpers.py:434
+msgid "Required CSV file missing"
+msgstr ""
+
+#: ckanext/iati_generator/helpers.py:436
+#, python-format
+msgid "%(csv_file)s was not found in the build folder."
+msgstr ""
+
+#: ckanext/iati_generator/helpers.py:441
+#, python-format
+msgid ""
+"Upload %(csv_file)s as a dataset resource (with the correct IATI file "
+"type) and try again."
+msgstr ""
+
+#: ckanext/iati_generator/helpers.py:450
+msgid ""
+"The XML could not be generated because required CSV files are missing or "
+"malformed."
+msgstr ""
+
+#: ckanext/iati_generator/helpers.py:530
+#, python-format
+msgid ""
+"The schema expected <%(expected_first)s> before <%(element)s>. Check that"
+" %(expected_csv)s exists and contains valid data for these activities."
+msgstr ""
+
+#: ckanext/iati_generator/helpers.py:539
+#, python-format
+msgid ""
+"The schema expected <%(expected_first)s> before <%(element)s>. Check the "
+"CSV files that generate those elements."
+msgstr ""
+
+#: ckanext/iati_generator/helpers.py:547
+#, python-format
+msgid ""
+"The order/structure of the XML does not match the schema. Check the "
+"related CSV files for '%(element)s' and the expected elements: "
+"(%(expected)s)."
+msgstr ""
+
+#: ckanext/iati_generator/helpers.py:591
+msgid "Element out of order"
+msgstr ""
+
+#: ckanext/iati_generator/helpers.py:616
+msgid "Missing required elements"
+msgstr ""
+
+#: ckanext/iati_generator/helpers.py:620
+#, python-format
+msgid ""
+"Missing required child elements within '%(element)s'. Check that the CSV "
+"files generating (%(expected)s) exist and contain valid rows."
+msgstr ""
+
+#: ckanext/iati_generator/helpers.py:640
+msgid "Invalid value"
+msgstr ""
+
+#: ckanext/iati_generator/helpers.py:644
+#, python-format
+msgid ""
+"The value '%(value)s' does not match the expected format for "
+"'%(element)s'."
+msgstr ""
+
+#: ckanext/iati_generator/helpers.py:663
+msgid "Invalid code"
+msgstr ""
+
+#: ckanext/iati_generator/helpers.py:667
+#, python-format
+msgid ""
+"The value '%(value)s' is not allowed for '%(element)s'. Check the valid "
+"codes."
+msgstr ""
+
+#: ckanext/iati_generator/helpers.py:686
+msgid "Invalid data type"
+msgstr ""
+
+#: ckanext/iati_generator/helpers.py:690
+#, python-format
+msgid "The value '%(value)s' is not of the correct type for '%(element)s'."
+msgstr ""
+
+#: ckanext/iati_generator/helpers.py:716
+msgid "Validation error"
+msgstr ""
+
+#: ckanext/iati_generator/helpers.py:718
+msgid "Check the required CSV files and their format."
+msgstr ""
+
+#: ckanext/iati_generator/helpers.py:760
+msgid "The XML could not be generated due to errors in the source CSV files."
+msgstr ""
+
+#: ckanext/iati_generator/helpers.py:775
+msgid ""
+"The XML could not be generated due to validation errors in the source CSV"
+" files."
+msgstr ""
 
 #: ckanext/iati_generator/auth/iati.py:82
 msgid "Only organization admins (or sysadmins) can perform this action."
@@ -39,10 +159,35 @@ msgid ""
 "resource_id)."
 msgstr ""
 
-#: ckanext/iati_generator/blueprint/admin.py:91
-#: ckanext/iati_generator/blueprint/admin.py:121
+#: ckanext/iati_generator/blueprint/admin.py:100
+#: ckanext/iati_generator/blueprint/admin.py:143
+msgid "Error processing validation errors"
+msgstr ""
+
+#: ckanext/iati_generator/blueprint/admin.py:101
+#: ckanext/iati_generator/blueprint/admin.py:144
+msgid "Normalization error"
+msgstr ""
+
+#: ckanext/iati_generator/blueprint/admin.py:102
+#: ckanext/iati_generator/blueprint/admin.py:145
+msgid "Contact support"
+msgstr ""
+
+#: ckanext/iati_generator/blueprint/admin.py:107
 msgid ""
 "There was an error generating the IATI file probably due to missing on "
+"wrong-formatted files."
+msgstr ""
+
+#: ckanext/iati_generator/blueprint/admin.py:114
+#: ckanext/iati_generator/blueprint/admin.py:157
+msgid "The dataset does not exist"
+msgstr ""
+
+#: ckanext/iati_generator/blueprint/admin.py:150
+msgid ""
+"There was an error generating the IATI file probably due to missing or "
 "wrong-formatted files."
 msgstr ""
 
@@ -54,15 +199,19 @@ msgstr ""
 msgid "Back to IATI files"
 msgstr ""
 
-#: ckanext/iati_generator/templates/package/iati_errors.html:13
+#: ckanext/iati_generator/templates/package/iati_errors.html:19
 msgid "Errors"
 msgstr ""
 
-#: ckanext/iati_generator/templates/package/iati_errors.html:31
+#: ckanext/iati_generator/templates/package/iati_errors.html:51
+msgid "Technical details (for support)"
+msgstr ""
+
+#: ckanext/iati_generator/templates/package/iati_errors.html:65
 msgid "IATI File Compilation Errors"
 msgstr ""
 
-#: ckanext/iati_generator/templates/package/iati_errors.html:34
+#: ckanext/iati_generator/templates/package/iati_errors.html:68
 msgid ""
 "The IATI file was not overwritten due to errors in the source files. "
 "Please review the errors listed above and correct the corresponding files"
@@ -166,13 +315,31 @@ msgid ""
 msgstr ""
 
 #: ckanext/iati_generator/templates/package/iati_files.html:154
+msgid "You can view the IATI documentation at the following link:"
+msgstr ""
+
+#: ckanext/iati_generator/templates/package/iati_files.html:161
 msgid "OKFN IATI library:"
+msgstr ""
+
+#: ckanext/iati_generator/templates/package/iati_files.html:177
+msgid "Public IATI links"
+msgstr ""
+
+#: ckanext/iati_generator/templates/package/iati_files.html:184
+msgid "View activity.xml"
+msgstr ""
+
+#: ckanext/iati_generator/templates/package/iati_files.html:194
+#: ckanext/iati_generator/templates/package/iati_files.html:213
+msgid "Link copied!"
+msgstr ""
+
+#: ckanext/iati_generator/templates/package/iati_files.html:203
+msgid "View organisation.xml"
 msgstr ""
 
 #: ckanext/iati_generator/templates/package/read_base.html:6
 msgid "IATI Files"
 msgstr ""
 
-#: ckanext/iati_generator/templates/package/iati_files.html:154
-msgid "You can view the IATI documentation at the following link:"
-msgstr ""
