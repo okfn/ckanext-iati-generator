@@ -3,26 +3,60 @@
 {% block primary_content_inner %}
   <h1>{{ _("IATI Compilation Errors") }}</h1>
 
-    <p>
-      <a href="{{ iati_files_url }}">{{ _("Back to IATI files") }}</a>
-    </p>
+  <p>
+    <a href="{{ iati_files_url }}">{{ _("Back to IATI files") }}</a>
+  </p>
+
+  {% if errors.summary %}
     <div class="alert alert-warning">
-      
-      <details class="missing-files-details">
+      <strong>{{ errors.summary }}</strong>
+    </div>
+  {% endif %}
+
+  <div class="alert alert-warning">
+    <details class="missing-files-details" open>
+      <summary class="missing-files-summary">
+        <strong>{{ _("Errors") }} ({{ errors["items"]|length }})</strong>
+      </summary>
+      <div class="missing-files-category">
+        <ul class="missing-files-list">
+          {% for item in errors["items"] %}
+            <li style="margin-bottom: 1em;">
+              {% if item.csv_file %}
+                <strong style="color: #d9534f;">📄 {{ item.csv_file }}</strong><br/>
+              {% endif %}
+              <strong>{{ item.title }}</strong>
+              {% if item.element %} 
+                <code style="background: #f5f5f5; padding: 2px 6px; border-radius: 3px;">{{ item.element }}</code>
+              {% endif %}
+              {% if item.location %}
+                <small style="color: #666;">(línea {{ item.location.line }})</small>
+              {% endif %}
+              <br/>
+              {% if item.details %}
+                <small style="color: #555;">{{ item.details }}</small><br/>
+              {% endif %}
+              {% if item.suggestion %}
+                <em style="color: #0275d8;">💡 {{ item.suggestion }}</em>
+              {% endif %}
+            </li>
+          {% endfor %}
+        </ul>
+      </div>
+    </details>
+
+    {% if errors.raw %}
+      <details class="missing-files-details" style="margin-top: 1em;">
         <summary class="missing-files-summary">
-          {{ _("Errors") }}
+          {{ _("Technical details (for support)") }}
         </summary>
         <div class="missing-files-category">
-          <ul class="missing-files-list">
-            {% for k, error in errors.items() %}
-              <li>
-                {{ error }}
-              </li>
-            {% endfor %}
-          </ul>
+          <pre style="background: #f8f8f8; padding: 10px; border-radius: 4px; overflow-x: auto; max-height: 300px;">{% for r in errors.raw %}{{ r }}
+{% endfor %}</pre>
         </div>
       </details>
-    </div>
+    {% endif %}
+  </div>
 
 {% endblock %}
 

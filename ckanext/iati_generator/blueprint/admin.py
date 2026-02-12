@@ -1,3 +1,5 @@
+import logging
+
 from ckan.plugins import toolkit
 from flask import Blueprint
 
@@ -5,6 +7,7 @@ from ckanext.iati_generator import helpers as h
 from ckanext.iati_generator.models.enums import IATIFileTypes
 
 iati_file_admin = Blueprint("iati_generator_admin_files", __name__)
+log = logging.getLogger(__name__)
 
 
 def _get_iati_display_name(code):
@@ -86,7 +89,20 @@ def generate_iati_activity_file(package_id):
     try:
         resource = toolkit.get_action("iati_generate_activities_xml")(ctx, data_dict)
     except toolkit.ValidationError as e:
-        errors = e.error_dict if hasattr(e, 'error_dict') else None
+        raw = e.error_dict if hasattr(e, 'error_dict') else None
+        try:
+            errors = h.normalize_iati_errors(raw, package_id=package_id)
+            log.debug(f"Normalized errors structure: summary={errors.get('summary')}, items_count={len(errors.get('items', []))}")
+        except Exception as normalize_err:
+            log.error(f"Error normalizing IATI errors: {normalize_err}", exc_info=True)
+            # Fallback: create minimal structure
+            errors = {
+                "summary": toolkit._("Error processing validation errors"),
+                "items": [{"title": toolkit._("Normalization error"), "details": str(raw),
+                           "suggestion": toolkit._("Contact support")}],
+                "raw": [str(raw)]
+            }
+
         toolkit.h.flash_error(
             toolkit._("There was an error generating the IATI file probably due to missing on wrong-formatted files.")
         )
@@ -95,7 +111,7 @@ def generate_iati_activity_file(package_id):
     try:
         res_url = toolkit.url_for("resource.read", package_type="dataset", id=resource["package_id"], resource_id=resource["id"])
     except toolkit.ObjectNotFound:
-        errors = ['The dataset does not exist']
+        errors = toolkit._("The dataset does not exist")
         toolkit.h.flash_error(toolkit._(f"The dataset with id {package_id} does not exist."))
         return iati_files_errors(package_id, errors)
 
@@ -116,16 +132,29 @@ def generate_iati_organisation_file(package_id):
     try:
         resource = toolkit.get_action("iati_generate_organisation_xml")(ctx, data_dict)
     except toolkit.ValidationError as e:
-        errors = e.error_dict if hasattr(e, 'error_dict') else None
+        raw = e.error_dict if hasattr(e, 'error_dict') else None
+        try:
+            errors = h.normalize_iati_errors(raw, package_id=package_id)
+            log.debug(f"Normalized errors structure: summary={errors.get('summary')}, items_count={len(errors.get('items', []))}")
+        except Exception as normalize_err:
+            log.error(f"Error normalizing IATI errors: {normalize_err}", exc_info=True)
+            # Fallback: create minimal structure
+            errors = {
+                "summary": toolkit._("Error processing validation errors"),
+                "items": [{"title": toolkit._("Normalization error"), "details": str(raw),
+                           "suggestion": toolkit._("Contact support")}],
+                "raw": [str(raw)]
+            }
+
         toolkit.h.flash_error(
-            toolkit._("There was an error generating the IATI file probably due to missing on wrong-formatted files.")
+            toolkit._("There was an error generating the IATI file probably due to missing or wrong-formatted files.")
         )
         return iati_files_errors(package_id, errors)
 
     try:
         res_url = toolkit.url_for("resource.read", package_type="dataset", id=resource["package_id"], resource_id=resource["id"])
     except toolkit.ObjectNotFound:
-        errors = ['The dataset does not exist']
+        errors = toolkit._("The dataset does not exist")
         toolkit.h.flash_error(toolkit._(f"The dataset with id {package_id} does not exist."))
         return iati_files_errors(package_id, errors)
 
