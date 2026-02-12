@@ -167,15 +167,26 @@ def process_org_file_type(
     # Validate requirements
     if len(org_files) == 0:
         if required:
-            raise Exception(f"No organization IATI files of type {file_type.name} found.")
+            raise toolkit.ValidationError({
+                "file_type": toolkit._(
+                    "No organization IATI files of type %(file_type)s found."
+                ) % {
+                    "file_type": file_type.name,
+                }
+            })
         log.info(f"No files found for optional type {file_type.name}")
         return 0
 
     if max_files and len(org_files) > max_files:
-        raise Exception(
-            f"Expected no more than {max_files} organization IATI file(s) of type {file_type.name}, "
-            f"found {len(org_files)}."
-        )
+        raise toolkit.ValidationError({
+            "file_type": toolkit._(
+                "Expected no more than %(max_files)s organization IATI file(s) of type %(file_type)s, found %(count)s."
+            ) % {
+                "max_files": max_files,
+                "file_type": file_type.name,
+                "count": len(org_files),
+            }
+        })
 
     processed_count = 0
 
@@ -345,8 +356,8 @@ def has_final_iati_resource(pkg_dict, final_type_name: str) -> bool:
     return False
 
 
-# XML element → CSV file mapping (solo para mejorar sugerencias en XSD errors)
-# OJO: esto NO define "required files". La fuente de verdad de required files es okfn_iati.required_csv_files().
+# XML element → CSV file mapping (only to improve suggestions in XSD errors)
+# NOTE: this does NOT define "required files". The source of truth for required files is okfn_iati.required_csv_files().
 XML_TO_CSV_MAP: Dict[str, str] = {
     # Activities
     "iati-activity": "activities.csv",
@@ -376,15 +387,15 @@ XML_TO_CSV_MAP: Dict[str, str] = {
 
 def required_activity_csv_files() -> List[str]:
     """
-    Fuente de verdad: okfn_iati.IatiMultiCsvConverter.required_csv_files()
-    Retorna los nombres canónicos (ej: activities.csv) esperados en la carpeta temporal.
+    Source of truth: okfn_iati.IatiMultiCsvConverter.required_csv_files()
+    Returns the canonical names (e.g., activities.csv) expected in the temporary folder.
     """
     return list(IatiMultiCsvConverter.required_csv_files())
 
 
 def required_organisation_csv_files() -> List[str]:
     """
-    Fuente de verdad: okfn_iati.IatiOrganisationMultiCsvConverter.required_csv_files()
+    Source of truth: okfn_iati.IatiOrganisationMultiCsvConverter.required_csv_files()
     """
     return list(IatiOrganisationMultiCsvConverter.required_csv_files())
 
@@ -392,17 +403,15 @@ def required_organisation_csv_files() -> List[str]:
 def validate_required_csv_folder(
     folder: Path,
     required_files: List[str],
-    *,
-    require_data_rows: bool = False,
 ) -> Dict[str, Any]:
     """
-    Pre-check de CSVs obligatorios ANTES de ejecutar el converter.
+    Pre-check of required CSV files BEFORE running the converter.
 
-    - missing: el archivo no existe en la carpeta
-    - invalid: vacío / ilegible / sin header (y opcionalmente: sin data rows)
+    - missing: the file does not exist in the folder
+    - invalid: empty / unreadable / no header (and optionally: no data rows)
 
-    Devuelve {} si está OK.
-    Si hay problemas, devuelve un dict YA normalizado con la misma estructura que normalize_iati_errors().
+    Returns {} if everything is OK.
+    If there are issues, returns a dict ALREADY normalized with the same structure as normalize_iati_errors().
     """
     missing: List[str] = []
     invalid: List[str] = []
@@ -413,24 +422,6 @@ def validate_required_csv_folder(
             missing.append(fname)
             continue
 
-        try:
-            text = p.read_text(encoding="utf-8", errors="replace")
-        except Exception:
-            invalid.append(fname)
-            continue
-
-        # líneas no vacías
-        lines = [ln for ln in text.splitlines() if ln.strip()]
-
-        # header requerido
-        if len(lines) < 1:
-            invalid.append(fname)
-            continue
-
-        # si querés obligar 1 data row:
-        if require_data_rows and len(lines) < 2:
-            invalid.append(fname)
-
     if not missing and not invalid:
         return {}
 
@@ -440,26 +431,25 @@ def validate_required_csv_folder(
         items.append({
             "severity": "error",
             "category": "missing-file",
-            "title": "Archivo CSV obligatorio faltante",
+            "title": toolkit._("Required CSV file missing"),
             "csv_file": f,
-            "details": f"No se encontró {f} en la carpeta de compilación.",
-            "suggestion": f"Subí {f} como recurso del dataset (tipo de archivo IATI correcto) y reintentá.",
+            "details": toolkit._(
+                "%(csv_file)s was not found in the build folder."
+            ) % {
+                "csv_file": f,
+            },
+            "suggestion": toolkit._(
+                "Upload %(csv_file)s as a dataset resource (with the correct IATI file type) and try again."
+            ) % {
+                "csv_file": f,
+            },
             "raw": f"missing:{f}",
         })
 
-    for f in invalid:
-        items.append({
-            "severity": "error",
-            "category": "invalid-file",
-            "title": "Archivo CSV obligatorio vacío o inválido",
-            "csv_file": f,
-            "details": f"{f} está vacío, no tiene header, o no se pudo leer.",
-            "suggestion": f"Verificá que {f} tenga un header válido (y filas si corresponde) y reintentá.",
-            "raw": f"invalid:{f}",
-        })
-
     return {
-        "summary": "No se pudo generar el XML porque faltan o están mal formados archivos CSV obligatorios.",
+        "summary": toolkit._(
+            "The XML could not be generated because required CSV files are missing or malformed."
+        ),
         "items": items,
         "raw": [it["raw"] for it in items],
     }
@@ -537,19 +527,30 @@ def _make_suggestion_for_ordering(element: str, expected: str) -> str:
 
     if expected_first:
         if expected_csv:
-            return (
-                f"El esquema esperaba <{expected_first}> antes de <{element}>. "
-                f"Revisá que {expected_csv} exista y tenga datos válidos para estas actividades."
-            )
-        return (
-            f"El esquema esperaba <{expected_first}> antes de <{element}>. "
-            "Revisá los CSV que generan esos elementos."
-        )
+            return toolkit._(
+                "The schema expected <%(expected_first)s> before <%(element)s>. "
+                "Check that %(expected_csv)s exists and contains valid data for these activities."
+            ) % {
+                "expected_first": expected_first,
+                "element": element,
+                "expected_csv": expected_csv,
+            }
 
-    return (
-        "El orden/estructura XML no coincide con el esquema. "
-        f"Revisá los CSV relacionados con '{element}' y los elementos esperados: ({expected})."
-    )
+        return toolkit._(
+            "The schema expected <%(expected_first)s> before <%(element)s>. "
+            "Check the CSV files that generate those elements."
+        ) % {
+            "expected_first": expected_first,
+            "element": element,
+        }
+
+    return toolkit._(
+        "The order/structure of the XML does not match the schema. "
+        "Check the related CSV files for '%(element)s' and the expected elements: (%(expected)s)."
+    ) % {
+        "element": element,
+        "expected": ", ".join(expected_list) if expected_list else expected,
+    }
 
 
 def _flatten_error_dict(errors: Any) -> List[str]:
@@ -587,7 +588,7 @@ def _process_element_ordering_error(msg_clean: str, item: Dict[str, Any]) -> boo
 
     item.update({
         "category": "schema",
-        "title": "Elemento fuera de orden",
+        "title": toolkit._("Element out of order"),
         "element": element,
         "expected": expected_list,
         "csv_file": csv_expected or _guess_csv_from_element(element),
@@ -608,17 +609,21 @@ def _process_missing_children_error(msg_clean: str, item: Dict[str, Any]) -> boo
         _guess_csv_from_element(element)
         or _guess_csv_from_element(expected_list[0] if expected_list else None)
     )
+    pretty_expected = ", ".join(expected_list) if expected_list else expected
 
     item.update({
         "category": "schema",
-        "title": "Faltan elementos requeridos",
+        "title": toolkit._("Missing required elements"),
         "element": element,
         "expected": expected_list,
         "csv_file": csv_guess,
-        "suggestion": (
-            f"Faltan elementos hijos obligatorios dentro de '{element}'. "
-            f"Verificá que los CSV que generan {expected_list} existan y tengan filas válidas."
-        ),
+        "suggestion": toolkit._(
+            "Missing required child elements within '%(element)s'. "
+            "Check that the CSV files generating (%(expected)s) exist and contain valid rows."
+        ) % {
+            "element": element,
+            "expected": pretty_expected,
+        },
     })
     return True
 
@@ -632,11 +637,16 @@ def _process_invalid_value_error(msg_clean: str, item: Dict[str, Any]) -> bool:
     value = m.group("value")
     item.update({
         "category": "value",
-        "title": "Valor inválido",
+        "title": toolkit._("Invalid value"),
         "element": element,
         "value": value,
         "csv_file": _guess_csv_from_element(element),
-        "suggestion": f"El valor '{value}' no cumple el formato esperado para '{element}'.",
+        "suggestion": toolkit._(
+            "The value '%(value)s' does not match the expected format for '%(element)s'."
+        ) % {
+            "value": value,
+            "element": element,
+        },
     })
     return True
 
@@ -650,11 +660,16 @@ def _process_enum_error(msg_clean: str, item: Dict[str, Any]) -> bool:
     value = m.group("value")
     item.update({
         "category": "value",
-        "title": "Código no permitido",
+        "title": toolkit._("Invalid code"),
         "element": element,
         "value": value,
         "csv_file": _guess_csv_from_element(element),
-        "suggestion": f"El valor '{value}' no está permitido para '{element}'. Revisá los códigos válidos.",
+        "suggestion": toolkit._(
+            "The value '%(value)s' is not allowed for '%(element)s'. Check the valid codes."
+        ) % {
+            "value": value,
+            "element": element,
+        },
     })
     return True
 
@@ -668,11 +683,16 @@ def _process_type_error(msg_clean: str, item: Dict[str, Any]) -> bool:
     value = m.group("value")
     item.update({
         "category": "value",
-        "title": "Tipo de dato inválido",
+        "title": toolkit._("Invalid data type"),
         "element": element,
         "value": value,
         "csv_file": _guess_csv_from_element(element),
-        "suggestion": f"El valor '{value}' no es del tipo correcto para '{element}'.",
+        "suggestion": toolkit._(
+            "The value '%(value)s' is not of the correct type for '%(element)s'."
+        ) % {
+            "value": value,
+            "element": element,
+        },
     })
     return True
 
@@ -693,9 +713,9 @@ def _normalize_single_error(raw: str, parsed: Dict[str, Any]) -> Dict[str, Any]:
     item: Dict[str, Any] = {
         "severity": "error",
         "category": "unknown",
-        "title": "Error de validación",
+        "title": toolkit._("Validation error"),
         "details": msg_clean,
-        "suggestion": "Revisá los archivos CSV requeridos y su formato.",
+        "suggestion": toolkit._("Check the required CSV files and their format."),
         "raw": raw,
     }
 
@@ -730,15 +750,16 @@ def _deduplicate_errors(normalized: List[Dict[str, Any]]) -> List[Dict[str, Any]
 
 def normalize_iati_errors(error_dict: Any, package_id: Optional[str] = None) -> Dict[str, Any]:
     """
-    Normaliza errores del converter (XSD / latest_errors) a una estructura amigable.
+    It normalizes converter errors (XSD / latest_errors) into a user-friendly structure.
 
-    También soporta estructuras YA normalizadas (ej: salida de validate_required_csv_folder()).
+    It also supports pre-normalized structures (e.g., the output of validate_required_csv_folder()).
     """
-    # Si ya viene normalizado (pre-check), devolverlo tal cual
+    # If already normalized (pre-check), return it as is
     if isinstance(error_dict, dict) and "items" in error_dict and "raw" in error_dict:
-        # aseguramos summary si no viene
         if "summary" not in error_dict or error_dict["summary"] is None:
-            error_dict["summary"] = "No se pudo generar el XML debido a errores en los CSV fuente."
+            error_dict["summary"] = toolkit._(
+                "The XML could not be generated due to errors in the source CSV files."
+            )
         return error_dict
 
     raw_lines = _flatten_error_dict(error_dict)
@@ -751,7 +772,9 @@ def normalize_iati_errors(error_dict: Any, package_id: Optional[str] = None) -> 
 
     deduped = _deduplicate_errors(normalized)
 
-    summary = "No se pudo generar el XML debido a errores de validación en los CSV fuente." if deduped else None
+    summary = toolkit._(
+        "The XML could not be generated due to validation errors in the source CSV files."
+    ) if deduped else None
 
     return {
         "summary": summary,
