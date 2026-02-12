@@ -174,7 +174,7 @@ def iati_generate_organisation_xml(context, data_dict):
     _prepare_organisation_csv_folder(dataset, tmp_dir)
 
     required = h.required_organisation_csv_files()
-    pre = h.validate_required_csv_folder(Path(tmp_dir), required, require_data_rows=False)
+    pre = h.validate_required_csv_folder(Path(tmp_dir), required)
     if pre:
         # IatiOrganisationMultiCsvConverter will produce an empty organisation.xml file if the input_folder is empty.
         # This it not what we want because the file is useless. For activities this validation is handled by the converter.
@@ -286,7 +286,7 @@ def iati_generate_activities_xml(context, data_dict):
     _prepare_activities_csv_folder(dataset, tmp_dir)
 
     required = h.required_activity_csv_files()
-    pre = h.validate_required_csv_folder(Path(tmp_dir), required, require_data_rows=False)
+    pre = h.validate_required_csv_folder(Path(tmp_dir), required)
     if pre:
         raise toolkit.ValidationError(pre)
 
