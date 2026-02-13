@@ -750,51 +750,35 @@ def _deduplicate_errors(normalized: List[Dict[str, Any]]) -> List[Dict[str, Any]
     return deduped
 
 
-def normalize_iati_errors(error_dict: Any, package_id: Optional[str] = None) -> Dict[str, Any]:
-    """
-    It normalizes converter errors (XSD / latest_errors) into a user-friendly structure.
-
-    It also supports pre-normalized structures (e.g., the output of validate_required_csv_folder()).
-    """
-
-    if isinstance(error_dict, dict) and "items" in error_dict and "raw" in error_dict:
-        if "summary" not in error_dict or error_dict["summary"] is None:
-            error_dict["summary"] = toolkit._(
-                "The XML could not be generated due to errors in the source CSV files."
-            )
-        return error_dict
-
+def _normalize_validation_issues(error_list: List[Any]) -> List[Dict[str, Any]]:
+    """Helper to process list of errors (ValidationIssue objects)."""
     normalized = []
+    for err in error_list:
+        if hasattr(err, 'message'):
+            row = getattr(err, 'row_number', getattr(err, 'line', None))
+            col = getattr(err, 'column_name', getattr(err, 'column', None))
 
-    if isinstance(error_dict, list):
-        for err in error_dict:
-            if hasattr(err, 'message'):
-                row = getattr(err, 'row_number', getattr(err, 'line', None))
-                col = getattr(err, 'column_name', getattr(err, 'column', None))
+            item = {
+                "severity": "error",
+                "category": "csv-content",
+                "title": toolkit._(f"Error in {err.file_name}") if hasattr(err, 'file_name')
+                else toolkit._("Validation error"),
+                "details": err.message,
+                "csv_file": getattr(err, 'file_name', None),
+                "location": {"line": row, "col": col} if row else None,
+                "suggestion": toolkit._("Check the format of the uploaded file."),
+                "raw": str(err)
+            }
+            normalized.append(item)
+        else:
+            # Fallback for simple strings inside a list
+            parsed = _parse_schema_error_line(str(err))
+            normalized.append(_normalize_single_error(str(err), parsed))
+    return normalized
 
-                item = {
-                    "severity": "error",
-                    "category": "csv-content",
-                    "title": toolkit._(f"Error in {err.file_name}") if hasattr(err, 'file_name') else toolkit._("Validation error"),
-                    "details": err.message,
-                    "csv_file": getattr(err, 'file_name', None),
-                    "location": {"line": row, "col": col} if row else None,
-                    "suggestion": toolkit._("Check the format of the uploaded file."),
-                    "raw": str(err)
-                }
-                normalized.append(item)
-            else:
-                parsed = _parse_schema_error_line(str(err))
-                normalized.append(_normalize_single_error(str(err), parsed))
 
-    elif isinstance(error_dict, dict):
-        raw_lines = _flatten_error_dict(error_dict)
-        for raw in raw_lines:
-            parsed = _parse_schema_error_line(raw)
-            normalized.append(_normalize_single_error(raw, parsed))
-
-    deduped = _deduplicate_errors(normalized)
-
+def _format_raw_errors_as_json(error_dict: Any) -> str:
+    """Helper to dump errors to a pretty JSON string."""
     def _json_default(obj):
         """Converts complex objects (ValidationIssue, Enums) to dictionaries/strings."""
         if isinstance(obj, ValidationIssue):
@@ -812,9 +796,36 @@ def normalize_iati_errors(error_dict: Any, package_id: Optional[str] = None) -> 
         return str(obj)
 
     try:
-        raw_formatted = json.dumps(error_dict, default=_json_default, indent=4, ensure_ascii=False)
+        return json.dumps(error_dict, default=_json_default, indent=4, ensure_ascii=False)
     except Exception:
-        raw_formatted = str(error_dict)
+        return str(error_dict)
+
+
+def normalize_iati_errors(error_dict: Any, package_id: Optional[str] = None) -> Dict[str, Any]:
+    """
+    It normalizes converter errors (XSD / latest_errors) into a user-friendly structure.
+
+    It also supports pre-normalized structures (e.g., the output of validate_required_csv_folder()).
+    """
+    if isinstance(error_dict, dict) and "items" in error_dict and "raw" in error_dict:
+        if "summary" not in error_dict or error_dict["summary"] is None:
+            error_dict["summary"] = toolkit._(
+                "The XML could not be generated due to errors in the source CSV files."
+            )
+        return error_dict
+
+    normalized = []
+
+    if isinstance(error_dict, list):
+        normalized = _normalize_validation_issues(error_dict)
+    elif isinstance(error_dict, dict):
+        raw_lines = _flatten_error_dict(error_dict)
+        for raw in raw_lines:
+            parsed = _parse_schema_error_line(raw)
+            normalized.append(_normalize_single_error(raw, parsed))
+
+    deduped = _deduplicate_errors(normalized)
+    raw_formatted = _format_raw_errors_as_json(error_dict)
 
     return {
         "summary": toolkit._("Validation errors were found in the source CSV files.") if deduped else None,

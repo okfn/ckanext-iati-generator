@@ -126,31 +126,31 @@ msgstr "Tipo de dato inválido"
 msgid "The value '%(value)s' is not of the correct type for '%(element)s'."
 msgstr "El valor '%(value)s' no es del tipo correcto para '%(element)s'."
 
-#: ckanext/iati_generator/helpers.py:716
-#, fuzzy
+#: ckanext/iati_generator/helpers.py:718
 msgid "Validation error"
 msgstr "Errores al compilar IATI"
-#: ckanext/iati_generator/helpers.py:718
+
+#: ckanext/iati_generator/helpers.py:720
 msgid "Check the required CSV files and their format."
 msgstr "Verifica los archivos CSV requeridos y su formato."
 
-#: ckanext/iati_generator/helpers.py:763
+#: ckanext/iati_generator/helpers.py:813
 msgid "The XML could not be generated due to errors in the source CSV files."
 msgstr "No se pudo generar el XML debido a errores en los archivos CSV fuente."
 
-#: ckanext/iati_generator/helpers.py:778
+#: ckanext/iati_generator/helpers.py:764
 msgid "Error in %(file_name)s"
 msgstr "Error en %(file_name)s"
 
-#: ckanext/iati_generator/helpers.py:778
+#: ckanext/iati_generator/helpers.py:764
 msgid "Validation error"
 msgstr "Error de validación"
 
-#: ckanext/iati_generator/helpers.py:782
+#: ckanext/iati_generator/helpers.py:769
 msgid "Check the format of the uploaded file."
 msgstr "Verifica el formato del archivo subido."
 
-#: ckanext/iati_generator/helpers.py:820
+#: ckanext/iati_generator/helpers.py:831
 msgid "Validation errors were found in the source CSV files."
 msgstr "Se encontraron errores de validación en los archivos CSV fuente."
 
