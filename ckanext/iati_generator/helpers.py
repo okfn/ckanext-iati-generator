@@ -301,31 +301,6 @@ def get_pending_mandatory_files(package_id):
     return result
 
 
-def upsert_final_iati_file(resource_id, namespace, file_type, success=True, error_message=None):
-    """
-    Ensure there is an IATIFile row for the FINAL xml resource and track processing result.
-    This is required so the public /iati/<ns>/*.xml endpoints can resolve the latest valid file.
-    """
-    session = model.Session
-
-    iati_file = session.query(IATIFile).filter(IATIFile.resource_id == resource_id).first()
-    if not iati_file:
-        iati_file = IATIFile(
-            namespace=namespace,
-            file_type=file_type,
-            resource_id=resource_id,
-        )
-        session.add(iati_file)
-        session.commit()
-
-    iati_file.namespace = namespace
-    iati_file.file_type = file_type
-
-    iati_file.track_processing(success=success, error_message=error_message)
-
-    return iati_file
-
-
 def has_final_iati_resource(pkg_dict, final_type_name: str) -> bool:
     """
     Check if the package has a resource of the specified final IATI type.

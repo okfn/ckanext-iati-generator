@@ -104,14 +104,6 @@ def iati_generate_organisation_xml(context, data_dict):
         result = toolkit.get_action("resource_create")({}, res_dict)
         log.info(f"Created new organisation.xml resource with id {result['id']}.")
 
-    namespace = h.normalize_namespace(dataset.get("iati_namespace", DEFAULT_NAMESPACE))
-    h.upsert_final_iati_file(
-        resource_id=result["id"],
-        namespace=namespace,
-        file_type=IATIFileTypes.FINAL_ORGANIZATION_FILE.value,
-        success=True,
-    )
-
     # The resource should live in the same dataset as all the other IATI csv and must be of type: ACTIVITY_MAIN_FILE.
 
     shutil.rmtree(tmp_dir)
@@ -211,15 +203,6 @@ def iati_generate_activities_xml(context, data_dict):
         res_dict["package_id"] = dataset["id"]
         result = toolkit.get_action("resource_create")({}, res_dict)
         log.info(f"Created new activity.xml resource with id {result['id']}.")
-
-    namespace = h.normalize_namespace(dataset.get("iati_namespace", DEFAULT_NAMESPACE))
-
-    h.upsert_final_iati_file(
-        resource_id=result["id"],
-        namespace=namespace,
-        file_type=IATIFileTypes.FINAL_ACTIVITY_FILE.value,
-        success=True,
-    )
 
     shutil.rmtree(tmp_dir)
     return result
