@@ -6,7 +6,7 @@ import re
 from ckan.plugins import toolkit
 from ckan import model
 from ckanext.iati_generator.models.enums import IATIFileTypes
-from ckanext.iati_generator.models.iati_files import DEFAULT_NAMESPACE, IATIFile
+from ckanext.iati_generator.models.iati_files import DEFAULT_NAMESPACE
 
 from okfn_iati import IatiMultiCsvConverter
 from okfn_iati.organisation_xml_generator import IatiOrganisationMultiCsvConverter
@@ -30,110 +30,6 @@ def iati_file_types(field=None):
             "label": label,
         })
     return options
-
-
-def iati_files_by_resource(namespace=None):
-    """
-    Returns an index {resource_id: IATIFile} to allow simple
-    validation status queries.
-
-    If namespace is provided, returns only files for that namespace.
-    """
-    session = model.Session
-    q = session.query(IATIFile)
-    if namespace:
-        q = q.filter(IATIFile.namespace == namespace)
-    files = q.all()
-    return {f.resource_id: f for f in files}
-
-
-def extract_file_type_from_resource(res):
-    """
-    Returns (file_type_int, label) from the resource.
-    If there's no file_type, returns (None, None).
-    """
-    file_type = res.get("iati_file_type")
-
-    if not file_type:
-        for extra in res.get("extras", []):
-            if extra.get("key") == "iati_file_type":
-                file_type = extra.get("value")
-                break
-
-    if not file_type:
-        return None, None
-
-    int_filetype = normalize_file_type_strict(file_type)
-    label = IATIFileTypes(int_filetype).name
-    return int_filetype, label
-
-
-def extract_namespace_from_resource(res):
-    """
-    Gets the namespace from the resource or its extras.
-    If not found, returns DEFAULT_NAMESPACE.
-    """
-    ns = res.get("iati_namespace")
-    if ns:
-        return ns
-
-    for extra in res.get("extras", []):
-        if extra.get("key") == "iati_namespace":
-            return extra.get("value")
-
-    return DEFAULT_NAMESPACE
-
-
-def normalize_file_type_strict(value):
-    """
-    Normalizes file_type to integer.
-    Accepts:
-        - int
-        - numeric string ("100")
-        - enum name ("ORGANIZATION_MAIN_FILE")
-
-    Returns:
-        int file_type
-
-    Raises ValidationError if not valid.
-    """
-    try:
-        ft = value
-        # string?
-        if isinstance(ft, str):
-            # is it a number?
-            if ft.isdigit():
-                ft = int(ft)
-                IATIFileTypes(ft)  # validate it exists
-            else:
-                # it's an enum name
-                ft = IATIFileTypes[ft].value
-        else:
-            # must be int (or castable to int)
-            IATIFileTypes(ft)  # validate it exists
-
-        return int(ft)
-
-    except Exception:
-        raise toolkit.ValidationError(
-            {"file_type": "Invalid IATIFileTypes value"}
-        )
-
-
-def iati_namespaces():
-    """
-    Returns a list of distinct IATI namespaces.
-
-    We search for all the datasets with iati_namespace and return a unique list (in case
-    there are multiple datasets with the same namespace)
-
-    TODO: Should we allow multiple datasets with the same namespace?
-    """
-    ctx = {'user': toolkit.g.user}
-    result = toolkit.get_action("package_search")(ctx, {"fq": "iati_namespace:[* TO *]"})
-    datasets = result.get("results", [])
-    namespaces = [dataset["iati_namespace"] for dataset in datasets]
-    return list(set(namespaces))
 
 
 def normalize_namespace(ns):
