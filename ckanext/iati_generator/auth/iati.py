@@ -1,6 +1,5 @@
 from ckan import model
 from ckan.plugins import toolkit
-from ckanext.iati_generator.models.iati_files import IATIFile
 
 
 def _is_sysadmin(context):
