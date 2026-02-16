@@ -83,45 +83,6 @@ def _allow_if_sysadmin_or_org_admin(context, data_dict):
     }
 
 
-def iati_file_create(context, data_dict):
-    # org-admin del dataset (o sysadmin).
-    # Expect only resource_id; resolve package_id from it.
-    package_id = _resolve_package_id(data_dict)
-    if not package_id:
-        return {
-            "success": False,
-            "msg": toolkit._("Missing or invalid resource_id; cannot resolve dataset for IATI file creation."),
-        }
-    return _allow_if_sysadmin_or_org_admin(context, {"package_id": package_id})
-
-
-def iati_file_update(context, data_dict):
-    # Expect id (IATIFile.id); fallback to resource_id.
-    package_id = _resolve_package_id(data_dict)
-    if not package_id:
-        return {
-            "success": False,
-            "msg": toolkit._("Cannot resolve dataset for IATI file update (need valid id or resource_id)."),
-        }
-    return _allow_if_sysadmin_or_org_admin(context, {"package_id": package_id})
-
-
-def iati_file_delete(context, data_dict):
-    # Expect id (IATIFile.id); fallback to resource_id.
-    package_id = _resolve_package_id(data_dict)
-    if not package_id:
-        return {
-            "success": False,
-            "msg": toolkit._("Cannot resolve dataset for IATI file deletion (need valid id or resource_id)."),
-        }
-    return _allow_if_sysadmin_or_org_admin(context, {"package_id": package_id})
-
-
-def iati_file_show(context, data_dict):
-    # Unrestricted access
-    return {"success": True}
-
-
 def iati_generate_xml_files(context, data_dict):
     """
     Unified auth for generating IATI XML (organization or activities).
