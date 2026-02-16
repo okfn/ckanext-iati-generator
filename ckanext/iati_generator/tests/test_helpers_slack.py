@@ -6,7 +6,7 @@ from ckanext.iati_generator import helpers
 
 
 def test_notify_slack_iati_error_sends_request(monkeypatch):
-    """Prueba que se envía la notificación cuando Slack está habilitado y hay webhook."""
+    """Ensures the notification is sent when Slack is enabled and webhook is set."""
     called = {}
 
     def fake_urlopen(req, timeout=5):
@@ -46,7 +46,7 @@ def test_notify_slack_iati_error_sends_request(monkeypatch):
 
 
 def test_notify_slack_iati_error_disabled_returns_false(monkeypatch):
-    """Prueba que retorna False cuando Slack está deshabilitado."""
+    """Ensures it returns False when Slack is disabled."""
     monkeypatch.setattr(
         toolkit,
         "config",
@@ -61,7 +61,7 @@ def test_notify_slack_iati_error_disabled_returns_false(monkeypatch):
 
 
 def test_notify_slack_iati_error_missing_webhook_returns_false(monkeypatch):
-    """Prueba que retorna False cuando falta el webhook."""
+    """Ensures it returns False when the webhook is missing."""
     monkeypatch.setattr(
         toolkit,
         "config",
@@ -76,7 +76,7 @@ def test_notify_slack_iati_error_missing_webhook_returns_false(monkeypatch):
 
 
 def test_notify_slack_iati_error_handles_urlopen_error(monkeypatch):
-    """Prueba que retorna False si falla el envío (urlopen lanza excepción)."""
+    """Ensures it returns False when urlopen raises an exception."""
     def fake_urlopen(req, timeout=5):
         raise Exception("boom")
 
@@ -95,7 +95,7 @@ def test_notify_slack_iati_error_handles_urlopen_error(monkeypatch):
 
 
 def test_notify_slack_iati_error_disabled_when_blank(monkeypatch):
-    """Prueba que retorna False cuando slack_enabled está vacío."""
+    """Ensures it returns False when slack_enabled is blank."""
     monkeypatch.setattr(
         toolkit,
         "config",
@@ -110,7 +110,7 @@ def test_notify_slack_iati_error_disabled_when_blank(monkeypatch):
 
 
 def test_notify_slack_iati_error_payload_includes_details(monkeypatch):
-    """Prueba que el payload incluye detalles del dataset y del error."""
+    """Ensures the payload includes dataset and error details."""
     captured = {}
 
     def fake_urlopen(req, timeout=5):
