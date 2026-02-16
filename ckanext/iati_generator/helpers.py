@@ -4,7 +4,6 @@ from typing import Any, Dict, List, Optional
 
 import re
 from ckan.plugins import toolkit
-from ckan import model
 from ckanext.iati_generator.models.enums import IATIFileTypes
 from ckanext.iati_generator.models.iati_files import DEFAULT_NAMESPACE
 
