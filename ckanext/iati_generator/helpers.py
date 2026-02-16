@@ -7,7 +7,6 @@ from ckan.plugins import toolkit
 from ckan import model
 from ckanext.iati_generator.models.enums import IATIFileTypes
 from ckanext.iati_generator.models.iati_files import DEFAULT_NAMESPACE, IATIFile
-from ckanext.iati_generator.iati.resource import save_resource_data
 
 from okfn_iati import IatiMultiCsvConverter
 from okfn_iati.organisation_xml_generator import IatiOrganisationMultiCsvConverter
