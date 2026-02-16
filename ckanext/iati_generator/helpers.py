@@ -5,11 +5,11 @@ from typing import Any, Dict, List, Optional
 import re
 from ckan.plugins import toolkit
 from ckanext.iati_generator.models.enums import IATIFileTypes
-from ckanext.iati_generator.models.iati_files import DEFAULT_NAMESPACE
 
 from okfn_iati import IatiMultiCsvConverter
 from okfn_iati.organisation_xml_generator import IatiOrganisationMultiCsvConverter
 
+DEFAULT_NAMESPACE = "iati-xml"
 
 log = logging.getLogger(__name__)
 
