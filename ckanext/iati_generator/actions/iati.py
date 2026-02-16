@@ -13,7 +13,6 @@ from werkzeug.datastructures import FileStorage
 
 from ckanext.iati_generator import helpers as h
 from ckanext.iati_generator.models.enums import IATIFileTypes
-from ckanext.iati_generator.models.iati_files import DEFAULT_NAMESPACE
 
 log = logging.getLogger(__name__)
 
