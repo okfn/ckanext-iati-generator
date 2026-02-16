@@ -13,126 +13,8 @@ from werkzeug.datastructures import FileStorage
 
 from ckanext.iati_generator import helpers as h
 from ckanext.iati_generator.models.enums import IATIFileTypes
-from ckanext.iati_generator.models.iati_files import DEFAULT_NAMESPACE, IATIFile
 
 log = logging.getLogger(__name__)
-
-
-def iati_file_create(context, data_dict):
-    """
-    Create an IATIFile record linked to a CKAN resource.
-    Only organization admins can create files for their resources.
-    """
-    toolkit.check_access('iati_file_create', context, data_dict)
-
-    if 'resource_id' not in data_dict or not data_dict['resource_id']:
-        raise toolkit.ValidationError({'resource_id': 'Missing required field resource_id'})
-    if 'file_type' not in data_dict:
-        raise toolkit.ValidationError({'file_type': 'Missing required field file_type'})
-
-    data_dict['file_type'] = h.normalize_file_type_strict(
-        data_dict['file_type']
-    )
-
-    file = IATIFile(
-        namespace=h.normalize_namespace(data_dict.get('namespace', DEFAULT_NAMESPACE)),
-        file_type=data_dict['file_type'],
-        resource_id=data_dict['resource_id'],
-    )
-    file.save()
-    return toolkit.get_action('iati_file_show')(context, {'id': file.id})
-
-
-def iati_file_update(context, data_dict):
-    """
-    Update an existing IATIFile record.
-    """
-    toolkit.check_access('iati_file_update', context, data_dict)
-
-    session = model.Session
-    file = session.query(IATIFile).get(data_dict['id'])
-    if not file:
-        raise toolkit.ObjectNotFound(f"IATIFile {data_dict['id']} not found")
-
-    updates = {}
-
-    # namespace
-    if 'namespace' in data_dict:
-        updates['namespace'] = h.normalize_namespace(data_dict['namespace'])
-
-    # file_type
-    if 'file_type' in data_dict:
-        updates['file_type'] = h.normalize_file_type_strict(data_dict['file_type'])
-
-    # is_valid
-    is_valid_present = 'is_valid' in data_dict
-    if is_valid_present:
-        v = data_dict['is_valid']
-        if v is None:
-            updates['is_valid'] = None
-        else:
-            try:
-                updates['is_valid'] = toolkit.asbool(v)
-            except (ValueError, TypeError):
-                # invalid boolean
-                raise toolkit.ValidationError({'is_valid': 'Invalid boolean'})
-
-    # last_error (only if provided)
-    if 'last_error' in data_dict:
-        le = data_dict['last_error']
-        if isinstance(le, str) and le.strip().lower() in ('', 'none', 'null'):
-            le = None
-        updates['last_error'] = le
-    else:
-        # if is_valid was set to True and last_error not provided, clear last_error
-        if is_valid_present and updates.get('is_valid') is True:
-            updates['last_error'] = None
-
-    # apply updates
-    for k, v in updates.items():
-        setattr(file, k, v)
-
-    file.save()
-    return toolkit.get_action('iati_file_show')(context, {'id': file.id})
-
-
-def iati_file_delete(context, data_dict):
-    """
-    Delete an existing IATIFile.
-    """
-    toolkit.check_access('iati_file_delete', context, data_dict)
-
-    session = model.Session
-    file = session.query(IATIFile).get(data_dict['id'])
-    if not file:
-        raise toolkit.ObjectNotFound(f"IATIFile {data_dict['id']} not found")
-
-    session.delete(file)
-    session.commit()
-    return {'success': True}
-
-
-def iati_file_show(context, data_dict):
-    """
-    Get a single IATIFile by ID.
-    """
-    toolkit.check_access('iati_file_show', context, data_dict)
-
-    session = model.Session
-    file = session.query(IATIFile).get(data_dict['id'])
-    if not file:
-        raise toolkit.ObjectNotFound(f"IATIFile {data_dict['id']} not found")
-
-    return {
-        'id': file.id,
-        'namespace': file.namespace,
-        'file_type': IATIFileTypes(file.file_type).name,
-        'resource_id': file.resource_id,
-        'is_valid': file.is_valid,
-        'last_error': file.last_error,
-        'metadata_created': file.metadata_created.isoformat(),
-        'metadata_updated': file.metadata_updated.isoformat() if file.metadata_updated else None,
-    }
 
 
 def _prepare_organisation_csv_folder(dataset, tmp_dir):
@@ -220,14 +102,6 @@ def iati_generate_organisation_xml(context, data_dict):
         res_dict["package_id"] = dataset["id"]
         result = toolkit.get_action("resource_create")({}, res_dict)
         log.info(f"Created new organisation.xml resource with id {result['id']}.")
-
-    namespace = h.normalize_namespace(dataset.get("iati_namespace", DEFAULT_NAMESPACE))
-    h.upsert_final_iati_file(
-        resource_id=result["id"],
-        namespace=namespace,
-        file_type=IATIFileTypes.FINAL_ORGANIZATION_FILE.value,
-        success=True,
-    )
 
     # The resource should live in the same dataset as all the other IATI csv and must be of type: ACTIVITY_MAIN_FILE.
 
@@ -328,15 +202,6 @@ def iati_generate_activities_xml(context, data_dict):
         res_dict["package_id"] = dataset["id"]
         result = toolkit.get_action("resource_create")({}, res_dict)
         log.info(f"Created new activity.xml resource with id {result['id']}.")
-
-    namespace = h.normalize_namespace(dataset.get("iati_namespace", DEFAULT_NAMESPACE))
-
-    h.upsert_final_iati_file(
-        resource_id=result["id"],
-        namespace=namespace,
-        file_type=IATIFileTypes.FINAL_ACTIVITY_FILE.value,
-        success=True,
-    )
 
     shutil.rmtree(tmp_dir)
     return result

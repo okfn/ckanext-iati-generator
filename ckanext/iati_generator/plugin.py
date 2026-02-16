@@ -34,27 +34,15 @@ class IatiGeneratorPlugin(p.SingletonPlugin, DefaultTranslation):
 
     def get_actions(self):
         actions = {
-            'iati_file_create': iati_actions.iati_file_create,
-            'iati_file_update': iati_actions.iati_file_update,
-            'iati_file_delete': iati_actions.iati_file_delete,
-            'iati_file_show': iati_actions.iati_file_show,
             'iati_generate_organisation_xml': iati_actions.iati_generate_organisation_xml,
             'iati_generate_activities_xml': iati_actions.iati_generate_activities_xml,
             'iati_get_dataset_by_namespace': iati_actions.iati_get_dataset_by_namespace,
-            # Chain to CKAN core actions
-            # 'resource_create': resources_actions.resource_create,
-            # 'resource_update': resources_actions.resource_update,
-            # 'resource_show': resources_actions.resource_show,
         }
 
         return actions
 
     def get_auth_functions(self):
         return {
-            'iati_file_create': iati_auth.iati_file_create,
-            'iati_file_update': iati_auth.iati_file_update,
-            'iati_file_delete': iati_auth.iati_file_delete,
-            'iati_file_show': iati_auth.iati_file_show,
             'iati_generate_xml_files': iati_auth.iati_generate_xml_files,
         }
 
@@ -71,6 +59,5 @@ class IatiGeneratorPlugin(p.SingletonPlugin, DefaultTranslation):
         """Return a dictionary of helper functions."""
         return {
             "iati_file_type": h.iati_file_types,
-            "iati_namespaces": h.iati_namespaces,
             "has_final_iati_resource": h.has_final_iati_resource,
         }
