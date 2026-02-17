@@ -307,9 +307,9 @@ def iati_generate_activities_xml(context, data_dict):
         converter = IatiMultiCsvConverter()
         success = converter.csv_folder_to_xml(csv_folder=tmp_dir, xml_output=output_path)
 
+        errors = {"error_activity_xml": {'Activity XML errors': converter.latest_errors}}
         if not success:
             log.warning(f"Could not generate activity file for dataset {dataset['name']}")
-            errors = {"error_activity_xml": {'Activity XML errors': converter.latest_errors}}
             log.critical(f"IATI Generation Error (activity): {dataset} - Details: {errors}")
             raise toolkit.ValidationError(errors)
 
