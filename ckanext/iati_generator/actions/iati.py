@@ -179,7 +179,7 @@ def iati_generate_organisation_xml(context, data_dict):
     required = h.required_organisation_csv_files()
     pre = h.validate_required_csv_folder(Path(tmp_dir), required)
     if pre:
-        h.notify_slack_iati_error("organisation", dataset, pre)
+        log.critical(f"IATI Generation Error (organisation): {dataset} - Details: {pre}")
         # IatiOrganisationMultiCsvConverter will produce an empty organisation.xml file if the input_folder is empty.
         # This it not what we want because the file is useless. For activities this validation is handled by the converter.
         # We check and return error to be coherent with IatiMultiCsvConverter.
@@ -192,7 +192,7 @@ def iati_generate_organisation_xml(context, data_dict):
     if not success:
         # Use the CKAN ValidationError formar for errors
         validation_errors = {'Organizacion XML errors': converter.latest_errors}
-        h.notify_slack_iati_error("organisation", dataset, validation_errors)
+        log.critical(f"IATI Generation Error (organisation): {dataset} - Details: {validation_errors}")
         log.warning("Error when generating the organisation.xml file.")
         raise toolkit.ValidationError(
             {"error_org_xml": validation_errors}
@@ -293,14 +293,14 @@ def iati_generate_activities_xml(context, data_dict):
         required = h.required_activity_csv_files()
         pre_check = h.validate_required_csv_folder(Path(tmp_dir), required)
         if pre_check:
-            h.notify_slack_iati_error("activity", dataset, pre_check)
+            log.critical(f"IATI Generation Error (activity): {dataset} - Details: {pre_check}")
             raise toolkit.ValidationError(pre_check)
 
         result = CsvFolderValidator().validate_folder(tmp_dir)
 
         if not result.is_valid:
             normalized_errors = process_validation_failures(dataset, result.issues)
-            h.notify_slack_iati_error("activity", dataset, normalized_errors)
+            log.critical(f"IATI Generation Error (activity): {dataset} - Details: {normalized_errors}")
             raise toolkit.ValidationError({"error_activity_xml": normalized_errors})
 
         output_path = tmp_dir + "/activity.xml"
@@ -310,7 +310,7 @@ def iati_generate_activities_xml(context, data_dict):
         if not success:
             log.warning(f"Could not generate activity file for dataset {dataset['name']}")
             errors = {"error_activity_xml": {'Activity XML errors': converter.latest_errors}}
-            h.notify_slack_iati_error("activity", dataset, errors)
+            log.critical(f"IATI Generation Error (activity): {dataset} - Details: {errors}")
             raise toolkit.ValidationError(errors)
 
         result_resource = upload_or_update_xml_resource(
