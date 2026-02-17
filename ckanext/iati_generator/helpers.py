@@ -4,7 +4,6 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import re
-import urllib.request
 from ckan.plugins import toolkit
 from ckan import model
 from ckanext.iati_generator.models.enums import IATIFileTypes
@@ -833,85 +832,3 @@ def normalize_iati_errors(error_dict: Any, package_id: Optional[str] = None) -> 
         "items": deduped,
         "raw": [raw_formatted],
     }
-
-
-def notify_slack_iati_error(kind: str, dataset: dict, error_dict: Any) -> bool:
-    """
-    Send a Slack notification when an IATI compilation error occurs.
-    """
-    if not _is_slack_enabled():
-        return False
-
-    webhook_url = toolkit.config.get("ckanext.iati_generator.slack_webhook_url")
-    if not webhook_url:
-        return False
-
-    try:
-        normalized = normalize_iati_errors(error_dict) if error_dict is not None else {
-            "summary": None,
-            "items": [],
-            "raw": [],
-        }
-
-        payload = _create_slack_payload(kind, dataset, normalized)
-        req = urllib.request.Request(
-            webhook_url,
-            data=json.dumps(payload).encode("utf-8"),
-            headers={"Content-Type": "application/json"},
-            method="POST",
-        )
-        with urllib.request.urlopen(req, timeout=5):
-            pass
-
-        return True
-
-    except Exception:
-        log.error("Slack notification failed for IATI error.", exc_info=True)
-        return False
-
-
-def _is_slack_enabled() -> bool:
-    raw_enabled = toolkit.config.get("ckanext.iati_generator.slack_enabled")
-    return toolkit.asbool(raw_enabled) if raw_enabled not in (None, "", " ") else False
-
-
-def _create_slack_payload(kind: str, dataset: dict, normalized: dict) -> dict:
-    summary = normalized.get("summary") or "IATI compilation error"
-    items = normalized.get("items") or []
-    pkg_name = (dataset or {}).get("name") or ""
-    pkg_title = (dataset or {}).get("title") or pkg_name
-    pkg_id = (dataset or {}).get("id") or ""
-    ns = normalize_namespace((dataset or {}).get("iati_namespace", DEFAULT_NAMESPACE))
-    dataset_url = _get_dataset_url(pkg_name)
-
-    details_block = _format_error_details(items)
-
-    header = f":warning: IATI {kind} compilation error"
-    body = (
-        f"*Dataset:* {pkg_title} ({pkg_name})\n"
-        f"*Package ID:* {pkg_id}\n"
-        f"*Namespace:* {ns}\n"
-        f"*Summary:* {summary}\n"
-        f"*Details:*\n{details_block}"
-    )
-
-    if dataset_url:
-        body += f"\n*Link:* {dataset_url}"
-
-    return {"text": f"{header}\n{body}"}
-
-
-def _get_dataset_url(pkg_name: str) -> str:
-    site_url = toolkit.config.get("ckan.site_url") or ""
-    return f"{site_url}/dataset/{pkg_name}" if site_url and pkg_name else None
-
-
-def _format_error_details(items: list) -> str:
-    lines = []
-    for item in items[:5]:
-        title = item.get("title") or "Error"
-        csv_file = item.get("csv_file") or "unknown file"
-        details = item.get("details") or ""
-        line = f"- {title} · {csv_file}: {details[:350]}..."
-        lines.append(line)
-    return "\n".join(lines) if lines else "- (no details)"
