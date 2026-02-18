@@ -35,3 +35,28 @@ class IATIFileTypes(Enum):
     ACTIVITY_DESCRIPTIONS_FILE = 340             # descriptions.csv
     ACTIVITY_COUNTRY_BUDGET_ITEMS_FILE = 350     # country_budget_items.csv
     FINAL_ACTIVITY_FILE = 299
+
+
+# Mapping from activity file type enum values to their CSV filenames.
+# Keep in sync with IatiMultiCsvConverter.csv_files in okfn_iati.
+ACTIVITY_CSV_FILENAMES = {
+    IATIFileTypes.ACTIVITY_MAIN_FILE: "activities.csv",
+    IATIFileTypes.ACTIVITY_PARTICIPATING_ORGS_FILE: "participating_orgs.csv",
+    IATIFileTypes.ACTIVITY_SECTORS_FILE: "sectors.csv",
+    IATIFileTypes.ACTIVITY_BUDGET_FILE: "budgets.csv",
+    IATIFileTypes.ACTIVITY_TRANSACTIONS_FILE: "transactions.csv",
+    IATIFileTypes.ACTIVITY_TRANSACTION_SECTORS_FILE: "transaction_sectors.csv",
+    IATIFileTypes.ACTIVITY_LOCATIONS_FILE: "locations.csv",
+    IATIFileTypes.ACTIVITY_DOCUMENTS_FILE: "documents.csv",
+    IATIFileTypes.ACTIVITY_RESULTS_FILE: "results.csv",
+    IATIFileTypes.ACTIVITY_INDICATORS_FILE: "indicators.csv",
+    IATIFileTypes.ACTIVITY_INDICATOR_PERIODS_FILE: "indicator_periods.csv",
+    IATIFileTypes.ACTIVITY_DATES_FILE: "activity_date.csv",
+    IATIFileTypes.ACTIVITY_CONTACT_INFO_FILE: "contact_info.csv",
+    IATIFileTypes.ACTIVITY_CONDITIONS_FILE: "conditions.csv",
+    IATIFileTypes.ACTIVITY_DESCRIPTIONS_FILE: "descriptions.csv",
+    IATIFileTypes.ACTIVITY_COUNTRY_BUDGET_ITEMS_FILE: "country_budget_items.csv",
+}
+
+# Reverse mapping: CSV filename -> enum value (as string), for matching validation issues
+CSV_FILENAME_TO_FILE_TYPE = {fname: str(ft.value) for ft, fname in ACTIVITY_CSV_FILENAMES.items()}

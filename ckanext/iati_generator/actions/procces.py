@@ -6,6 +6,7 @@ from ckan.plugins import toolkit
 from werkzeug.datastructures import FileStorage
 
 from ckanext.iati_generator import helpers as h
+from ckanext.iati_generator.models.enums import CSV_FILENAME_TO_FILE_TYPE
 from ckanext.iati_generator.models.iati_files import DEFAULT_NAMESPACE
 
 log = logging.getLogger(__name__)
@@ -16,17 +17,6 @@ def process_validation_failures(dataset, validation_issues):
     Identifies which resources failed and updates their status in the database (IATIFile).
     Returns the normalized issues ready to be used in ValidationError.
     """
-    # Mapping: File name -> IATIFileTypes code (string)
-    mapping = {
-        "activities.csv": "200", "participating_orgs.csv": "210",
-        "sectors.csv": "220", "budgets.csv": "230", "transactions.csv": "240",
-        "transaction_sectors.csv": "250", "locations.csv": "260",
-        "documents.csv": "270", "results.csv": "280", "indicators.csv": "290",
-        "indicator_periods.csv": "300", "activity_date.csv": "310",
-        "contact_info.csv": "320", "conditions.csv": "330",
-        "descriptions.csv": "340", "country_budget_items.csv": "350"
-    }
-
     failed_files_map = {}
     for issue in validation_issues:
         fname = issue.file_name
@@ -40,7 +30,7 @@ def process_validation_failures(dataset, validation_issues):
         file_type = str(resource.get("iati_file_type", ""))
 
         for fname, error_msg in failed_files_map.items():
-            target_type = mapping.get(fname)
+            target_type = CSV_FILENAME_TO_FILE_TYPE.get(fname)
             if target_type and target_type == file_type:
                 res_id = resource['id']
                 if res_id in files_by_res:
