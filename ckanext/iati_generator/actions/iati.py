@@ -1,6 +1,5 @@
 import io
 import logging
-import os
 import shutil
 import tempfile
 from pathlib import Path
@@ -284,10 +283,9 @@ def iati_generate_activities_xml(context, data_dict):
     toolkit.check_access("iati_generate_xml_files", context, data_dict)
 
     package_id = toolkit.get_or_bust(data_dict, "package_id")
-    dataset = toolkit.get_action('package_show')({}, {"id": package_id})
+    dataset = toolkit.get_action("package_show")({}, {"id": package_id})
 
-    tmp_dir = tempfile.mkdtemp()
-    try:
+    with tempfile.TemporaryDirectory() as tmp_dir:
         _prepare_activities_csv_folder(dataset, tmp_dir)
 
         required = h.required_activity_csv_files()
@@ -307,7 +305,7 @@ def iati_generate_activities_xml(context, data_dict):
         converter = IatiMultiCsvConverter()
         success = converter.csv_folder_to_xml(csv_folder=tmp_dir, xml_output=output_path)
 
-        errors = {"error_activity_xml": {'Activity XML errors': converter.latest_errors}}
+        errors = {"error_activity_xml": {"Activity XML errors": converter.latest_errors}}
         if not success:
             log.warning(f"Could not generate activity file for dataset {dataset['name']}")
             log.critical(f"IATI Generation Error (activity): {dataset} - Details: {errors}")
@@ -318,7 +316,7 @@ def iati_generate_activities_xml(context, data_dict):
             dataset,
             output_path,
             "activity.xml",
-            IATIFileTypes.FINAL_ACTIVITY_FILE
+            IATIFileTypes.FINAL_ACTIVITY_FILE,
         )
 
         namespace = h.normalize_namespace(dataset.get("iati_namespace", DEFAULT_NAMESPACE))
@@ -330,10 +328,6 @@ def iati_generate_activities_xml(context, data_dict):
         )
 
         return result_resource
-
-    finally:
-        if os.path.exists(tmp_dir):
-            shutil.rmtree(tmp_dir)
 
 
 def iati_get_dataset_by_namespace(context, data_dict):
