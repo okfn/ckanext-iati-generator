@@ -307,8 +307,10 @@ def iati_generate_activities_xml(context, data_dict):
 
     errors = {"error_activity_xml": {"Activity XML errors": converter.latest_errors}}
     if not success:
-        log.warning(f"Could not generate activity file for dataset {dataset['name']}")
-        log.critical(f"IATI Generation Error (activity): {dataset} - Details: {errors}")
+        log.critical(
+            f"IATI Generation Error (activity): Could not generate activity file for dataset {dataset['name']} | "
+            f"{dataset} - Details: {errors}"
+        )
         raise toolkit.ValidationError(errors)
 
     result_resource = upload_or_update_xml_resource(
