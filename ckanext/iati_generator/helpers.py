@@ -832,3 +832,18 @@ def normalize_iati_errors(error_dict: Any, package_id: Optional[str] = None) -> 
         "items": deduped,
         "raw": [raw_formatted],
     }
+
+
+def get_iati_file_type_label(value):
+    """
+    Converts an iati_file_type value to its human-readable label.
+    For example: '100' -> 'Organization Main File'
+    """
+    if not value:
+        return ''
+
+    for choice in iati_file_types():
+        if str(choice.get('value')) == str(value):
+            return choice.get('label', '')
+
+    return str(value)
