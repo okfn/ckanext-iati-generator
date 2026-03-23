@@ -91,3 +91,10 @@ details[open] summary {
 .missing-files-list {
     margin-top: 4px;
 }
+
+.iati-file-type-label {
+  margin-left: 8px;
+  color: #666;
+  font-size: 0.9em;
+  font-style: italic;
+}

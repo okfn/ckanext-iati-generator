@@ -73,4 +73,5 @@ class IatiGeneratorPlugin(p.SingletonPlugin, DefaultTranslation):
             "iati_file_type": h.iati_file_types,
             "iati_namespaces": h.iati_namespaces,
             "has_final_iati_resource": h.has_final_iati_resource,
+            "get_iati_file_type_label": h.get_iati_file_type_label,
         }
