@@ -49,7 +49,17 @@ def upload_or_update_xml_resource(context, dataset, file_path, file_name, file_t
     """
     existing_resource = None
     for res in dataset.get("resources", []):
-        if int(res.get("iati_file_type", 0)) == file_type_enum.value:
+        try:
+            resource_file_type = int(res.get("iati_file_type") or 0)
+        except (TypeError, ValueError):
+            log.warning(
+                "Ignoring resource %s with invalid IATI file type %r.",
+                res.get("id"),
+                res.get("iati_file_type"),
+            )
+            continue
+
+        if resource_file_type == file_type_enum.value:
             existing_resource = res
             break
 
