@@ -1,125 +1,103 @@
 import pytest
 
 from ckan.plugins import toolkit
+from ckan.tests import factories
 
 from ckanext.iati_generator.actions.procces import (
     upload_or_update_xml_resource,
 )
 from ckanext.iati_generator.models.enums import IATIFileTypes
+from ckanext.iati_generator.tests.factories import IATIResource
+
+pytestmark = pytest.mark.usefixtures("with_plugins", "clean_db")
 
 
-@pytest.mark.parametrize("invalid_file_type", ["", None, "invalid"])
-def test_upload_ignores_resource_with_invalid_iati_file_type(
-    monkeypatch,
-    tmp_path,
-    invalid_file_type,
-):
-    """Resources without a valid IATI type must not block XML creation."""
+def test_upload_creates_new_activity_xml_resource_when_missing(tmp_path):
+    """If no XML resource exists, a new final activity resource is created."""
+    sysadmin = factories.SysadminWithToken()
+    user_context = {"user": sysadmin["name"]}
+
+    dataset = factories.Dataset()
+    IATIResource(
+        package_id=dataset["id"],
+        name="problematic.csv",
+        iati_file_type="",
+    )
+    dataset = toolkit.get_action("package_show")(
+        user_context,
+        {"id": dataset["id"]},
+    )
+
     xml_path = tmp_path / "activity.xml"
     xml_path.write_bytes(b"<iati-activities />")
 
-    dataset = {
-        "id": "dataset-id",
-        "resources": [
-            {
-                "id": "invalid-resource-id",
-                "iati_file_type": invalid_file_type,
-            },
-            {
-                "id": "activities-csv-id",
-                "iati_file_type": str(
-                    IATIFileTypes.ACTIVITY_MAIN_FILE.value
-                ),
-            },
-        ],
-    }
-    captured = {}
-
-    def resource_create(context, data_dict):
-        captured["context"] = context
-        captured["data_dict"] = data_dict
-        return {
-            "id": "new-activity-xml-id",
-            "package_id": data_dict["package_id"],
-        }
-
-    def get_action(action_name):
-        assert action_name == "resource_create"
-        return resource_create
-
-    monkeypatch.setattr(toolkit, "get_action", get_action)
-
     result = upload_or_update_xml_resource(
-        {"user": "test-user"},
+        user_context,
         dataset,
         str(xml_path),
         "activity.xml",
         IATIFileTypes.FINAL_ACTIVITY_FILE,
     )
 
-    assert result["id"] == "new-activity-xml-id"
-    assert captured["data_dict"]["package_id"] == "dataset-id"
-    assert captured["data_dict"]["name"] == "activity.xml"
-    assert captured["data_dict"]["format"] == "XML"
-    assert (
-        captured["data_dict"]["iati_file_type"]
+    refreshed_dataset = toolkit.get_action("package_show")(
+        user_context,
+        {"id": dataset["id"]},
+    )
+
+    assert result["id"]
+    assert len(refreshed_dataset["resources"]) == 2
+    assert any(
+        resource["name"] == "activity.xml"
+        and resource["iati_file_type"]
         == IATIFileTypes.FINAL_ACTIVITY_FILE.value
+        for resource in refreshed_dataset["resources"]
     )
 
 
-def test_upload_updates_existing_activity_xml_resource(
-    monkeypatch,
+def test_upload_updates_existing_activity_xml_resource_without_increasing_count(
     tmp_path,
 ):
-    """An existing final activity resource must be patched, not recreated."""
+    """If the XML resource already exists, it is patched in place."""
+    sysadmin = factories.SysadminWithToken()
+    user_context = {"user": sysadmin["name"]}
+
+    dataset = factories.Dataset()
+    IATIResource(
+        package_id=dataset["id"],
+        name="problematic.csv",
+        iati_file_type="",
+    )
+    existing = IATIResource(
+        package_id=dataset["id"],
+        name="activity.xml",
+        url_type="upload",
+    )
+    dataset = toolkit.get_action("package_show")(
+        user_context,
+        {"id": dataset["id"]},
+    )
+
     xml_path = tmp_path / "activity.xml"
     xml_path.write_bytes(b"<iati-activities />")
 
-    dataset = {
-        "id": "dataset-id",
-        "resources": [
-            {
-                "id": "empty-resource-id",
-                "iati_file_type": "",
-            },
-            {
-                "id": "existing-activity-xml-id",
-                "iati_file_type": str(
-                    IATIFileTypes.FINAL_ACTIVITY_FILE.value
-                ),
-            },
-        ],
-    }
-    captured = {}
-
-    def resource_patch(context, data_dict):
-        captured["context"] = context
-        captured["data_dict"] = data_dict
-        return {
-            "id": data_dict["id"],
-            "package_id": dataset["id"],
-        }
-
-    def get_action(action_name):
-        assert action_name == "resource_patch"
-        return resource_patch
-
-    monkeypatch.setattr(toolkit, "get_action", get_action)
-
     result = upload_or_update_xml_resource(
-        {"user": "test-user"},
+        user_context,
         dataset,
         str(xml_path),
         "activity.xml",
         IATIFileTypes.FINAL_ACTIVITY_FILE,
     )
 
-    assert result["id"] == "existing-activity-xml-id"
-    assert captured["data_dict"]["id"] == "existing-activity-xml-id"
-    assert "package_id" not in captured["data_dict"]
-    assert captured["data_dict"]["name"] == "activity.xml"
-    assert captured["data_dict"]["format"] == "XML"
-    assert (
-        captured["data_dict"]["iati_file_type"]
-        == IATIFileTypes.FINAL_ACTIVITY_FILE.value
+    refreshed_dataset = toolkit.get_action("package_show")(
+        user_context,
+        {"id": dataset["id"]},
     )
+
+    assert result["id"] == existing["id"]
+    assert len(refreshed_dataset["resources"]) == 2
+    assert sum(
+        resource["name"] == "activity.xml"
+        and resource["iati_file_type"]
+        == IATIFileTypes.FINAL_ACTIVITY_FILE.value
+        for resource in refreshed_dataset["resources"]
+    ) == 1

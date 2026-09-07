@@ -5,6 +5,12 @@ from ckanext.iati_generator.models.iati_files import IATIFile
 from ckanext.iati_generator.models.enums import IATIFileTypes
 
 
+class IATIResource(factories.Resource):
+    """CKAN resource factory with an IATI file type."""
+
+    iati_file_type = IATIFileTypes.FINAL_ACTIVITY_FILE.value
+
+
 class IATIFileFactory(factory.Factory):
     class Meta:
         model = IATIFile

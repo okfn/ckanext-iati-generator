@@ -75,13 +75,21 @@ def upload_or_update_xml_resource(context, dataset, file_path, file_name, file_t
         "format": "XML",
     }
 
+    action_context = dict(context or {})
+
     if existing_resource:
         res_dict["id"] = existing_resource["id"]
-        result = toolkit.get_action("resource_patch")({}, res_dict)
+        result = toolkit.get_action("resource_patch")(
+            action_context,
+            res_dict,
+        )
         log.info(f"Patched {file_name} resource {result['id']}.")
     else:
         res_dict["package_id"] = dataset["id"]
-        result = toolkit.get_action("resource_create")({}, res_dict)
+        result = toolkit.get_action("resource_create")(
+            action_context,
+            res_dict,
+        )
         log.info(f"Created new {file_name} resource with id {result['id']}.")
 
     return result
