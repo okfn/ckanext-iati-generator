@@ -20,7 +20,7 @@ def _resolve_package_id_from_iati_file_id(file_id):
     """Return package_id from an IATIFile.id -> resource_id -> package_id chain, or None."""
     if not file_id:
         return None
-    file = model.Session.query(IATIFile).get(file_id)
+    file = model.Session.get(IATIFile, file_id)
     if not file:
         return None
     return _resolve_package_id_from_resource_id(file.resource_id)

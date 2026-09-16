@@ -1,6 +1,7 @@
 import logging
 
 from ckan import plugins as p
+from ckan.config.declaration import Declaration, Key
 from ckan.lib.plugins import DefaultTranslation
 from ckan.plugins import toolkit
 
@@ -20,11 +21,25 @@ class IatiGeneratorPlugin(p.SingletonPlugin, DefaultTranslation):
     p.implements(p.ITranslation)
     p.implements(p.ITemplateHelpers)
     p.implements(p.IAuthFunctions)
+    p.implements(p.IConfigDeclaration)
 
     def update_config(self, config_):
         toolkit.add_template_directory(config_, "templates")
         toolkit.add_public_directory(config_, "public")
         toolkit.add_resource("assets", "iati_generator")
+
+    def declare_config_options(self, declaration: Declaration, key: Key):
+        declaration.annotate("ckanext-iati-generator settings")
+        declaration.declare(
+            key.ckanext.iati_generator.rows_limit, 50000
+        ).set_validators("convert_int").set_description(
+            "Maximum number of rows processed by an IATI generation request"
+        )
+        declaration.declare(
+            key.ckanext.iati_generator.max_allowed_failures, 10
+        ).set_validators("convert_int").set_description(
+            "Maximum number of row failures before cancelling IATI generation"
+        )
 
     def get_blueprint(self):
         return [

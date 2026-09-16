@@ -5,7 +5,8 @@ import tempfile
 from pathlib import Path
 
 from ckan import model
-from ckan.lib.uploader import ResourceUpload
+from ckan.lib import files
+from ckan.lib import uploader
 from ckan.plugins import toolkit
 from okfn_iati import IatiMultiCsvConverter
 from okfn_iati.organisation_xml_generator import IatiOrganisationMultiCsvConverter
@@ -18,6 +19,20 @@ from ckanext.iati_generator.models.iati_files import DEFAULT_NAMESPACE, IATIFile
 from .procces import process_validation_failures, upload_or_update_xml_resource
 
 log = logging.getLogger(__name__)
+
+
+def _copy_uploaded_resource(resource, destination):
+    """Copy an uploaded CKAN resource into a local working directory."""
+    resource_uploader = uploader.get_resource_uploader(dict(resource))
+    location = resource_uploader.get_path(resource["id"])
+    storage = getattr(resource_uploader, "storage", None)
+
+    if storage is None:
+        shutil.copy(location, destination)
+        return
+
+    content = storage.content(files.FileData(files.Location(location)))
+    Path(destination).write_bytes(content)
 
 
 def iati_file_create(context, data_dict):
@@ -52,7 +67,7 @@ def iati_file_update(context, data_dict):
     toolkit.check_access('iati_file_update', context, data_dict)
 
     session = model.Session
-    file = session.query(IATIFile).get(data_dict['id'])
+    file = session.get(IATIFile, data_dict['id'])
     if not file:
         raise toolkit.ObjectNotFound(f"IATIFile {data_dict['id']} not found")
 
@@ -105,7 +120,7 @@ def iati_file_delete(context, data_dict):
     toolkit.check_access('iati_file_delete', context, data_dict)
 
     session = model.Session
-    file = session.query(IATIFile).get(data_dict['id'])
+    file = session.get(IATIFile, data_dict['id'])
     if not file:
         raise toolkit.ObjectNotFound(f"IATIFile {data_dict['id']} not found")
 
@@ -121,7 +136,7 @@ def iati_file_show(context, data_dict):
     toolkit.check_access('iati_file_show', context, data_dict)
 
     session = model.Session
-    file = session.query(IATIFile).get(data_dict['id'])
+    file = session.get(IATIFile, data_dict['id'])
     if not file:
         raise toolkit.ObjectNotFound(f"IATIFile {data_dict['id']} not found")
 
@@ -155,10 +170,8 @@ def _prepare_organisation_csv_folder(dataset, tmp_dir):
     for resource in dataset["resources"]:
         key = resource.get("iati_file_type", "")
         if key and key in mapping.keys():
-            ru = ResourceUpload({"id": resource["id"]})
-            filepath = ru.get_path(resource["id"])
             destination = tmp_dir + "/" + mapping[key]
-            shutil.copy(filepath, destination)
+            _copy_uploaded_resource(resource, destination)
     log.info(f"Finished preparing the CSV folder for the IATI Organisation converter. (Path: {tmp_dir})")
 
 
@@ -270,10 +283,8 @@ def _prepare_activities_csv_folder(dataset, tmp_dir):
     for resource in dataset["resources"]:
         key = resource.get("iati_file_type", "")
         if key and key in mapping.keys():
-            ru = ResourceUpload({"id": resource["id"]})
-            filepath = ru.get_path(resource["id"])
             destination = tmp_dir + "/" + mapping[key]
-            shutil.copy(filepath, destination)
+            _copy_uploaded_resource(resource, destination)
     log.info(f"Finished preparing the CSV folder for the IATI converter. (Path: {tmp_dir})")
 
 
@@ -348,14 +359,23 @@ def iati_get_dataset_by_namespace(context, data_dict):
 
     session = model.Session
 
-    q = (
-        session.query(model.Package)
-        .join(model.PackageExtra, model.PackageExtra.package_id == model.Package.id)
-        .filter(model.Package.state == "active")
-        .filter(model.PackageExtra.key == "iati_namespace")
-        .filter(model.PackageExtra.value.in_([ns_raw, ns_norm]))
-        .order_by(model.Package.metadata_created.asc())
-    )
+    q = session.query(model.Package).filter(model.Package.state == "active")
+
+    if toolkit.check_ckan_version(min_version="2.12"):
+        q = q.filter(
+            model.Package.extras["iati_namespace"].astext.in_([ns_raw, ns_norm])
+        )
+    else:
+        q = (
+            q.join(
+                model.PackageExtra,
+                model.PackageExtra.package_id == model.Package.id,
+            )
+            .filter(model.PackageExtra.key == "iati_namespace")
+            .filter(model.PackageExtra.value.in_([ns_raw, ns_norm]))
+        )
+
+    q = q.order_by(model.Package.metadata_created.asc())
 
     pkgs = q.limit(2).all()
 
