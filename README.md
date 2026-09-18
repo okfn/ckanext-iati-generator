@@ -1,4 +1,3 @@
-[![Tests CKAN 2.10](https://github.com/okfn/ckanext-iati-generator/workflows/CKAN%202.10%20Tests/badge.svg)](https://github.com/okfn/ckanext-iati-generator/actions)
 [![Tests CKAN 2.11](https://github.com/okfn/ckanext-iati-generator/workflows/CKAN%202.11%20Tests/badge.svg)](https://github.com/okfn/ckanext-iati-generator/actions)
 [![Tests CKAN 2.12](https://github.com/okfn/ckanext-iati-generator/workflows/CKAN%202.12%20Tests/badge.svg)](https://github.com/okfn/ckanext-iati-generator/actions)
 
@@ -24,7 +23,7 @@ Compatibility with core CKAN versions:
 
 | CKAN version    | Compatible?   |
 | --------------- | ------------- |
-| 2.10            | Yes           |
+| 2.10            | Until 0.5.2   |
 | 2.11            | Yes           |
 | 2.12            | Yes           |
 

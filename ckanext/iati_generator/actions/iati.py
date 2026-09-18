@@ -31,8 +31,8 @@ def _copy_uploaded_resource(resource, destination):
         return
 
     # File Keeper-backed resource storage was introduced in CKAN 2.12.
-    # Keep this import inside the new-storage branch so CKAN 2.10 and 2.11
-    # can still import and use the extension with the classic uploader.
+    # Keep this import inside the new-storage branch so CKAN 2.11 can still
+    # import and use the extension with the classic uploader.
     from ckan.lib import files
 
     content = storage.content(files.FileData(files.Location(location)))
