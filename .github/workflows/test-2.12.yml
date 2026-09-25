@@ -1,18 +1,19 @@
-name: CKAN 2.10 Tests
+name: CKAN 2.12 Tests
 on: [push]
 jobs:
   build:
     runs-on: ubuntu-latest
 
     container:
-      image: ckan/ckan-dev:2.10.5
+      image: ckan/ckan-dev:2.12
+      options: --user root
 
     services:
       solr:
-        image: ckan/ckan-solr:2.10-spatial
+        image: ckan/ckan-solr:2.12-solr9
 
       postgres:
-        image: ckan/ckan-postgres-dev:2.10
+        image: ckan/ckan-postgres-dev:2.12
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
@@ -20,7 +21,7 @@ jobs:
         options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
 
       redis:
-        image: redis
+        image: redis:7
         options: >-
           --health-cmd "redis-cli ping"
           --health-interval 10s
@@ -40,7 +41,15 @@ jobs:
 
       - name: Install OS dependencies
         run: |
-          apk add --no-cache coreutils libffi-dev gcc libc-dev postgresql-client tar proj-util proj-dev
+          apt-get update && apt-get install -y --no-install-recommends \
+            coreutils \
+            libffi-dev \
+            gcc \
+            libc-dev \
+            postgresql-client \
+            tar \
+            libproj-dev \
+            proj-bin
 
       - name: Install Python dependencies
         run: |
@@ -55,8 +64,6 @@ jobs:
       - name: Setup extension
         shell: bash
         run: |
-          # use = config:/srv/app/src/ckan/test-core.ini
-          # Replace default path to CKAN core config file with the one on the container
           sed -i -e 's/use = config:.*/use = config:\/srv\/app\/src\/ckan\/test-core.ini/' test.ini
           ckan -c test.ini db init
 
